@@ -117,8 +117,16 @@ Ví dụ không đạt: `update code`, `fix bug`, `wip`, `asdf`.
 
 ## Câu hỏi còn treo — hỏi người, đừng tự đoán tiếp
 
-- `CARSKY_BASE_URL` thật là gì? `docs/link.md` chỉ có URL web UI
-  (`https://hackathon-2.carsky.io/`), chưa chắc trùng host API.
+- ~~`CARSKY_BASE_URL` thật là gì?~~ — ✅ **đã xác nhận 02/08 bằng cách gọi thử**:
+  `https://hackathon-2.carsky.io/api/v1` **là** host API (trả JSON có cấu trúc
+  `{"error":"UNAUTHORIZED",...}` chứ không phải HTML của web UI). Cơ chế auth
+  cũng đã xác nhận: không có header → `"Missing credentials"`, có header
+  `Authorization: Bearer <token>` → `"Invalid JWT"`. Header `x-api-key` cũng
+  được chấp nhận làm nơi chứa token; cookie thì không.
+  ⚠️ **Vẫn chưa xác nhận từng endpoint path** — middleware auth chạy **trước**
+  routing (đường dẫn bịa cũng trả 401), nên chỉ khi có token hợp lệ mới kiểm
+  được `/blueprints/:id/export`, `/deployments/:roomId/nodes`… và mới kéo được
+  `GET /api/v1/openapi` để thay JSON thô bằng struct thật.
 - ~~Format chuỗi `Verdict` trong dòng `VIVA_TRACE_SUMMARY`~~ — ✅ **đã trả lời
   29/07**, `vong2/03-contracts.md` §1.2:
   `verdict := "Allow" | "Deny:"<RULE_ID> | "Confirm:"<RULE_ID> | "Error:"<STAGE_ID>`,
