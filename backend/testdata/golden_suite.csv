@@ -1,0 +1,5 @@
+id,utterance,expect_intent,expect_verdict,evidence_id,gate,notes
+G1,hạ điều hòa xuống 22 độ,hvac_set_temp,Allow,E-G1,,"Khớp lượt 1 của android/voice/fixtures/golden_trace.log"
+G2,mở cửa,door_lock,Deny:G1_SPEED_LOCK,E-G2,,Khớp lượt 2
+G3,xác nhận giao thành công đơn A12,delivery_confirm,Confirm:G2_CONFIRM_DELIVERY,E-G3,,Khớp lượt 3
+G4,-,unknown,Error:asr_done,E-G4,,"Khớp lượt 4 — lượt ASR timeout vẫn phải nằm trong mẫu"

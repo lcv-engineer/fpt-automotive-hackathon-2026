@@ -1,0 +1,23 @@
+id,utterance,expect_intent,expect_verdict,evidence_id,gate,notes
+B01,Viva ơi hạ điều hòa xuống 24 độ,hvac_set_temp,Allow,E-HVAC-01,,"Câu ① của kịch bản demo 3' (14-KICH-BAN-DEMO)"
+B02,hạ điều hòa xuống 22 độ,hvac_set_temp,Allow,E-HVAC-02,,"Lệnh xương sống, cùng câu với golden_trace"
+B03,đặt nhiệt độ 26 độ,hvac_set_temp,Allow,E-HVAC-03,,Biến thể cách nói
+B04,đặt nhiệt độ 40 độ,clarify,Confirm:CLARIFY_SLOT,E-HVAC-04,,"Ngoài dải 16–32°C: hỏi lại, không kẹp giá trị"
+B05,quạt mức 2,hvac_set_fan,Allow,E-FAN-01,,areaId thứ hai
+B06,quạt mạnh lên,clarify,Confirm:CLARIFY_SLOT,E-FAN-02,,M7-04 thiếu slot — hỏi đúng một câu
+B07,quạt mức 3,hvac_set_fan,Allow,E-FAN-03,,Câu trả lời cho B06
+B08,khóa cửa,door_lock,Allow,E-DOOR-01,,Câu ⑥ của kịch bản demo
+B09,mở cửa,door_lock,Confirm:G2_CONFIRM_DOOR,E-DOOR-02,SafetyGuard T5,"Xe đứng yên số P → hỏi xác nhận"
+B10,mở cửa,door_lock,Deny:G1_SPEED_LOCK,E-DOOR-03,SafetyGuard T5 + snapshot tốc độ,"M7-03: chạy khi Speed=60 qua Road Simulator"
+B11,tăng âm lượng,volume_adjust,Allow,E-VOL-01,D8 CarAudioManager,
+B12,giảm âm lượng,volume_adjust,Allow,E-VOL-02,D8 CarAudioManager,
+B13,phát nhạc,media_play,Allow,E-MEDIA-01,D7 MediaSession,
+B14,chuyển bài,media_next,Allow,E-MEDIA-02,D7 MediaSession,Câu ④ của kịch bản demo
+B15,dừng nhạc,media_pause,Allow,E-MEDIA-03,D7 MediaSession,
+B16,chặng tiếp theo là gì,delivery_next_stop,Allow,E-DELIVERY-01,,V9 DeliverySkill
+B17,đơn A12 thế nào,delivery_order_status,Allow,E-DELIVERY-02,,V9 DeliverySkill
+B18,xác nhận giao thành công đơn A12,delivery_confirm,Confirm:G2_CONFIRM_DELIVERY,E-DELIVERY-03,,"Lượt 1: hỏi trước khi giao"
+B19,xác nhận giao thành công đơn A12,delivery_confirm,Allow,E-DELIVERY-04,,"Lượt 2: xác nhận xong mới đánh dấu đã giao"
+B20,đặt bàn ăn tối,unknown,Deny:G3_UNSUPPORTED,E-SCOPE-01,SafetyGuard T5,"M7-05: hôm nay rơi vào unknown/Error:nlu_done, đích là Deny có lý do"
+B21,Siri ơi hạ điều hòa xuống 24 độ,clarify,Confirm:CLARIFY_SLOT,E-SCOPE-02,,"Wake phrase của trợ lý khác — không được rơi xuống embedding"
+B22,bật điều hòa,clarify,Confirm:CLARIFY_SLOT,E-SCOPE-03,,"1 trong 5 lệnh đã cắt 29/07 — phải từ chối lịch sự, không im lặng"

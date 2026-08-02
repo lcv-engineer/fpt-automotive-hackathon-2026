@@ -59,6 +59,52 @@ A metric that exists in only one run is still printed, marked
 `not comparable` — in an ablation the disappearance *is* the finding (drop the
 `VhalRepository` callback and `hmi_render` never fires at all).
 
+### `viva-tools harness verify`
+
+Runs a benchmark suite against a capture and reports PASS/FAIL per utterance
+(V11), plus the p50/p95 over the turns that produced one (V10/V12).
+
+```
+viva-tools harness verify --suite suites/benchmark_v1.csv --input run.log \
+  --variant quiet --out results.csv --summary-out summary.csv \
+  --evidence-dir screenshots/
+```
+
+`suites/benchmark_v1.csv` is the shipped 22-utterance suite: the ten core
+intents of `03-contracts.md` §3, the five M7 complex situations, the wrong
+wake phrase and one of the five commands cut on 29/07.
+
+| Column | Meaning |
+|---|---|
+| `id` | Stable case id; also the filename stem the results join evidence on |
+| `utterance` | What the demo operator says |
+| `expect_intent` / `expect_verdict` | Target behaviour, in `§1.2` verdict grammar. A bare kind (`Deny`) accepts any rule; `Deny:G1_SPEED_LOCK` pins the rule |
+| `evidence_id` | Screenshot stem looked up under `--evidence-dir` |
+| `gate` | Non-empty = blocked on work that has not landed. A failure here is a **known gap**, counted separately and does not make the run red |
+
+Two matching modes. `--match order` (default) pairs the Nth case with the Nth
+turn, because the utterance in the log is *what ASR heard*, not what was said —
+matching on text would silently drop every misrecognized turn, which is
+precisely the data a benchmark exists to measure. `--match utterance` pairs on
+normalized text when turns were captured out of order.
+
+Exit code is 1 only when an **ungated** case fails, so this is safe to run in
+CI while T5/D7 are still landing.
+
+### `scripts/run_benchmark.ps1`
+
+One run, all artifacts, plus a `run_manifest.txt` carrying the commit, the
+suite hash and whether the worktree was dirty — a p95 with no commit next to it
+cannot be defended in a write-up.
+
+```powershell
+.\scripts\run_benchmark.ps1 -Variant quiet   -Log D:\runs\quiet.log
+.\scripts\run_benchmark.ps1 -Variant highway -Adb -Serial <device-serial>
+```
+
+For V12 (20 utterances × 3 noise levels) run it once per noise level and
+concatenate the three `summary.csv` files.
+
 ### `viva-tools carsky ...`
 
 Thin wrapper over the confirmed CarSky REST endpoints
