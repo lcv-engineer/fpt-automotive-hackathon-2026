@@ -108,6 +108,10 @@ Ví dụ không đạt: `update code`, `fix bug`, `wip`, `asdf`.
 | Blueprint clone thất bại sau khi export backup thành công | `SafeClone` vẫn trả backup đã lưu về cho caller — CLI ghi file backup trước, in lỗi clone sau, không làm mất backup đã lấy được | — |
 | Log input quá lớn (trỏ nhầm file, hoặc filter adb thiếu nên dump cả logcat) | Giới hạn cứng 200MiB (`maxLogBytes` trong `logsource/scan.go`) — vượt là báo lỗi rõ ràng ngay, không cố load hết vào RAM rồi bị OS kill tiến trình | — |
 | Ký tự tiếng Việt / dấu phẩy trong `utterance` khi ghi CSV | `encoding/csv` (Go stdlib) tự quote/escape đúng chuẩn RFC 4180 — không tự nối chuỗi CSV bằng tay | — |
+| Một `stage` xuất hiện 2 lần trong log của cùng `traceId` | **Giữ giá trị đầu**, ghi warning. Đúng theo §1 (`ghi đè = bỏ qua`): mốc đánh 2 lần sẽ **rút ngắn** đoạn đo, tức là app càng bug thì p95 càng đẹp | — |
+| Hai dòng `VIVA_TRACE_SUMMARY` cho cùng một `traceId` | Giữ dòng đầu, ghi warning — §1.1 nói đúng 1 dòng/lượt; 2 dòng nghĩa là trùng traceId hoặc double-emit, và mọi thống kê per-turn sẽ nhập nhằng | — |
+| `verdict` không khớp grammar §1.2 (VD `Allowed`, `Deny` không có rule) | Phân loại thành `Unknown` (hoặc giữ kind nhưng detail rỗng) + warning, **vẫn nằm trong mẫu**. Loại bỏ lượt không phân loại được sẽ âm thầm làm đẹp mọi con số tính sau đó | — |
+| Trace có mốc nhưng không có summary (lượt bỏ dở) | Đếm riêng ở `MissingSummary`, không gộp vào bất kỳ verdict nào — *"không biết lượt đó kết thúc ra sao"* là một kết quả riêng | — |
 | Response JSON của CarSky có field không đoán trước được | Không có structs — decode raw JSON, in/lưu nguyên văn | **Việc thật cần làm**: kéo `GET /api/v1/openapi` khi có token, viết structs thật thay `json.RawMessage` |
 | Nhiều thành viên chạy `carsky blueprint clone` cùng lúc trên cùng blueprint | Không có lock phía client — có thể tạo 2 bản clone nếu 2 người bấm gần như đồng thời | Đây là giới hạn của CarSky API (không có endpoint lock từ phía client gọi được an toàn ngoài `/blueprints/:id/lock`, chưa dùng) — **thống nhất bằng quy trình team** (chỉ 1 người giữ quyền clone) thay vì cố giải quyết bằng code |
 
@@ -115,11 +119,11 @@ Ví dụ không đạt: `update code`, `fix bug`, `wip`, `asdf`.
 
 - `CARSKY_BASE_URL` thật là gì? `docs/link.md` chỉ có URL web UI
   (`https://hackathon-2.carsky.io/`), chưa chắc trùng host API.
-- Format chuỗi `Verdict` trong dòng `VIVA_TRACE_SUMMARY` — Kotlin
-  `sealed class Verdict` có `Allow/Deny/Confirm` kèm field phụ (`rule`,
-  `reasonVi`...); log line hiện chỉ ghi 1 field `verdict` dạng string, chưa
-  rõ serialize thành gì (`"Allow"`? `"Deny:G1_SPEED_LOCK"`?). Hỏi Long
-  trước khi dùng field này để lọc pass/fail.
+- ~~Format chuỗi `Verdict` trong dòng `VIVA_TRACE_SUMMARY`~~ — ✅ **đã trả lời
+  29/07**, `vong2/03-contracts.md` §1.2:
+  `verdict := "Allow" | "Deny:"<RULE_ID> | "Confirm:"<RULE_ID> | "Error:"<STAGE_ID>`,
+  tách bằng dấu `:` **đầu tiên**. Hiện thực ở `internal/domain/verdict.go`,
+  test ở `verdict_test.go`.
 - `backend/` này nằm trong repo `fpt-automative-hackathon` (chủ yếu chứa
   docs/planning) — chưa rõ đây có phải repo Git chung cả đội dùng cho task
   V4 (`Repo Git + CI build APK`) hay là repo riêng của Vĩ. Nếu là repo

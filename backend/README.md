@@ -18,13 +18,46 @@ and a stdout summary.
 ```
 viva-tools harness report --input path/to/log.txt --out report.csv
 viva-tools harness report --adb --serial <device-serial> --out report.csv
+
+# Full evidence set for one run — aggregate + per-turn rows + verdict counts
+viva-tools harness report --input run.log --variant full \
+  --out report.csv --per-trace traces.csv --verdicts verdicts.csv
 ```
 
-Try it against the bundled fixture:
+**Which number is "end-to-end".** `03-contracts.md` §1.3 defines it as
+`speech_end → tts_start`, reported as `e2e_computed`. That is the metric the
+p95 < 1500 ms commitment is made on. `screen_latency` is the same window
+measured to `render_done` instead. The two `*_incl_speech` rows start at
+`speech_start` and therefore include however long the driver spoke — they are
+kept for continuity with earlier reports and **must not** be quoted as
+end-to-end. `e2e_reported_minus_computed` cross-checks the app's own figure
+against the harness's recomputation; a non-zero spread means the two
+definitions have drifted.
+
+Try it against the bundled fixture, or against the golden logs Long handed
+over (which `go test` also asserts on):
 
 ```
-go run ./cmd/viva-tools harness report --input testdata/sample_trace.log --out /tmp/report.csv
+go run ./cmd/viva-tools harness report --input testdata/sample_trace.log --out report.csv
+go run ./cmd/viva-tools harness report --input ../android/voice/fixtures/golden_trace.log --out report.csv
 ```
+
+### `viva-tools harness compare`
+
+Before/after table for an ablation run (N4a/N4b): same metrics, two captures,
+plus the change in verdict counts — which is how "turn SafetyGuard off and
+`Deny:G1_SPEED_LOCK` stops firing" becomes a table instead of a hand-replayed
+demo.
+
+```
+viva-tools harness compare --baseline full.log --candidate no_guard.log \
+  --baseline-label guard_on --candidate-label guard_off \
+  --out compare.csv --verdicts-out verdicts_compare.csv
+```
+
+A metric that exists in only one run is still printed, marked
+`not comparable` — in an ablation the disappearance *is* the finding (drop the
+`VhalRepository` callback and `hmi_render` never fires at all).
 
 ### `viva-tools carsky ...`
 

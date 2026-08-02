@@ -35,7 +35,11 @@ func Aggregate(src repository.LineSource) (*ParseResult, error) {
 				continue
 			}
 			t := result.trace(ev.TraceID)
-			t.Marks[ev.Stage] = ev.ElapsedRealtimeNanos
+			if !t.AddMark(ev.Stage, ev.ElapsedRealtimeNanos) {
+				result.Warnings = append(result.Warnings, fmt.Sprintf(
+					"line %d: duplicate mark %q for trace %s — keeping the first value (contracts §1: ghi đè = bỏ qua)",
+					i+1, ev.Stage, ev.TraceID))
+			}
 			continue
 		}
 		if sum, found, perr := domain.ParseSummaryLine(line); found {
@@ -44,6 +48,21 @@ func Aggregate(src repository.LineSource) (*ParseResult, error) {
 				continue
 			}
 			t := result.trace(sum.TraceID)
+			if t.Summary != nil {
+				// Contracts §1.1: exactly one summary per turn. Two means
+				// either a re-used traceId or a double-emit bug — both make
+				// every per-turn statistic ambiguous, so say so.
+				result.Warnings = append(result.Warnings, fmt.Sprintf(
+					"line %d: second VIVA_TRACE_SUMMARY for trace %s — keeping the first (contracts §1.1: dung 1 dong tong ket)",
+					i+1, sum.TraceID))
+				continue
+			}
+			if _, verr := sum.ParsedVerdict(); verr != nil {
+				// Not fatal: the turn stays in the sample, classified as
+				// Unknown. Dropping turns we could not classify would quietly
+				// improve every number computed afterwards.
+				result.Warnings = append(result.Warnings, fmt.Sprintf("line %d: %v", i+1, verr))
+			}
 			s := sum
 			t.Summary = &s
 			continue

@@ -43,17 +43,20 @@ type TraceEvent struct {
 // TraceSummary is one parsed
 // "VIVA_TRACE_SUMMARY|<traceId>|<utterance>|<intent>|<verdict>|e2e_ms=<số>" line.
 //
-// NOTE: 03-contracts.md does not enumerate the exact string values Verdict
-// takes in this log line (the Kotlin sealed class Verdict has Allow/Deny/Confirm,
-// each carrying extra fields like "rule"). Treat Verdict as an opaque string
-// here; confirm the exact serialization with Long before relying on it for
-// pass/fail classification.
+// Verdict is kept as the raw string; call ParsedVerdict for the structured
+// form. The serialization was pinned down in 03-contracts.md §1.2 on 29/07
+// (it answers the open question this type used to carry).
 type TraceSummary struct {
 	TraceID   string
 	Utterance string
 	Intent    string
 	Verdict   string
 	E2EMs     float64
+}
+
+// ParsedVerdict splits the raw verdict field per the §1.2 grammar.
+func (s TraceSummary) ParsedVerdict() (Verdict, error) {
+	return ParseVerdict(s.Verdict)
 }
 
 // Trace aggregates every mark seen for one traceId, plus its summary line
@@ -68,6 +71,21 @@ type Trace struct {
 // NewTrace returns an empty Trace ready to accumulate marks.
 func NewTrace(traceID string) *Trace {
 	return &Trace{TraceID: traceID, Marks: make(map[string]int64)}
+}
+
+// AddMark records one stage timestamp and reports whether it was accepted.
+//
+// First value wins. 03-contracts.md §1 fixes the emitter's behaviour as "mỗi
+// stage in 1 lần (ghi đè = bỏ qua)", and the reason given there applies here
+// too: a stage marked twice SHORTENS the measured segment, so overwriting
+// would make p95 prettier the more buggy the app is. The harness mirrors the
+// emitter rather than quietly disagreeing with it.
+func (t *Trace) AddMark(stage string, nanos int64) bool {
+	if _, exists := t.Marks[stage]; exists {
+		return false
+	}
+	t.Marks[stage] = nanos
+	return true
 }
 
 // MS returns the elapsed milliseconds between two marks, mirroring the

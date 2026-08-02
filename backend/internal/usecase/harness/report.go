@@ -16,11 +16,13 @@ type segment struct {
 }
 
 // standardSegments covers every adjacent pair in domain.CanonicalStageOrder,
-// plus two team-meaningful aggregates:
-//   - action_latency: speech_start -> exec_done (command understood and acted on)
-//   - edge_pipeline_total: speech_start -> render_done (matches the "Action +
-//     HMI update" budget line in CLAUDE.md's latency table, target ~0.8-1.0s,
-//     hard cap 1.5s)
+// plus four aggregates:
+//   - e2e_computed: speech_end -> tts_start, the contract's definition of
+//     end-to-end (§1.3) and the metric p95 < 1500ms is promised on
+//   - screen_latency: speech_end -> render_done, the same budget measured to
+//     the screen instead of to the first spoken word
+//   - action_latency_incl_speech / edge_pipeline_total_incl_speech: the older
+//     speech_start-based figures, kept only so earlier reports stay readable
 var standardSegments = []segment{
 	{"vad_capture", domain.StageSpeechStart, domain.StageSpeechEnd},
 	{"asr_dispatch", domain.StageSpeechEnd, domain.StageAsrSent},
@@ -30,8 +32,18 @@ var standardSegments = []segment{
 	{"skill_exec", domain.StageGuardDone, domain.StageExecDone},
 	{"hmi_render", domain.StageExecDone, domain.StageRenderDone},
 	{"tts_kickoff", domain.StageRenderDone, domain.StageTtsStart},
-	{"action_latency", domain.StageSpeechStart, domain.StageExecDone},
-	{"edge_pipeline_total", domain.StageSpeechStart, domain.StageRenderDone},
+
+	// ⭐ The two metrics the p95 < 1500ms commitment is actually made on.
+	// 03-contracts.md §1.3 defines end-to-end as speech_end -> tts_start:
+	// counting from speech_start would add however long the driver spoke, so
+	// a long sentence would read as a slow system.
+	{"e2e_computed", domain.StageSpeechEnd, domain.StageTtsStart},
+	{"screen_latency", domain.StageSpeechEnd, domain.StageRenderDone},
+
+	// Kept for continuity with earlier reports, but they include speaking
+	// time — do not quote these as "end-to-end" in the write-up.
+	{"action_latency_incl_speech", domain.StageSpeechStart, domain.StageExecDone},
+	{"edge_pipeline_total_incl_speech", domain.StageSpeechStart, domain.StageRenderDone},
 }
 
 // Stat is a latency distribution over one metric (a stage segment, or the
@@ -68,7 +80,89 @@ func BuildReport(traces map[string]*domain.Trace) []Stat {
 		}
 	}
 	report = append(report, statFrom("e2e_ms_reported_by_app", reportedE2E))
+
+	// Cross-check: the app computes e2e_ms itself, the harness recomputes it
+	// from raw marks. A non-zero spread here means the two definitions of
+	// "end-to-end" have drifted apart, and that is worth catching before the
+	// number lands on a slide — not after.
+	var e2eDelta []float64
+	for _, t := range traces {
+		if t.Summary == nil {
+			continue
+		}
+		if computed, ok := t.MS(domain.StageSpeechEnd, domain.StageTtsStart); ok {
+			e2eDelta = append(e2eDelta, t.Summary.E2EMs-computed)
+		}
+	}
+	report = append(report, statFrom("e2e_reported_minus_computed", e2eDelta))
 	return report
+}
+
+// SegmentLabels returns the metric labels, in report order. Used by writers
+// that need one column per segment.
+func SegmentLabels() []string {
+	labels := make([]string, 0, len(standardSegments))
+	for _, seg := range standardSegments {
+		labels = append(labels, seg.Label)
+	}
+	return labels
+}
+
+// TraceRow is one turn, flattened. The aggregate report answers "how fast is
+// the system"; this answers "which turn was the slow one" — needed for V11
+// (per-utterance PASS/FAIL) and for any claim that points at a specific run
+// as evidence (N1 Claim-Evidence Map).
+type TraceRow struct {
+	TraceID   string
+	Variant   string
+	Utterance string
+	Intent    string
+
+	VerdictKind string
+	VerdictRule string
+
+	HasSummary     bool
+	E2EReportedMs  float64
+	HasE2EComputed bool
+	E2EComputedMs  float64
+
+	// Segments holds only the segments this turn actually has both marks for.
+	// A missing key means "not measured", which is not the same as zero.
+	Segments map[string]float64
+}
+
+// BuildTraceRows flattens every trace into one row, sorted by trace id so two
+// runs over the same log produce identical files.
+func BuildTraceRows(traces map[string]*domain.Trace, variant string) []TraceRow {
+	rows := make([]TraceRow, 0, len(traces))
+	for id, t := range traces {
+		row := TraceRow{TraceID: id, Variant: variant, Segments: map[string]float64{}}
+		for _, seg := range standardSegments {
+			if ms, ok := t.MS(seg.From, seg.To); ok {
+				row.Segments[seg.Label] = ms
+			}
+		}
+		if ms, ok := t.MS(domain.StageSpeechEnd, domain.StageTtsStart); ok {
+			row.HasE2EComputed = true
+			row.E2EComputedMs = ms
+		}
+		if t.Summary != nil {
+			v, _ := t.Summary.ParsedVerdict()
+			rule := v.Detail
+			if rule == "" {
+				rule = "-"
+			}
+			row.HasSummary = true
+			row.Utterance = t.Summary.Utterance
+			row.Intent = t.Summary.Intent
+			row.VerdictKind = string(v.Kind)
+			row.VerdictRule = rule
+			row.E2EReportedMs = t.Summary.E2EMs
+		}
+		rows = append(rows, row)
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].TraceID < rows[j].TraceID })
+	return rows
 }
 
 func statFrom(label string, samples []float64) Stat {
