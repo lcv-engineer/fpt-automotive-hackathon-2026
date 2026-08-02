@@ -1,0 +1,5 @@
+# HTTP layer only — no ASR engine. Split out so the contract tests can be
+# installed and run without CTranslate2/model weights (see requirements-dev.txt).
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4

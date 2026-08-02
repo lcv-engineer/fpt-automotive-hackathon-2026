@@ -1,0 +1,12 @@
+# Test-only dependencies. faster-whisper is deliberately absent: the HTTP
+# contract tests run against a fake transcriber, so `pytest` works on a laptop
+# without CTranslate2 wheels or a model on disk.
+#
+# Unpinned on purpose — this file is installed into a developer venv on
+# whatever Python happens to be local (3.14 here), while requirements.txt
+# stays pinned for the image.
+fastapi
+uvicorn
+pydantic
+pytest
+httpx

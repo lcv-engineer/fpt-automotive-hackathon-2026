@@ -1,0 +1,8 @@
+.venv/
+tests/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+README.md
+requirements-dev.txt

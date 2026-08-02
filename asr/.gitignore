@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Converted CTranslate2 model directories — tens to hundreds of MB, rebuilt by
+# the Dockerfile or `ct2-transformers-converter`. Never in git.
+*-ct2/
+models/
