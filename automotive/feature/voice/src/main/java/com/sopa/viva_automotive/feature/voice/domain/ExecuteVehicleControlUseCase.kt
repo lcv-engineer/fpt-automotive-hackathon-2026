@@ -2,6 +2,7 @@ package com.sopa.viva_automotive.feature.voice.domain
 
 import com.sopa.viva_automotive.core.common.units.TemperatureUnits
 import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
+import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliverySkill
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.FanSpeed
 import com.sopa.viva_automotive.vehicleservice.api.VehicleAreas
@@ -26,6 +27,7 @@ class CommandNotWiredException(message: String) : IllegalStateException(message)
 class ExecuteVehicleControlUseCase @Inject constructor(
     private val vehicleRepository: VehicleRepository,
     private val settingsDataStore: SettingsDataStore,
+    private val deliverySkill: DeliverySkill,
 ) {
 
     suspend operator fun invoke(intent: VehicleIntent): Result<String> = when (intent) {
@@ -81,6 +83,10 @@ class ExecuteVehicleControlUseCase @Inject constructor(
                 .map { VehicleControlResponses.driverDoor(intent.locked) }
 
         is VehicleIntent.QueryStatus -> queryStatus(intent.kind)
+
+        // Delivery is in-app state, not a vehicle property: it goes to the
+        // skill directly and never touches vehicleRepository (§0.1).
+        is VehicleIntent.Delivery -> deliverySkill.execute(intent.command)
 
         is VehicleIntent.VolumeAdjust ->
             Result.failure(

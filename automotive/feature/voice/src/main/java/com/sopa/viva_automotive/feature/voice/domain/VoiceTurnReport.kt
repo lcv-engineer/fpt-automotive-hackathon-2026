@@ -35,6 +35,7 @@ object VoiceTurnReport {
         is VehicleIntent.QueryStatus -> "vehicle_status_" + intent.kind.name.lowercase()
         is VehicleIntent.VolumeAdjust -> "volume_adjust"
         VehicleIntent.MediaNext -> "media_next"
+        is VehicleIntent.Delivery -> intent.command.intentName
         is VehicleIntent.NotWired -> intent.intentName
         is VehicleIntent.Clarification -> "clarify"
         is VehicleIntent.Unknown -> "unknown"
@@ -57,6 +58,10 @@ object VoiceTurnReport {
      * option.
      */
     fun verdictFor(intent: VehicleIntent, error: Throwable?): TraceVerdict = when {
+        // A turn that asked "are you sure?" did exactly what §4 requires of it.
+        // Filing it as an error would make G2_CONFIRM_DELIVERY look like a
+        // defect in the benchmark instead of the safety rule it is.
+        error is ConfirmationRequiredException -> TraceVerdict.Confirm(error.rule)
         error is CommandNotWiredException -> TraceVerdict.Error(Stage.EXEC_DONE)
         intent is VehicleIntent.Clarification -> TraceVerdict.Confirm("CLARIFY_SLOT")
         intent is VehicleIntent.Unknown -> TraceVerdict.Error(Stage.NLU_DONE)
@@ -66,6 +71,8 @@ object VoiceTurnReport {
 
     /** What the assistant says out loud when a turn does not end in success. */
     fun failureSpeech(intent: VehicleIntent, error: Throwable?): String = when {
+        // The question itself is the answer the driver needs to hear.
+        error is ConfirmationRequiredException -> error.questionVi
         intent is VehicleIntent.Clarification -> intent.promptVi
         intent is VehicleIntent.Unknown -> DID_NOT_HEAR
         error is CommandNotWiredException -> error.message ?: COMMAND_FAILED

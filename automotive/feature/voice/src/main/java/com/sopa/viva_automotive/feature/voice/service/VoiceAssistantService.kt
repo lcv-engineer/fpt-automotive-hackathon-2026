@@ -200,6 +200,7 @@ class VoiceAssistantService : LifecycleService() {
         is VehicleIntent.QueryStatus -> "Checking vehicle status"
         is VehicleIntent.VolumeAdjust -> "Adjusting volume"
         is VehicleIntent.MediaNext -> "Skipping to the next track"
+        is VehicleIntent.Delivery -> "Checking the delivery route"
         is VehicleIntent.NotWired -> "Routing command"
         is VehicleIntent.Clarification -> "Clarifying command"
         is VehicleIntent.Unknown -> "Interpreting command"

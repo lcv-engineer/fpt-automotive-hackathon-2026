@@ -1,6 +1,7 @@
 package com.sopa.viva_automotive.feature.voice.integration
 
 import com.sopa.viva_automotive.core.common.units.TemperatureUnits
+import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.FanSpeed
 import com.viva.voice.intent.Intent
@@ -10,6 +11,9 @@ sealed interface AutomotiveVoiceAction {
     data class VehicleControl(val intent: VehicleIntent) : AutomotiveVoiceAction
     data class VolumeAdjust(val delta: Int) : AutomotiveVoiceAction
     data object MediaNext : AutomotiveVoiceAction
+
+    /** `delivery_*` — handled in-app, never reaches VHAL (03-contracts.md §0.1). */
+    data class Delivery(val command: DeliveryCommand) : AutomotiveVoiceAction
 }
 
 /**
@@ -51,10 +55,25 @@ object CoreIntentMapper {
         }
 
         "media_next" -> AutomotiveVoiceAction.MediaNext
+
+        // The order id slot is optional by design: "xác nhận giao thành công"
+        // without an id means the stop the driver is currently on, and the
+        // skill resolves that — the mapper does not guess one here.
+        "delivery_next_stop" -> AutomotiveVoiceAction.Delivery(DeliveryCommand.NextStop)
+
+        "delivery_order_status" ->
+            AutomotiveVoiceAction.Delivery(DeliveryCommand.OrderStatus(intent.text("orderId")))
+
+        "delivery_confirm" ->
+            AutomotiveVoiceAction.Delivery(DeliveryCommand.Confirm(intent.text("orderId")))
+
         else -> null
     }
 
     private fun Intent.number(name: String): Number? = slots[name] as? Number
+
+    private fun Intent.text(name: String): String? =
+        (slots[name] as? String)?.trim()?.takeIf { it.isNotEmpty() }
 
     private val supportedTemperatureRange =
         TemperatureUnits.MIN_CELSIUS.toDouble()..TemperatureUnits.MAX_CELSIUS.toDouble()

@@ -1,5 +1,6 @@
 package com.sopa.viva_automotive.feature.voice.domain
 
+import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -20,6 +21,42 @@ class VoiceTurnReportTest {
         assertEquals(
             "delivery_next_stop",
             VoiceTurnReport.intentName(VehicleIntent.NotWired("delivery_next_stop")),
+        )
+    }
+
+    @Test
+    fun `delivery turns report their grammar intent name`() {
+        assertEquals(
+            "delivery_confirm",
+            VoiceTurnReport.intentName(VehicleIntent.Delivery(DeliveryCommand.Confirm("A12"))),
+        )
+        assertEquals(
+            "delivery_next_stop",
+            VoiceTurnReport.intentName(VehicleIntent.Delivery(DeliveryCommand.NextStop)),
+        )
+    }
+
+    @Test
+    fun `asking for delivery confirmation is Confirm with the rule id, not an error`() {
+        // N4/N5 group the benchmark by this rule id; filing it as Error would
+        // make the safety rule look like a defect.
+        assertEquals(
+            "Confirm:G2_CONFIRM_DELIVERY",
+            VoiceTurnReport.verdictFor(
+                VehicleIntent.Delivery(DeliveryCommand.Confirm("A12")),
+                ConfirmationRequiredException("G2_CONFIRM_DELIVERY", "Xác nhận đã giao đơn A 12?"),
+            ).wire,
+        )
+    }
+
+    @Test
+    fun `the confirmation question itself is what the driver hears`() {
+        assertEquals(
+            "Xác nhận đã giao đơn A 12?",
+            VoiceTurnReport.failureSpeech(
+                VehicleIntent.Delivery(DeliveryCommand.Confirm("A12")),
+                ConfirmationRequiredException("G2_CONFIRM_DELIVERY", "Xác nhận đã giao đơn A 12?"),
+            ),
         )
     }
 

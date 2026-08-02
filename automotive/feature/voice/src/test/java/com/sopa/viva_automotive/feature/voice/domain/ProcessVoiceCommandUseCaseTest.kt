@@ -3,6 +3,7 @@ package com.sopa.viva_automotive.feature.voice.domain
 import com.sopa.viva_automotive.feature.voice.FakeCommandMappingDao
 import com.sopa.viva_automotive.feature.voice.FakeSemanticIntentMatcher
 import com.sopa.viva_automotive.feature.voice.data.CommandMappingRepository
+import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntentTypes
 import com.sopa.viva_automotive.vehicleservice.api.VehicleZone
@@ -148,7 +149,22 @@ class ProcessVoiceCommandUseCaseTest {
     @Test
     fun `grammar intents without an app adapter are labelled, not denied`() = runTest {
         assertEquals(VehicleIntent.NotWired("media_pause"), useCase("dừng nhạc"))
-        assertEquals(VehicleIntent.NotWired("delivery_next_stop"), useCase("chặng tiếp theo là gì"))
+    }
+
+    @Test
+    fun `delivery commands now reach the skill instead of being labelled not-wired`() = runTest {
+        assertEquals(
+            VehicleIntent.Delivery(DeliveryCommand.NextStop),
+            useCase("chặng tiếp theo là gì"),
+        )
+        assertEquals(
+            VehicleIntent.Delivery(DeliveryCommand.OrderStatus("A12")),
+            useCase("đơn A12 thế nào"),
+        )
+        assertEquals(
+            VehicleIntent.Delivery(DeliveryCommand.Confirm("A12")),
+            useCase("xác nhận giao thành công đơn A12"),
+        )
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.sopa.viva_automotive.feature.voice.domain.model
 
+import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.vehicleservice.api.VehicleZone
 
 sealed interface VehicleIntent {
@@ -29,6 +30,16 @@ sealed interface VehicleIntent {
     data class VolumeAdjust(val delta: Int) : VehicleIntent
 
     data object MediaNext : VehicleIntent
+
+    /**
+     * A `delivery_*` command for [com.sopa.viva_automotive.feature.voice.domain.delivery.DeliverySkill].
+     *
+     * It rides in the same sealed hierarchy as the vehicle commands so one
+     * turn pipeline handles every intent, but it never reaches
+     * `VehicleRepository` — 03-contracts.md §0.1 keeps `delivery_*` off the
+     * VHAL path entirely.
+     */
+    data class Delivery(val command: DeliveryCommand) : VehicleIntent
 
     /**
      * The grammar understood the command but this build has no adapter that can

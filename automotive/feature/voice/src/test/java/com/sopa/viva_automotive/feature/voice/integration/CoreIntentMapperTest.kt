@@ -1,5 +1,6 @@
 package com.sopa.viva_automotive.feature.voice.integration
 
+import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.viva.voice.intent.Intent
 import org.junit.Assert.assertEquals
@@ -36,6 +37,24 @@ class CoreIntentMapperTest {
         cases.forEach { (input, expected) ->
             assertEquals(expected, CoreIntentMapper.map(input))
         }
+    }
+
+    @Test
+    fun `the three delivery intents cross the boundary with their optional order id`() {
+        assertEquals(
+            AutomotiveVoiceAction.Delivery(DeliveryCommand.NextStop),
+            CoreIntentMapper.map(intent("delivery_next_stop")),
+        )
+        assertEquals(
+            AutomotiveVoiceAction.Delivery(DeliveryCommand.OrderStatus("A12")),
+            CoreIntentMapper.map(intent("delivery_order_status", "orderId" to "A12")),
+        )
+        // No id heard is legal — the skill resolves "đơn này" to the current
+        // stop rather than the mapper inventing one.
+        assertEquals(
+            AutomotiveVoiceAction.Delivery(DeliveryCommand.Confirm(null)),
+            CoreIntentMapper.map(intent("delivery_confirm")),
+        )
     }
 
     @Test

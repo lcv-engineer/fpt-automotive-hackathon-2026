@@ -27,6 +27,7 @@ class ProcessVoiceCommandUseCase @Inject constructor(
                 is AutomotiveVoiceAction.VehicleControl -> action.intent
                 is AutomotiveVoiceAction.VolumeAdjust -> VehicleIntent.VolumeAdjust(action.delta)
                 AutomotiveVoiceAction.MediaNext -> VehicleIntent.MediaNext
+                is AutomotiveVoiceAction.Delivery -> VehicleIntent.Delivery(action.command)
                 // The mapper returns null for two different reasons, and they owe
                 // the driver two different answers: a vehicle intent it could not
                 // fill (bad slot) is genuinely not understood, while a media or

@@ -4,6 +4,8 @@ import android.content.Context
 import com.sopa.viva_automotive.feature.voice.data.SpeechRecognitionEngine
 import com.sopa.viva_automotive.feature.voice.data.embedding.OnnxEmbeddingIntentMatcher
 import com.sopa.viva_automotive.feature.voice.data.vosk.VoskSpeechRecognitionEngine
+import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryRepository
+import com.sopa.viva_automotive.feature.voice.domain.delivery.InMemoryDeliveryRepository
 import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMatcher
 import com.viva.voice.tts.AndroidTtsSpeaker
 import com.viva.voice.tts.TtsSpeaker
@@ -30,6 +32,17 @@ abstract class VoiceModule {
     abstract fun bindSemanticIntentMatcher(
         impl: OnnxEmbeddingIntentMatcher,
     ): SemanticIntentMatcher
+
+    /**
+     * Singleton because the route is mutable state: the stop the driver just
+     * confirmed must still be delivered on the next turn, and a per-injection
+     * instance would silently reset it.
+     */
+    @Binds
+    @Singleton
+    abstract fun bindDeliveryRepository(
+        impl: InMemoryDeliveryRepository,
+    ): DeliveryRepository
 
     companion object {
         /**
