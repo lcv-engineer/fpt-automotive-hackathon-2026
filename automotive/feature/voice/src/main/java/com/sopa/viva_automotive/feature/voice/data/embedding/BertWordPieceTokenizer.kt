@@ -3,6 +3,7 @@ package com.sopa.viva_automotive.feature.voice.data.embedding
 class BertWordPieceTokenizer(
     private val vocab: Map<String, Int>,
     private val maxLength: Int = 128,
+    private val lowercase: Boolean = true,
 ) {
 
     data class Encoding(
@@ -61,7 +62,7 @@ class BertWordPieceTokenizer(
     }
 
     private fun basicTokenize(text: String): List<String> {
-        val normalized = text.lowercase().trim()
+        val normalized = (if (lowercase) text.lowercase() else text).trim()
         if (normalized.isEmpty()) return emptyList()
         val out = ArrayList<String>()
         val current = StringBuilder()
@@ -122,13 +123,17 @@ class BertWordPieceTokenizer(
         private const val SEP = "[SEP]"
         private const val UNK = "[UNK]"
 
-        fun fromVocabLines(lines: List<String>, maxLength: Int = 128): BertWordPieceTokenizer {
+        fun fromVocabLines(
+            lines: List<String>,
+            maxLength: Int = 128,
+            lowercase: Boolean = true,
+        ): BertWordPieceTokenizer {
             val map = HashMap<String, Int>(lines.size)
             lines.forEachIndexed { index, raw ->
                 val token = raw.trim()
                 if (token.isNotEmpty()) map[token] = index
             }
-            return BertWordPieceTokenizer(map, maxLength)
+            return BertWordPieceTokenizer(map, maxLength, lowercase)
         }
 
         private fun isPunctuation(ch: Char): Boolean {

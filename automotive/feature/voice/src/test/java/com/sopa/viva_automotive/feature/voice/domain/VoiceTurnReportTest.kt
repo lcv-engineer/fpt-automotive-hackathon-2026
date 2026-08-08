@@ -1,14 +1,47 @@
 package com.sopa.viva_automotive.feature.voice.domain
 
+import com.sopa.viva_automotive.feature.voice.data.TranscriptionEvent
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.SafetyConfirmationRequiredException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyRules
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VoiceTurnReportTest {
+
+    @Test
+    fun `an engine that reports no confidence does not trigger the repeat rule`() {
+        // Vosk small trả null. Nếu null bị coi là "nghe kém" thì bản offline hỏi lại
+        // mọi câu và không bao giờ chạy được một lệnh nào.
+        assertFalse(VoiceTurnReport.needsRepeatForConfidence(null))
+    }
+
+    @Test
+    fun `a measured low confidence triggers the repeat rule`() {
+        assertTrue(VoiceTurnReport.needsRepeatForConfidence(0.4f))
+        assertFalse(VoiceTurnReport.needsRepeatForConfidence(0.9f))
+    }
+
+    @Test
+    fun `ASR error codes are spoken in Vietnamese, never as the raw diagnostic`() {
+        // Bản trước đọc thẳng "Microphone is unavailable" lên màn hình xe tiếng Việt.
+        assertEquals(
+            VoiceTurnReport.ASR_UNAVAILABLE,
+            VoiceTurnReport.speechErrorSpeech(TranscriptionEvent.CODE_MODEL_UNAVAILABLE),
+        )
+        assertEquals(
+            VoiceTurnReport.DID_NOT_HEAR,
+            VoiceTurnReport.speechErrorSpeech(TranscriptionEvent.CODE_NO_SPEECH),
+        )
+        assertEquals(
+            VoiceTurnReport.DID_NOT_HEAR,
+            VoiceTurnReport.speechErrorSpeech("mã lỗi chưa từng thấy"),
+        )
+    }
 
     @Test
     fun `a guard denial reports Deny with the rule id A1 joins on`() {

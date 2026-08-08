@@ -1,0 +1,21 @@
+raw_name	text_vi
+cmd_temp_24	đặt nhiệt độ 24 độ
+cmd_temp_22	hạ điều hòa xuống 22 độ
+cmd_temp_26	tăng nhiệt độ lên 26 độ
+cmd_temp_wake	viva ơi đặt nhiệt độ 25 độ
+cmd_temp_noslot	giảm nhiệt độ
+cmd_fan_3	đặt quạt mức 3
+cmd_fan_0	tắt quạt gió về mức 0
+cmd_fan_5	quạt gió mức 5
+cmd_door_unlock	mở khóa cửa
+cmd_door_lock	khóa cửa lại
+cmd_vol_up	tăng âm lượng
+cmd_vol_down	giảm âm lượng
+cmd_media_next	chuyển bài
+cmd_media_pause	dừng nhạc
+cmd_media_play	phát nhạc
+cmd_delivery_next	chặng tiếp theo
+cmd_delivery_status	đơn a123 thế nào
+cmd_cold	lạnh quá
+cmd_out_of_scope	đặt bàn ăn tối lúc bảy giờ
+cmd_removed	bật điều hòa

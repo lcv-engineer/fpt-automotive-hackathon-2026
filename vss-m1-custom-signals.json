@@ -1,0 +1,35 @@
+{
+  "Vehicle": {
+    "type": "branch",
+    "description": "M1 cooperative-awareness custom VSS overlay. Not standard VSS — three opaque relay signals carrying the R1/R2/R4 payloads unchanged (base64 or JSON text) between the KUKSA-pin blueprint variant's nodes. See carsky-kuksa-blueprint-guide.md.",
+    "children": {
+      "V2X": {
+        "type": "branch",
+        "description": "M1 hackathon custom namespace — not part of the standard COVESA VSS catalog.",
+        "children": {
+          "M1": {
+            "type": "branch",
+            "description": "One signal per R6 communication leg in the KUKSA-pin blueprint variant.",
+            "children": {
+              "BenchToV2xCpmB64": {
+                "type": "sensor",
+                "datatype": "string",
+                "description": "R1 CPM: full ASN.1 UPER-encoded Vanetza CPM byte string, base64-encoded. Published by Bench Scenario Player, consumed by V2X ECU. Payload bytes are identical to the R1 profile over raw UDP — only the transport changed."
+              },
+              "V2xToAdaObjectJson": {
+                "type": "sensor",
+                "datatype": "string",
+                "description": "R2 V2X ECU -> ADA ECU object message, verbatim JSON text (same schema as the UDP-based R2 contract)."
+              },
+              "AdaToIviWarningJson": {
+                "type": "sensor",
+                "datatype": "string",
+                "description": "R4 ADA ECU -> IVI ECU warning/state message, verbatim JSON text (same schema as the UDP-based R4 contract)."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

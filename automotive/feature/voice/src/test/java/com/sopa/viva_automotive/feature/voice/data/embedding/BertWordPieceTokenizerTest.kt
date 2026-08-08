@@ -80,4 +80,19 @@ class BertWordPieceTokenizerTest {
         assertEquals(0, encoding.contentTokens)
         assertFalse(encoding.isAllUnknown)
     }
+
+    @Test
+    fun `cased mode preserves case for a cased model`() {
+        val casedVocab = listOf("[PAD]", "[UNK]", "[CLS]", "[SEP]", "VIVA", "viva")
+            .withIndex()
+            .associate { (index, token) -> token to index }
+        val cased = BertWordPieceTokenizer(casedVocab, lowercase = false)
+
+        val upper = cased.encode("VIVA")
+        val lower = cased.encode("viva")
+
+        assertFalse(upper.inputIds.contentEquals(lower.inputIds))
+        assertEquals(casedVocab.getValue("VIVA").toLong(), upper.inputIds[1])
+        assertEquals(casedVocab.getValue("viva").toLong(), lower.inputIds[1])
+    }
 }

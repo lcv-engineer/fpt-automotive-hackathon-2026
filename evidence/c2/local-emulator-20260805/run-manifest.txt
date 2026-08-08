@@ -1,0 +1,85 @@
+LOCAL AAOS EMULATOR RUN — APK cai va chay duoc tren Android Automotive 14
+==========================================================================
+
+Status: PASS (install + launch + no crash)
+Label:  LOCAL EMULATOR — KHONG phai CarSky Device, KHONG phai cabin/xe that.
+        Khong duoc dung file nay de dong gate G3 (Device core flow) hay
+        de claim "core flow chay tren CarSky".
+
+Captured at (Asia/Saigon): 2026-08-05T21:15:00+07:00
+Repository commit: b22355232f34a16989a3874c6c460a9c8c6c7ae6
+Working tree: KHONG sach tai thoi diem chay (co file evidence dang tao).
+              APK duoc build tu snapshot 2026-08-04 22:14, xem hash duoi.
+
+ARTIFACT
+--------
+File   : automotive/app/build/outputs/apk/mock/debug/app-mock-debug.apk
+Flavor : mock (MockVehicleRepository — vehicle layer la mo phong)
+Size   : 334.382.590 bytes
+SHA-256: E567F7A1490B8C83C618A5869B580713F0005C836B980B2EF42F4E17029E5283
+Nguon  : build local ngay 04/08 — KHONG phai artifact tu CI android-ci.
+
+EMULATOR
+--------
+AVD          : AAOS_AVD (E:\Android\Sdk\system-images\android-34-ext9\android-automotive\x86_64)
+Serial       : emulator-5554
+Model        : Car on x86_64 emulator (sdk_gcar_x86_64)
+Fingerprint  : google/sdk_gcar_x86_64/emulator_car64_x86_64:14/UAA1.250512.001/13479943:userdebug/dev-keys
+Android      : 14
+Current user : 10 (driver user cua AAOS)
+Man hinh     : LUOT 1 hw.lcd 320x640 density 160 (qua nho, chu bi cat)
+               LUOT 2 hw.lcd 1408x792 density 160 sau khi sua config.ini
+               -> `adb shell wm size` xac nhan "Physical size: 1408x792"
+RAM          : LUOT 1 2G · LUOT 2 4G
+hw.audioInput: yes (emulator nhan mic cua host)
+Backup config: C:\Users\LONG NGO\.android\avd\AAOS_AVD.avd\config.ini.bak-20260805
+
+LENH DA CHAY
+------------
+  adb install -r -d app-mock-debug.apk          -> Success (3,1 giay)
+  adb shell pm grant --user 10 <pkg> android.permission.RECORD_AUDIO
+  adb shell pm grant --user 10 <pkg> android.permission.POST_NOTIFICATIONS
+  adb shell am force-stop <pkg>
+  adb logcat -c
+  adb shell am start --user 10 -n <pkg>/com.sopa.viva_automotive.MainActivity
+  adb shell pidof <pkg>                          -> 6890 (process song sau 12 giay)
+  adb logcat -d | Select-String "FATAL EXCEPTION|AndroidRuntime|ANR |SecurityException"
+
+KET QUA
+-------
+  Install        : Success
+  Launch         : Activity mo, process song
+  Crash scan     : install-launch-crash.log RONG (0 byte) — khong co crash/ANR
+  HMI quan sat   : hmi-main-display.png (320x640, chu bi cat)
+                   hmi-landscape-1408x792.png (sau khi sua AVD — dung cho video):
+                   nav Climate/Vehicle/Settings · card Driver 22.0C /
+                   Passenger 22.0C · Airflow Fan speed 3 · thanh mic
+                   "Tap the mic and speak a command"
+  Luot 2 (landscape): install Success, pid 4382, khong crash/ANR
+
+CAI NAY CHUNG MINH GI
+---------------------
+  - APK cua doi cai va chay duoc tren AAOS 14 that (khong phai phone emulator).
+  - HMI render, khong crash, mic permission cap duoc.
+  - Doi CO san pham chay duoc de quay video demo o muc MO PHONG.
+
+CAI NAY KHONG CHUNG MINH GI
+---------------------------
+  - Khong phai CarSky. Room/blueprint/Device VIVA khong dinh dang den lan chay nay.
+  - Flavor mock => vehicle layer la MockVehicleRepository, KHONG co VHAL that,
+    KHONG co setProperty, KHONG co CAN/KUKSA/CCU.
+  - Chua noi cau nao vao mic trong lan chay nay => chua co VIVA_TRACE,
+    chua co so latency, E03/E04 van do.
+  - Khong thay the E01/E02/E05 cua Claim-Evidence Map: nhung ID do yeu cau
+    Device CarSky va artifact tu CI.
+
+GHI CHU CHO NGUOI QUAY VIDEO
+----------------------------
+  DA SUA ngay 05/08: AVD chuyen tu 320x640 sang 1408x792, RAM 2G -> 4G.
+  Config goc da backup tai config.ini.bak-20260805. Muon quay lai luot cu
+  thi chep file backup de len config.ini khi emulator DA TAT.
+
+  CON LAI: text HMI dang la tieng Anh ("Climate", "Airflow",
+  "Tap the mic and speak a command"). Voi san pham ban cau chuyen tro ly
+  TIENG VIET thi day la cho BGK nhin thay ngay. Viet hoa truoc khi quay
+  neu kip; neu khong kip thi phai noi ro trong video.

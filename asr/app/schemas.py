@@ -16,9 +16,17 @@ class AsrResponse(BaseModel):
     server_ms: int = Field(ge=0)
 
 
+class ConfigResponse(BaseModel):
+    compute_type: str
+    initial_prompt: str | None
+    hotwords: str | None
+    max_new_tokens: int
+
+
 class HealthResponse(BaseModel):
     status: str
     model: str
+    config: ConfigResponse | None = None
 
 
 class ErrorResponse(BaseModel):

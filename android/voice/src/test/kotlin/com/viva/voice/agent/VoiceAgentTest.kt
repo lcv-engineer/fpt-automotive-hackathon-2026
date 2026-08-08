@@ -161,7 +161,65 @@ class VoiceAgentTest {
     }
 
     @Test
-    fun `handleText runs without microphone or ASR`() = runImmediate {
+    fun `an engine that reports no confidence is not treated as a bad hearing`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 24°C."))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(
+                AsrResult("hạ điều hòa xuống 24 độ", acousticConfidence = null, serverMs = 12),
+            ),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        // Vosk small không trả confidence. Bắt lượt đó hỏi lại vô điều kiện thì trợ lý
+        // không bao giờ thực thi được lệnh nào trên bản offline.
+        assertEquals(VoiceTurnStatus.APPLIED, result.status)
+        assertEquals("hvac_set_temp", gateway.received?.name)
+    }
+
+    @Test
+    fun `a measured low confidence still asks the driver to repeat`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("must not execute"))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(
+                AsrResult("mở cửa", acousticConfidence = 0.2f, serverMs = 12),
+            ),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, result.status)
+        assertNull(gateway.received)
+    }
+
+    @Test
+    fun `acoustic confidence never overwrites the NLU confidence on the intent`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 24°C."))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(
+                AsrResult("hạ điều hòa xuống 24 độ", acousticConfidence = 0.7f, serverMs = 9),
+            ),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        // Grammar T0 khớp tất định — độ chắc của NLU là 1.0 và không liên quan tới
+        // việc mic hôm nay ồn tới đâu.
+        assertEquals(1f, gateway.received?.confidence)
+        assertEquals(Intent.Tier.T0, gateway.received?.tier)
+    }
+
+    @Test
+    fun `text entry point lets Duong integrate before microphone and ASR are ready`() = runImmediate {
         val tts = RecordingTts()
         val gateway = FakeGateway(CommandResult.Applied("Đã chuyển bài.", emptyMap()))
         val agent = VoiceAgent(

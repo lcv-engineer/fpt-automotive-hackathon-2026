@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- adb reverse development path only. Non-loopback deployments must use HTTPS.
+
+         includeSubdomains="false" là bắt buộc, không phải trang trí: lint chặn build
+         khi thiếu nó (NetworkSecurityConfig), và với loopback thì "false" mới đúng
+         nghĩa — không có subdomain nào của 127.0.0.1 để mà nới cleartext cho. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

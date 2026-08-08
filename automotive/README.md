@@ -178,9 +178,8 @@ The app includes `../android/voice` as Gradle module `:voice-core`. The stable b
 them into the app's existing `VehicleIntent`, media-next, or volume actions. Malformed or missing
 slots return `null`; they never fall through to a default vehicle command.
 
-This is intentionally a narrow bridge. The current Vosk/embedding pipeline remains unchanged until
-the text-path contract is green, then `VoiceAssistantService` can switch one stage at a time instead
-of replacing microphone, NLU, vehicle execution, and UI in one risky merge.
+This is intentionally a narrow bridge. `VoiceAssistantService` now selects only the ASR adapter;
+microphone, Silero VAD, NLU, vehicle execution and UI remain on the same path.
 
 | Setting | Asset folder | Model |
 | ------- | ------------ | ----- |
@@ -190,6 +189,25 @@ of replacing microphone, NLU, vehicle execution, and UI in one risky merge.
 Both are downloaded by Gradle (`downloadVoskEnModel` / `downloadVoskViModel`) and
 unpacked to app storage on first use. Embedding NLU uses quantized
 `all-MiniLM-L6-v2` ONNX under `feature/voice/src/main/assets/embeddings/`.
+
+### Optional remote PhoWhisper
+
+Vosk remains the default so an unreachable container cannot silently break the offline demo.
+To build the APK with the existing `viva-asr` PhoWhisper endpoint instead:
+
+```powershell
+adb reverse tcp:8080 tcp:8080
+.\gradlew :app:assembleMockDebug `
+  -PvivaAsrEngine=remote `
+  -PvivaAsrBaseUrl=http://127.0.0.1:8080
+```
+
+The adapter posts raw PCM16 LE mono to `/asr` with `X-Sample-Rate` and `X-Trace-Id`, then maps
+`text`, `confidence`, and `server_ms` into the same `TranscriptionEvent.Final` used by Vosk.
+Loopback cleartext is allowed only for the `adb reverse` development path; a non-loopback
+deployment URL must use HTTPS. The remote endpoint is utterance-based, so it does not emit partial
+text. Selecting `remote` is explicit and does not silently fall back to Vosk after a network error,
+which keeps benchmark identity unambiguous.
 
 ## Example commands
 

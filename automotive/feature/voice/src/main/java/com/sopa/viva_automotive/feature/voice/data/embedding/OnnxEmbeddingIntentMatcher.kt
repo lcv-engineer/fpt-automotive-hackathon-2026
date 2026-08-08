@@ -27,7 +27,9 @@ class OnnxEmbeddingIntentMatcher @Inject constructor(
     }
 
     override suspend fun bestIntent(utterance: String): String? {
-        val query = utterance.lowercase().trim()
+        // No lowercasing: the model is `-cased`, and folding case throws away a
+        // signal it was trained to use. The tokenizer still normalises whitespace.
+        val query = utterance.trim()
         if (query.isBlank()) return null
 
         val queryVec = encoder.embed(query) ?: return null
@@ -78,6 +80,11 @@ class OnnxEmbeddingIntentMatcher @Inject constructor(
 
     private companion object {
         const val TAG = "EmbedIntent"
-                const val MIN_COSINE = 0.48f
+        // Recalibrated for distiluse-base-multilingual-cased-v2 on 2026-08-06
+        // with the production tokenizer, ONNX graph and pooling: supported
+        // semantic corpus pairs were >= 0.849, while negative/unsupported
+        // controls peaked at 0.797. A false accept becomes a vehicle command;
+        // a false reject only becomes a clarifying question.
+        const val MIN_COSINE = 0.82f
     }
 }

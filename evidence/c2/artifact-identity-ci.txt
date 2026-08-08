@@ -1,0 +1,73 @@
+E02 ARTIFACT IDENTITY — TU CI, KHONG PHAI TU MAY DEV
+=====================================================
+
+Status: PARTIAL (dung cho G1 phan artifact; con thieu phan cai len Device)
+Label: CI artifact identity. KHONG phai bang chung app da chay tren CarSky.
+Nguon: workflow `android-ci`, run 31213909994, job 92982884376
+       https://github.com/lcv-back/fpt-automotive-hackathon/actions/runs/31213909994
+
+Ket qua job: SUCCESS in 7m51s — lint (mock+real) -> 256 unit test -> 2 APK ->
+             artifact manifest -> upload.
+
+MANIFEST NGUYEN VAN (workflow tu sinh, `tee` ra log)
+-----------------------------------------------------
+schema_version=1
+captured_at_utc=2026-08-07T20:07:11Z
+commit=eff06c1284f935c19c33f719a4f66a9234da6f00
+workflow_run_id=31213909994
+java=openjdk version "21.0.11" 2026-04-21 LTS
+apk=app-mock-debug.apk bytes=371450696 sha256=5b699f6938337132d741641adba489bb0256e87efd5bbcb5a32a155ecea7bf97
+apk=app-real-debug.apk bytes=371434093 sha256=82e1fbac1ed98b463d08da4a97a37985c4222251f7b04aa761acf69db1c64d95
+
+Artifact tai duoc: viva-aaos-apks-eff06c1284f935c19c33f719a4f66a9234da6f00
+                   android-quality-reports-eff06c1284f935c19c33f719a4f66a9234da6f00
+
+⚠️ CAI BAY: commit= O DAY KHONG PHAI COMMIT CUA NHANH
+------------------------------------------------------
+Job nay chay tu su kien `pull_request`, ma voi su kien do GitHub dat GITHUB_SHA
+= commit MERGE TAM (head cua PR merge vao base), khong phai head cua nhanh.
+
+  head that cua nhanh fix/media-play-query-slot : 97dd174
+  GITHUB_SHA trong manifest                     : eff06c1...
+
+`eff06c1` la commit tong hop, sau khi PR merge xong thi khong con o nhanh nao.
+Runbook 25-CARSKY-AAOS-DEVICE-GATE §2 doi "Device evidence must quote one of
+these hashes" — nen bo manifest DUNG DE NOP phai duoc sinh tu su kien `push`
+tren `main` (hoac workflow_dispatch --ref main) SAU khi merge, luc do GITHUB_SHA
+moi la commit that cua `main`.
+
+=> File nay dung de chung minh CI gate da mo va duong sinh identity chay dung.
+   KHONG dung no lam identity cua ban nop. Sinh lai sau merge.
+
+HAI SO PHAI SUA O TAI LIEU DOI
+-------------------------------
+1. Kich thuoc APK. Bao cao 07/08 ghi "mock 334,9 MB / real 334,3 MB".
+   So that hom nay: 371.450.696 B (354,2 MiB) va 371.434.093 B (354,2 MiB).
+   Chenh ~36 MB vi APK cu build 06/08 19:22 con dung embedding MiniLM; model
+   DistilUSE (135 MB) chi duoc tai ve luc 22:20 cung ngay, tuc SAU lan build do.
+   Moi con so kich thuoc APK truoc 06/08 22:20 deu la cua ban MiniLM.
+
+2. Nguyen nhan CI do. Bao cao 07/08 ghi "job chinh bi cancelled". Sai.
+   - Run 31123947750 (06/08): annotation nguyen van la
+     "The job was not acquired by Runner of type hosted even after multiple
+      attempts" — su co runner cua GitHub, khong phai cancel, khong phai het quota
+      (runner chay lai binh thuong ngay 07/08 va hom nay).
+   - Va no CHE MOT LOI THAT: `lintRealDebug`/`lintMockDebug` FAIL tu commit
+     3b8d8a4 (06/08) vi network_security_config.xml thieu includeSubdomains.
+     Lint hong nam im tren main hai ngay vi luot CI dang le bat duoc thi khong
+     xin duoc runner. Da sua o 97dd174.
+
+TRANG THAI CI TRUOC/SAU
+------------------------
+  main @ c24c28b        : chua tung co luot android-ci nao chay
+                          (hai merge sau f93751e chi cham *.py/*.luau va
+                           .github/workflows/carsky-*, khong khop `paths` filter)
+  main @ f93751e (06/08): android-ci + asr-ci FAILURE — runner khong nhan job
+  PR #31 luot 1 (19:51) : FAILURE tai buoc lint (loi that, da mo ta o tren)
+  PR #31 luot 2 (19:59) : ✅ SUCCESS — lint + 256 test + 2 APK + manifest
+
+CACH TAI LAP
+-------------
+  gh run view 31213909994
+  gh run download 31213909994 -n viva-aaos-apks-eff06c1284f935c19c33f719a4f66a9234da6f00
+  Get-FileHash .\app-mock-debug.apk -Algorithm SHA256   # phai khop sha256 o tren

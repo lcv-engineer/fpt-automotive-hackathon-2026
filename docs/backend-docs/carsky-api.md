@@ -1,7 +1,11 @@
 # CarSky REST API — những gì đã gọi thật và kết quả
 
-> Ghi ngày 02–03/08/2026. Mọi dòng dưới đây là **phản hồi thật của server**, không
-> phải suy đoán từ tài liệu. Cái gì chưa gọi thì ghi rõ là chưa gọi.
+> Ghi ngày 02–03/08/2026, bổ sung 05/08 (mục 4c) và **08/08 (mục 4d)**. Mọi dòng dưới
+> đây là **phản hồi thật của server**, không phải suy đoán từ tài liệu. Cái gì chưa gọi
+> thì ghi rõ là chưa gọi.
+>
+> ⚠️ **Đọc mục 4d trước khi kết luận "không gửi được gì vào room".** Họ `/signals`
+> không đi qua Conduit và đang chạy tốt; ba dòng mô tả nó ở mục 4b trước đây ghi sai.
 >
 > Không commit token/API key vào repo. Cấu hình đọc từ `backend/.env`
 > (đã gitignore), mẫu ở `backend/.env.example`.
@@ -103,9 +107,11 @@ POST /api/v1/vms/{roomId}/{nodeKey}/shell
 POST /api/v1/vms/{roomId}/{nodeKey}/screenshot · /tap · /text · /key · /swipe
 POST /api/v1/deployments/{roomId}/adb-exec/{nodeKey}
 POST /api/v1/deployments/{roomId}/container-exec/{nodeKey}
-GET  /api/v1/signals/{roomId}/{nodeKey}/values    ← doc tin hieu VSS
-POST /api/v1/signals/{roomId}/{nodeKey}/actuate   ← dat tin hieu (A1 dat toc do)
 ```
+
+⚠️ **Hai dòng `/signals` trong bản trước của mục này ghi sai và đã được gỡ khỏi
+danh sách trên.** Chúng không thuộc họ Conduit, không trả 502, và `values` là
+`POST` chứ không phải `GET`. Xem mục **4d** — họ `/signals` đang chạy tốt.
 
 Gọi đúng `POST /vms/{room}/{node}/adb-shell` với node `IVI - Android` lúc room
 đang chạy đủ 22 node vẫn trả:
@@ -153,6 +159,68 @@ go run ./cmd/viva-tools carsky nodes --room $env:CARSKY_ROOM_ID
 
 **Hệ quả:** kế hoạch V11 (`send_signals → screenshot → find_text`) chưa chạy được
 qua HTTPS. Đường thay thế là tunnel ở mục 5.
+
+### 4d. ✅ Họ `/signals` KHÔNG đi qua Conduit — và nó đang chạy tốt (08/08)
+
+Đây là đính chính quan trọng nhất của mục 4. Kết luận *"không gửi được gì vào room"*
+chỉ đúng với họ endpoint điều khiển VM. Họ `/signals` nói chuyện thẳng với KUKSA
+broker / CAN bus / GPIO panel và **hoạt động bình thường qua HTTPS, không cần
+`nydus-reach`**.
+
+Ba chỗ bản trước ghi sai:
+
+| Bản trước | Thực tế |
+|---|---|
+| `GET .../signals/{room}/{node}/values` | **`POST`**. Gọi bằng `GET` trả `404 Route not found` — và đó là lý do đội tưởng route không tồn tại |
+| `nodeKey` = UUID node trong `/deployments/{room}/nodes` | `nodeKey` là trường **`key`** do `GET /signals/{roomId}` trả về: `central-broker-vss`, `bcm-can`, `pwt-can`, `drive-controls`, `battery-sensor`, `seatbelt-sensor`, `tirepressure-sensor` |
+| Họ này có 2 route | Có **9** route |
+
+Danh sách đủ:
+
+```
+GET  /api/v1/signals/{roomId}                          — liet ke nguon tin hieu
+GET  /api/v1/signals/{roomId}/{nodeKey}                — liet ke tin hieu + metadata
+POST /api/v1/signals/{roomId}/{nodeKey}/values         — doc gia tri hien tai  {"paths":[...]}
+POST /api/v1/signals/{roomId}/{nodeKey}/actuate        — ghi  {"path":..,"value":..,"actuate":bool}
+GET  /api/v1/signals/{roomId}/{nodeKey}/subscribe      — SSE, BAT BUOC query param ?paths=
+GET  /api/v1/signals/{roomId}/{nodeKey}/periodic
+POST /api/v1/signals/{roomId}/{nodeKey}/periodic/start · /periodic/stop
+GET  /api/v1/signals/{roomId}/{nodeKey}/periodic/subscribe
+```
+
+**Đã chạy thật 07/08 19:30–19:37 UTC, tất cả 200** — bằng chứng đầy đủ ở
+`evidence/carsky/signals-rest-0808/`:
+
+- `central-broker-vss` trả **1.268 tín hiệu VSS** kèm metadata. Bốn tín hiệu của
+  bảng M2 khớp chính xác `03-contracts.md §0.2`: `Driver.Temperature` (float,
+  actuator, °C), `Driver.FanSpeed` (uint8, actuator, **percent 0–100** — đúng lý do
+  contract bắt quy đổi `level × 20`), `Door.Row1.DriverSide.IsLocked` (bool,
+  **True = Locked**), `Vehicle.Speed` (float, sensor, km/h).
+- `bcm-can` trả 33 tín hiệu khớp `docs/dbc/README.md`.
+- `drive-controls` có **`vcu/Speed` [0,180] kmh, `entryType=actuator`** → đặt được
+  tốc độ cho ablation A1 bằng REST.
+- **Vòng ghi → đọc lại trên KUKSA đã chứng minh:**
+  `Driver.Temperature` = `null` (ts 05/08 14:30:56Z) → `POST /actuate {value:24.0}`
+  → `200 {"ok":true,"sent":1}` → `POST /values` = **`24`** (ts 07/08 19:34:36Z).
+
+**Giới hạn — phải khai khi trích:**
+
+1. Đây là REST gọi thẳng KUKSA. **Không có APK, không có VHAL, không có SafetyGuard
+   trong đường này.** Nó là công cụ **đo**, không phải core flow của sản phẩm.
+2. **Ghi VSS từ ngoài không lan xuống CAN.** `POST /values` trên `bcm-can` trả
+   `{"values":[]}`; SSE `bcm-can/subscribe` trong 20 giây chỉ nhận một sự kiện
+   `ping`. Thử `{"actuate":true}` (provider-based) → `200 ok` nhưng giá trị hiện tại
+   không đổi, tức không có provider nào nhận. Điều này khớp với
+   `infotainment_gateway.lua` trong blueprint: chuỗi VSS → CAN được kích hoạt từ
+   phía VHAL (`pins.vhal:on_change → actuate_kuksa`), nên **vẫn phải có APK chạy
+   trên node skycraft** mới đóng được chuỗi đầy đủ.
+3. Không dùng thay cho E03/E04 (trace + p50/p95) hay E06–E08 (readback property qua
+   `CarPropertyManager`).
+
+**Dùng được ngay vào ba việc:** (a) ô barem *"Evidence từ platform"* đòi
+*"log/trace/output từ CarSky"* — đây đúng là thứ đó; (b) xác nhận bảng M2 bằng
+metadata của chính nền tảng thay vì bằng tài liệu đội tự viết; (c) khi APK đã cài,
+đây là **cách đọc lại từ ngoài** để chứng minh lệnh của app thật sự chạm KUKSA.
 
 ## 5. Hai cái bẫy khi đọc số
 

@@ -1,5 +1,7 @@
 # VIVA Digital Cockpit
 
+[![android-ci](https://github.com/lcv-back/fpt-automotive-hackathon/actions/workflows/android-ci.yml/badge.svg)](https://github.com/lcv-back/fpt-automotive-hackathon/actions/workflows/android-ci.yml)
+
 VIVA là prototype buồng lái số cho Android Automotive OS (AAOS), tập trung vào trợ lý giọng nói offline, điều khiển HVAC/cửa, media và quan sát độ trễ đầu-cuối. Mục tiêu của Vòng 2 là chứng minh luồng do đội sở hữu có ranh giới rõ ràng, đo được và không bỏ qua tầng an toàn/service khi thực thi lệnh xe.
 
 ## Trạng thái hiện tại
@@ -14,7 +16,7 @@ VIVA là prototype buồng lái số cho Android Automotive OS (AAOS), tập tru
 | `DeliverySkill` — 3 intent giao hàng | **Mô phỏng** | Lộ trình in-memory do đội tạo; unit test JVM. ⚠️ Chưa biên dịch trên máy có Android SDK |
 | Benchmark harness + bộ 22 câu + runner PASS/FAIL | **Đã tích hợp** *(công cụ)* | `go test ./...` xanh; chạy ra CSV thật trên fixture. Số đo **trên Device** thì chưa có |
 | `VivaCarService` → VHAL → gateway → CAN/CCU | **Kế hoạch / tích hợp đội** | Contract đã chốt; quyền privileged và luồng Device phải được chứng minh riêng |
-| ASR container `viva-asr` | **Kế hoạch / phụ thuộc đội** | Trục benchmark đã chốt, còn chờ số đo từ harness |
+| ASR container `viva-asr` | **Đã tích hợp ở mức container/platform** | Image đã được CarSky pull theo digest, node `VIVA ASR` và 22/22 node `Running`; APK hiện vẫn dùng Vosk on-device, chưa có client gọi container nên chưa được claim app→container |
 
 Không claim toàn bộ 10 intent đi tới CAN. Chỉ `hvac_*` và `door_lock` thuộc đường Vehicle Property; media, volume và delivery đi qua adapter riêng. Xem [contract tích hợp](vong2/03-contracts.md).
 
@@ -50,6 +52,7 @@ vong2/15-QUYET-DINH-*.md    quyết định trục benchmark ASR
 vong2/22-N3-*.md            baseline manifest: nền tảng cấp gì, đội xây gì
 vong2/23-N4-*.md            quy trình ablation A1/A2/A3
 vong2/24-N5-*.md            bảng ba trạng thái integration + dữ liệu synthetic
+vong2/25-CARSKY-*.md        runbook CI → artifact identity → ADB → Device evidence
 ```
 
 ## Build và kiểm thử
@@ -113,12 +116,16 @@ docker build -t viva-asr:phowhisper-tiny-int8 .  # build image kèm model đã c
    Lệnh này luôn export backup trước và từ chối clone nếu backup lỗi.
 2. **Tra node và pin** của Room để biết CCU/CAN/VHAL nằm ở đâu:
    `go run ./cmd/viva-tools carsky nodes --room <roomId> --out nodes.json`
-3. **Push image `viva-asr`** lên Zot registry của nền tảng, rồi thêm Container Node vào
-   blueprint clone; app đọc địa chỉ qua `BuildConfig.ASR_BASE_URL` (`03-contracts.md` §2),
-   không hard-code.
+3. **Container `viva-asr` đã được CarSky pull thành công** theo digest. Đây mới là
+   proof image/platform; source APK hiện tại dùng Vosk on-device và chưa có
+   `BuildConfig.ASR_BASE_URL`/client gọi container. Không claim app→container cho
+   tới khi đường đó được implement và có request/response evidence.
 4. **Mở adb tunnel** rồi cài APK:
    `go run ./cmd/viva-tools carsky adb-tunnel --room <roomId>` → `adb connect <host:port>` → `adb install`.
 5. **Bắt log và đo**: `.\scripts\run_benchmark.ps1 -Variant <mức nhiễu> -Adb`.
+
+Thứ tự đầy đủ để đóng Device gate, stop rules và evidence bundle nằm trong
+[runbook CarSky AAOS](vong2/25-CARSKY-AAOS-DEVICE-GATE.md).
 
 ## Thêm intent mà không sửa grammar core
 

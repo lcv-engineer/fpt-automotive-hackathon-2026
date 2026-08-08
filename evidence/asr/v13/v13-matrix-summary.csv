@@ -1,0 +1,17 @@
+model,biasing,level,n,errors,wer_mean,wer_zero,server_p50,server_p95,server_max,confidence_mean
+tiny,bias,clean,20,0,26.2667,0,3524,4238,4287,0.5994
+tiny,bias,quiet,20,0,18.93,0,3884,4748,4816,0.5342
+tiny,bias,cabin,20,0,24.5375,0,4356,4722,4734,0.6597
+tiny,bias,highway,20,0,23.9868,0,3882,4750,5208,0.6478
+tiny,nobias,clean,20,0,0.362,7,188,244,289,0.6661
+tiny,nobias,quiet,20,0,0.3745,5,190,232,242,0.6788
+tiny,nobias,cabin,20,0,0.4078,4,192,235,253,0.6743
+tiny,nobias,highway,20,0,0.4275,3,201,247,249,0.6641
+base,bias,clean,20,0,3.6668,2,347,6265,7105,0.616
+base,bias,quiet,20,0,6.3275,2,349,5837,5981,0.5945
+base,bias,cabin,20,0,2.3852,2,335,2855,2865,0.5479
+base,bias,highway,20,0,3.2287,2,363,4221,4884,0.5282
+base,nobias,clean,20,0,1.0987,1,354,920,981,0.5533
+base,nobias,quiet,20,0,0.865,1,349,1082,1087,0.5753
+base,nobias,cabin,20,0,0.9241,1,336,473,1137,0.5616
+base,nobias,highway,20,0,0.6811,1,337,525,1013,0.588

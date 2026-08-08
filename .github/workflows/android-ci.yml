@@ -1,0 +1,117 @@
+name: android-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "automotive/**"
+      - "android/voice/**"
+      - ".github/workflows/android-ci.yml"
+  pull_request:
+    paths:
+      - "automotive/**"
+      - "android/voice/**"
+      - ".github/workflows/android-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-and-apk:
+    name: lint, test, build, identify APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # These generated assets make each APK roughly 334 MB. Cache them separately
+      # because setup-java's Gradle cache does not include files generated in the
+      # source tree by downloadVosk*/downloadEmbeddingModel.
+      - name: Restore offline voice models
+        uses: actions/cache@v4
+        with:
+          path: |
+            automotive/feature/voice/src/main/assets/model-en-us
+            automotive/feature/voice/src/main/assets/model-vi
+            automotive/feature/voice/src/main/assets/embeddings/model_quantized.onnx
+            automotive/feature/voice/src/main/assets/embeddings/vocab.txt
+          key: voice-models-${{ runner.os }}-${{ hashFiles('automotive/feature/voice/build.gradle.kts') }}
+
+      - name: Make the Gradle wrapper executable
+        run: chmod +x automotive/gradlew
+
+      - name: Android lint (mock and real)
+        working-directory: automotive
+        run: ./gradlew lintMockDebug lintRealDebug --no-daemon --no-configuration-cache --console=plain
+
+      - name: JVM unit tests
+        working-directory: automotive
+        run: ./gradlew test --no-daemon --no-configuration-cache --console=plain
+
+      - name: Build both debug APKs
+        working-directory: automotive
+        run: ./gradlew :app:assembleMockDebug :app:assembleRealDebug --no-daemon --no-configuration-cache --console=plain
+
+      # The manifest binds every downloadable APK to the exact source and workflow
+      # run that produced it. Device evidence must quote one of these hashes.
+      - name: Record artifact identity
+        working-directory: automotive
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="app/build/outputs/apk/artifact-manifest.txt"
+          mock_apk="app/build/outputs/apk/mock/debug/app-mock-debug.apk"
+          real_apk="app/build/outputs/apk/real/debug/app-real-debug.apk"
+
+          test -f "$mock_apk"
+          test -f "$real_apk"
+
+          {
+            echo "schema_version=1"
+            echo "captured_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commit=$GITHUB_SHA"
+            echo "ref=$GITHUB_REF"
+            echo "workflow_run_id=$GITHUB_RUN_ID"
+            echo "java=$(java -version 2>&1 | head -n1)"
+            for apk in "$mock_apk" "$real_apk"; do
+              echo "apk=$(basename "$apk") bytes=$(stat -c%s "$apk") sha256=$(sha256sum "$apk" | cut -d' ' -f1)"
+            done
+          } | tee "$manifest"
+
+      - name: Upload APKs and identity manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: viva-aaos-apks-${{ github.sha }}
+          path: |
+            automotive/app/build/outputs/apk/mock/debug/app-mock-debug.apk
+            automotive/app/build/outputs/apk/real/debug/app-real-debug.apk
+            automotive/app/build/outputs/apk/artifact-manifest.txt
+          if-no-files-found: error
+          retention-days: 14
+          # APKs are already ZIP archives; recompressing ~668 MB only wastes runner time.
+          compression-level: 0
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-quality-reports-${{ github.sha }}
+          path: |
+            automotive/**/build/test-results/**/*.xml
+            android/voice/build/test-results/**/*.xml
+            automotive/app/build/reports/lint-results-*.html
+            automotive/app/build/reports/lint-results-*.sarif
+          if-no-files-found: warn
+          retention-days: 14

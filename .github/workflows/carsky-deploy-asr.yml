@@ -1,0 +1,347 @@
+name: carsky-deploy-asr
+
+# Restart container `viva-asr` trên CarSky sau khi đã đổi image, và xác minh nó
+# trở lại Running.
+#
+# ## ⚠️ `openapi.json` ghi SAI đường dẫn PATCH — đừng lấy path từ đó
+#
+# Bản đầu của file này PATCH vào `/api/v1/nodes/{nodeId}`, lấy từ `openapi.json`.
+# Gọi thật 07/08 trả **404 Route not found**, và điều đó từng bị kết luận nhầm
+# thành "CarSky không cho đổi image bằng API".
+#
+# Sai. `Car-Sky-Platform.html` (tài liệu vận hành chính thức, mục "API & MCP
+# Tools") ghi đường dẫn thật có thêm tiền tố `/blueprints`:
+#
+#   PATCH /api/v1/nodes/{nodeId}              -> 404   (openapi.json — SAI)
+#   PATCH /api/v1/blueprints/nodes/{nodeId}   -> 200   (tài liệu — ĐÚNG)
+#
+# Đã dò bằng body rỗng `{}` nên không ghi gì, và kiểm lại sau đó: config nguyên
+# vẹn. Bài học: `openapi.json` của CarSky khai sai cả địa chỉ, không chỉ khai
+# thừa endpoint. Đối chiếu với tài liệu người viết trước khi tin.
+#
+# Cùng lớp lỗi này, `docs/backend-docs/carsky-api.md` §10 kết luận "pin ETHERNET
+# chỉ tạo được trong web UI" dựa trên `POST /nodes/{nodeId}/pins` -> 404. Đường
+# thật nhiều khả năng là `POST /api/v1/blueprints/nodes/{nodeId}/pins` — CHƯA
+# THỬ, vì thêm pin là thao tác ghi không dò khan được.
+#
+# ## `restart/{node}` trả 500 nhưng VẪN CHẠY — đừng tin mã HTTP
+#
+# Đo 08/08: `POST /deployments/{room}/restart/{node}` trả **500, body rỗng**, mà
+# node vẫn chuyển `Provisioning` ngay sau đó rồi `Running` sau ~50 giây. Lệnh có
+# tác dụng; chỉ mã trả về là sai.
+#
+# Bản trước dùng `curl -f` nên coi 500 là thất bại → step fail → rollback chạy →
+# PATCH đè image cũ lên bản mới **vừa ghi thành công**. Deploy tự huỷ chính nó.
+#
+# Nên mọi phán xét ở đây dựa vào **hệ quả quan sát được** (phase của node đổi),
+# không dựa vào lời khai của server. Bước verify vì thế có hai giai đoạn: chờ
+# node RỜI `Running` (chứng minh restart thật sự xảy ra), rồi mới chờ nó quay
+# lại. Thiếu giai đoạn một thì một lệnh restart không ăn gì sẽ trông y hệt một
+# lần deploy thành công.
+#
+# ## Sau khi PATCH vẫn cần một cú bấm tay: Redeploy
+#
+# Tài liệu mục 3.7 "Khi nào cần redeploy": *đổi artifact/image dùng trong node*
+# và *cấu hình node thay đổi* đều thuộc nhóm PHẢI redeploy. Mà **redeploy không
+# có endpoint REST** — đã grep cả `openapi.json`, không có redeploy/reconcile/
+# sync/apply. Nó là nút trong Deployment Viewer.
+#
+# Workflow này vẫn gọi `restart/{node}` sau khi PATCH, nhưng ĐỪNG coi restart là
+# đủ: theo tài liệu, thứ áp dụng bản blueprint mới vào Room đang chạy là
+# Redeploy. Bấm Redeploy nếu ASR vẫn chạy image cũ sau khi job này xanh.
+# Bán kính ảnh hưởng nhỏ: "Redeploy: chỉ restart các node có thay đổi".
+#
+# ⚠️ Blueprint có cờ `Locked` để chống sửa nhầm lúc đang demo. Bật khoá thì bước
+# PATCH sẽ fail — đó là có chủ đích, đừng gỡ khoá giữa buổi duyệt.
+#
+# ## Vì sao KHÔNG phải `on: push`
+#
+# Room này là môi trường demo dùng chung, và quota nền tảng là
+# MAX_CONCURRENT_DEPLOYMENTS = 2. Một workflow chạy theo mỗi lần merge sẽ khởi
+# động lại container giữa lúc đang tổng duyệt. Chạy tay trước; khi đã trơn vài
+# lần thì đổi trigger là một dòng.
+#
+# ## Vì sao vẫn phải là digest, không phải tag
+#
+# Node `VIVA ASR` ghim image bằng **digest**:
+#
+#   registry.hackathon-2.carsky.io/viva/viva-asr@sha256:63c2c56a...
+#
+# Push đè lên một tag rồi restart sẽ kéo lại đúng image cũ — pipeline chạy mà
+# không đổi gì. Đổi image trong UI cũng phải dán digest, đừng dán tag.
+#
+# ## Cái workflow này KHÔNG làm được
+#
+# Cài APK lên node Android. Cần `adb`, mà họ endpoint điều khiển VM chưa dùng
+# được (xem docs/backend-docs/carsky-api.md §4). Đây là CD cho **service ASR**,
+# không phải CD cho app — đừng gọi nhầm tên trong báo cáo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image đầy đủ, NÊN dùng dạng digest (registry.hackathon-2.carsky.io/viva/viva-asr@sha256:...)"
+        required: true
+        type: string
+      room_id:
+        description: "Room đang chạy"
+        required: true
+        default: "v37aa3knc6t1embelr5yi"
+        type: string
+      node_id:
+        description: "Node VIVA ASR trong blueprint"
+        required: true
+        default: "b8eada00-d137-4fdc-a131-2197b1d1356b"
+        type: string
+      dry_run:
+        description: "Chỉ in ra thay đổi sẽ làm, không gọi PATCH/restart"
+        required: true
+        default: true
+        type: boolean
+
+# Hai lần chạy chồng nhau lên cùng một room sẽ đua nhau PATCH rồi restart, và
+# bản lùi của lần này có thể ghi đè bản mới của lần kia.
+concurrency:
+  group: carsky-deploy-asr-${{ inputs.room_id }}
+  cancel-in-progress: false
+
+env:
+  BASE: https://hackathon-2.carsky.io/api/v1
+  REGISTRY: registry.hackathon-2.carsky.io
+
+jobs:
+  deploy:
+    name: PATCH digest + restart node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: kiểm secret
+        run: |
+          if [ -z "${{ secrets.CARSKY_API_KEY }}" ]; then
+            echo "::error::Thiếu secret CARSKY_API_KEY. Thêm ở Settings → Secrets → Actions."
+            exit 1
+          fi
+
+      - name: chặn image lạ
+        run: |
+          # Workflow này PATCH thẳng vào blueprint của room demo. Một image trỏ
+          # sai registry là đường ngắn nhất để node kẹt ở ImagePullBackOff giữa
+          # buổi duyệt, nên từ chối sớm thay vì để nền tảng phát hiện.
+          case "${{ inputs.image }}" in
+            ${{ env.REGISTRY }}/*) ;;
+            *) echo "::error::image phải bắt đầu bằng ${{ env.REGISTRY }}/"; exit 1 ;;
+          esac
+          case "${{ inputs.image }}" in
+            *@sha256:*) ;;
+            *) echo "::warning::Đang dùng tag chứ không phải digest. Tag là con trỏ động — bản deploy sẽ không lặp lại được." ;;
+          esac
+
+      - name: đọc trạng thái hiện tại
+        id: current
+        run: |
+          set -euo pipefail
+          KEY='${{ secrets.CARSKY_API_KEY }}'
+          ROOM='${{ inputs.room_id }}'
+
+          # Blueprint id lấy từ deployment chứ không hardcode: room từng được
+          # dựng lại bằng một blueprint clone khác, và một id chép cứng sẽ PATCH
+          # nhầm vào bản không chạy — im lặng, không lỗi.
+          #
+          # Lưu ý tham số tên là `device` nhưng nhận đúng room id. Đừng dùng
+          # CARSKY_DEVICE_ID trong backend/.env: giá trị ở đó là VIVA 2, không
+          # phải room demo, và find sẽ trả về [].
+          FIND=$(curl -fsS -H "x-api-key: $KEY" "$BASE/deployments/find?device=$ROOM")
+          BP=$(echo "$FIND" | jq -r '.[0].blueprintId // empty')
+          if [ -z "$BP" ]; then
+            echo "::error::Không tìm thấy deployment nào cho room $ROOM"
+            exit 1
+          fi
+
+          NODE=$(curl -fsS -H "x-api-key: $KEY" "$BASE/blueprints/$BP" \
+                 | jq -c --arg id '${{ inputs.node_id }}' '.nodes[] | select(.id == $id)')
+          if [ -z "$NODE" ]; then
+            echo "::error::Blueprint $BP không có node ${{ inputs.node_id }}"
+            exit 1
+          fi
+
+          OLD_IMAGE=$(echo "$NODE" | jq -r '.config.image // empty')
+          # Config đầy đủ, để bước PATCH trộn chứ không ghi đè — xem đầu file.
+          echo "$NODE" | jq -c '.config' > /tmp/config-old.json
+
+          echo "blueprint=$BP"        >> "$GITHUB_OUTPUT"
+          echo "old_image=$OLD_IMAGE" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Trạng thái trước khi đổi"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| room | \`$ROOM\` |"
+            echo "| blueprint | \`$BP\` |"
+            echo "| node | \`${{ inputs.node_id }}\` ($(echo "$NODE" | jq -r .label)) |"
+            echo "| image trên node | \`$OLD_IMAGE\` |"
+            echo "| image mong đợi | \`${{ inputs.image }}\` |"
+            echo ""
+            echo "Config hiện tại của node:"
+            echo ""
+            echo '```json'
+            jq . /tmp/config-old.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: dừng ở đây nếu dry-run
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "dry_run=true — không restart."
+          echo "Chạy lại với dry_run=false để áp dụng." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: PATCH image của node
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          # Trộn: giữ nguyên env và mọi khoá khác, chỉ thay `image`. Gửi mỗi
+          # `image` có thể ghi đè cả object và xoá sạch ASR_DEVICE /
+          # ASR_MODEL_NAME / ASR_COMPUTE_TYPE — ASR sẽ khởi động với model mặc
+          # định mà không báo lỗi.
+          jq -c --arg img '${{ inputs.image }}' '.image = $img' /tmp/config-old.json > /tmp/config-new.json
+          jq -n --slurpfile c /tmp/config-new.json '{config: $c[0]}' > /tmp/patch.json
+
+          curl -fsS -X PATCH "$BASE/blueprints/nodes/${{ inputs.node_id }}" \
+            -H "x-api-key: ${{ secrets.CARSKY_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data @/tmp/patch.json > /tmp/patch-response.json
+          echo "PATCH xong."
+
+          # Đọc lại từ server thay vì tin mã 200: PATCH có thể nhận body rồi
+          # lưu khác đi. Ba biến env là thứ mất đi âm thầm nhất nên đếm luôn.
+          NEW=$(curl -fsS -H "x-api-key: ${{ secrets.CARSKY_API_KEY }}" \
+                "$BASE/blueprints/${{ steps.current.outputs.blueprint }}" \
+                | jq -c --arg id '${{ inputs.node_id }}' '.nodes[] | select(.id == $id) | .config')
+          GOT_IMG=$(echo "$NEW" | jq -r '.image // empty')
+          GOT_ENV=$(echo "$NEW" | jq -r '.env | length')
+          WANT_ENV=$(jq -r '.env | length' /tmp/config-old.json)
+          if [ "$GOT_IMG" != "${{ inputs.image }}" ]; then
+            echo "::error::PATCH tra 200 nhung image tren server van la: $GOT_IMG"; exit 1
+          fi
+          if [ "$GOT_ENV" != "$WANT_ENV" ]; then
+            echo "::error::So bien env doi tu $WANT_ENV thanh $GOT_ENV — config bi ghi de"; exit 1
+          fi
+          echo "Da xac minh: image doi dung, env con $GOT_ENV bien."
+
+      - name: restart node
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -uo pipefail
+          # Chỉ node này, KHÔNG phải `POST /deployments/{room}/restart` (cả room).
+          # Bán kính ảnh hưởng là một container thay vì 22 node.
+          #
+          # ⚠️ KHÔNG dùng `curl -f` ở đây. Đo 08/08: endpoint này trả **500 với
+          # body rỗng NHƯNG VẪN THỰC THI** — node chuyển Provisioning ngay sau
+          # đó rồi Running sau ~50s. Với `-f`, curl coi 500 là lỗi, step fail,
+          # rollback chạy và PATCH đè image cũ lên bản mới vừa ghi thành công.
+          # Tức workflow tự huỷ việc của chính nó vì tin vào mã HTTP.
+          #
+          # Nên: ghi lại mã, không phán xét ở đây. Bước sau phán xét bằng HỆ QUẢ
+          # quan sát được (phase đổi), không bằng lời khai của server.
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                 -X POST "$BASE/deployments/${{ inputs.room_id }}/restart/${{ inputs.node_id }}" \
+                 -H "x-api-key: ${{ secrets.CARSKY_API_KEY }}" \
+                 -H "Content-Length: 0")
+          echo "restart tra HTTP $CODE (500 la binh thuong o API nay)"
+          case "$CODE" in
+            2*|500) ;;
+            *) echo "::warning::Ma la: $CODE — van di tiep, buoc verify se quyet dinh." ;;
+          esac
+
+      - name: chờ node Running trở lại
+        id: verify
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -uo pipefail
+          KEY='${{ secrets.CARSKY_API_KEY }}'
+          phase_now() {
+            curl -fsS -H "x-api-key: $KEY" \
+              "$BASE/deployments/${{ inputs.room_id }}/nodes" \
+              | jq -r --arg id '${{ inputs.node_id }}' '.[] | select(.name == $id) | .phase'
+          }
+
+          # GIAI DOAN 1 — xac nhan restart THAT SU xay ra.
+          #
+          # Bo qua buoc nay thi mot lenh restart khong an gi se trong y het mot
+          # lan deploy thanh cong: node chua bao gio roi Running, vong doi ben
+          # duoi thay "Running" ngay lap tuc va bao xanh. Do la kieu hong te
+          # nhat — bao cao thanh cong ma khong doi gi.
+          LEFT=no
+          D1=$(( $(date +%s) + 90 ))
+          while [ "$(date +%s)" -lt "$D1" ]; do
+            P=$(phase_now); echo "cho roi Running... phase=$P"
+            if [ "$P" != "Running" ]; then LEFT=yes; break; fi
+            sleep 5
+          done
+
+          if [ "$LEFT" = "no" ]; then
+            echo "::error::Node khong he roi trang thai Running trong 90s — lenh restart KHONG an gi."
+            echo "left_running=no" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          # GIAI DOAN 2 — cho no quay lai.
+          DEADLINE=$(( $(date +%s) + 300 ))
+          PHASE=""
+          while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+            PHASE=$(phase_now); echo "phase=$PHASE"
+            [ "$PHASE" = "Running" ] && break
+            sleep 10
+          done
+          echo "phase=$PHASE" >> "$GITHUB_OUTPUT"
+          if [ "$PHASE" != "Running" ]; then
+            echo "::error::Node khong tro lai Running (phase cuoi: $PHASE)"
+            exit 1
+          fi
+          {
+            echo ""
+            echo "### Node đã Running"
+            echo ""
+            echo "⚠️ **Chưa chắc nó đang chạy image MỚI.** Tài liệu CarSky mục 3.7 nói"
+            echo "đổi image thì phải **Redeploy**, mà redeploy không có endpoint REST —"
+            echo "workflow này chỉ gọi được \`restart/{node}\`."
+            echo ""
+            echo "Mở Deployment Viewer và bấm **Redeploy** nếu ASR vẫn hành xử như bản cũ."
+            echo "Nút đó chỉ restart các node có thay đổi, không đụng 21 node còn lại."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: lùi lại image cũ nếu node không lên
+        # Lùi được thật, vì PATCH đã dùng đúng đường dẫn `/blueprints/nodes/{id}`.
+        #
+        # ⚠️ Điều kiện phải bám vào `steps.verify.outcome`, KHÔNG phải `failure()`
+        # chung chung. Lần chạy 08/08 dùng `failure()`: bước restart fail chỉ vì
+        # API trả 500 (dù lệnh đã chạy), rollback liền PATCH đè image cũ lên bản
+        # mới vừa ghi thành công. Deploy tự huỷ chính nó.
+        #
+        # Chỉ lùi khi bước verify kết luận node THẬT SỰ không lên được — đó mới
+        # là tình huống đáng đánh đổi để quay về bản cũ.
+        if: ${{ always() && !inputs.dry_run && steps.verify.outcome == 'failure' && steps.current.outputs.old_image != '' }}
+        run: |
+          set -euo pipefail
+          echo "::warning::Lùi node về ${{ steps.current.outputs.old_image }}"
+          jq -n --slurpfile c /tmp/config-old.json '{config: $c[0]}' > /tmp/rollback.json
+          curl -fsS -X PATCH "$BASE/blueprints/nodes/${{ inputs.node_id }}" \
+            -H "x-api-key: ${{ secrets.CARSKY_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data @/tmp/rollback.json
+          # Cũng không `-f`: restart trả 500 nhưng vẫn chạy. Bản 08/08 dùng `-f`
+          # ở đây nên rollback báo hỏng dù nó đã lùi image xong xuôi — người đọc
+          # log tưởng mất cả đường lùi.
+          RC=$(curl -s -o /dev/null -w "%{http_code}" \
+               -X POST "$BASE/deployments/${{ inputs.room_id }}/restart/${{ inputs.node_id }}" \
+               -H "x-api-key: ${{ secrets.CARSKY_API_KEY }}" -H "Content-Length: 0")
+          echo "restart (rollback) tra HTTP $RC"
+          {
+            echo ""
+            echo "### ⚠️ Đã lùi lại"
+            echo ""
+            echo "Node được trả về \`${{ steps.current.outputs.old_image }}\` và restart."
+            echo "Bấm **Redeploy** trong Deployment Viewer để chắc chắn bản cũ được áp lại,"
+            echo "rồi kiểm bằng mắt trước khi coi là xong."
+          } >> "$GITHUB_STEP_SUMMARY"

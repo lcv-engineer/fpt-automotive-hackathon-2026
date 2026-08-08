@@ -34,7 +34,23 @@ docs/link.md
 # the part a reviewer needs and cannot regenerate without the audio.
 evidence/asr/corpus/**/*.wav
 evidence/asr/corpus-v12/**/*.wav
+evidence/asr/corpus-human/clean/**/*.wav
+evidence/asr/corpus-human/quiet/**/*.wav
+evidence/asr/corpus-human/cabin/**/*.wav
+evidence/asr/corpus-human/highway/**/*.wav
 
 # NOT ignored, deliberately: evidence/asr/corpus-src/*.wav — the rendered
 # Vietnamese command clips. They need a vi-VN Windows voice that most of the
 # team's machines do not have, so they are authored input, not derived output.
+# evidence/asr/corpus-human/raw/*.wav is also authored input: real recordings
+# that cannot be reproduced from source code. Only its derived noise levels are
+# ignored above.
+
+# Byte-code Python sinh ra khi chay cac script VHAL/DTC o thu muc goc.
+__pycache__/
+*.pyc
+
+# Bao cao do test_safety_scenario_pack.py / ablation sinh ra khi chay.
+# Giu lai duoi evidence/ neu can lam bang chung, khong de o thu muc goc.
+/viva_safety_scenario_report.csv
+/viva_ablation_a1_report.csv

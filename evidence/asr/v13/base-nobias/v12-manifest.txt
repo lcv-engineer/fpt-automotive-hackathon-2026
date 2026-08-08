@@ -1,0 +1,31 @@
+Evidence: V12 — benchmark theo ba muc nhieu
+Label: base-nobias
+Repository commit: e4943efacf2e8b3601943d3ec82d16d34acbd322
+Service /health: {"status": "ok", "model": "phowhisper-base-int8"}
+Corpus: evidence/asr/corpus-human (xem corpus-index.csv de biet SNR tung file)
+Ground truth: asr/scripts/corpus_prompts.tsv
+Warm-up da bo: 5 request (tach cold run khoi steady-state)
+
+muc         n  loi  rong   WER tb  WER med  WER=0  RTF med     p50     p95     max
+clean      20    0     0    1.099    0.667      1    0.122     354     920     981
+quiet      20    0     0    0.865    0.500      1    0.134     349    1082    1087
+cabin      20    0     0    0.924    0.500      1    0.109     336     473    1137
+highway    20    0     0    0.681    0.500      1    0.124     337     525    1013
+
+Thu tu chay: interleave  (muc nhieu da duoc tron, khong trung voi thu tu chay)
+Drift trong luot do: nua dau 401 ms · nua sau 416 ms  (+15 ms)
+  -> Neu drift nay lon ngang chenh lech giua cac muc nhieu thi chenh lech do
+     KHONG doc duoc la do nhieu.
+
+Suy giam clean -> highway: WER 1.099 -> 0.681  (-0.418)
+                          p95 920 ms -> 525 ms  (-395 ms)
+
+GIOI HAN — phai khai kem khi trich bat ky so nao o tren:
+  1. Nhieu la TONG HOP (pink noise co dinh dang pho), khong phai thu trong cabin.
+     Cac muc SNR 20/10/5 dB do doi chon, khong phai do do.
+  2. Giong noi la TTS tong hop, khong phai nguoi noi.
+  3. Latency do tren CPU may dev, KHONG phai node CarSky va KHONG phai Device.
+  4. Day la mot nua cua truc so sanh o 15-QUYET-DINH-BENCHMARK-ASR.md.
+     Nua con lai — Vosk on-device tren cung corpus — chua chay.
+  => Ket luan duoc phep rut ra: MUC SUY GIAM tuong doi giua cac muc nhieu.
+     Khong duoc phat bieu do chinh xac tuyet doi cua VIVA tren duong that.

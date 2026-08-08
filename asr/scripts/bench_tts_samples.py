@@ -13,8 +13,9 @@ recording anything new.
   * The clips are **synthesised speech**, not a driver in a cabin. Word error
     here is a floor, not a prediction of real-world accuracy.
   * They are 22.05 kHz and the service accepts only 16 kHz, so this script
-    resamples by linear interpolation. That is cheaper and worse than a proper
-    filter — it can only hurt accuracy, never flatter it.
+    resamples with a windowed-sinc filter (`resample.py`). That removes the
+    aliasing the old linear interpolation introduced — but the clips are still
+    synthesised speech, so accuracy here remains a floor, not a prediction.
   * RTF is measured on whatever CPU this runs on. A CarSky container node is a
     different machine; do not quote this number as the platform's latency.
 
@@ -37,6 +38,10 @@ import urllib.request
 import uuid
 import wave
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from resample import resample_sinc  # noqa: E402
 
 TARGET_RATE = 16000
 
@@ -67,20 +72,13 @@ def read_wav_mono16(path: Path) -> tuple[array.array, int]:
 
 
 def resample_linear(samples: array.array, src_rate: int, dst_rate: int) -> array.array:
-    """Linear-interpolation resample. Deliberately simple — see the module docstring."""
-    if src_rate == dst_rate:
-        return samples
-    out = array.array("h")
-    ratio = src_rate / dst_rate
-    n_out = int(len(samples) / ratio)
-    for i in range(n_out):
-        pos = i * ratio
-        left = int(pos)
-        right = min(left + 1, len(samples) - 1)
-        frac = pos - left
-        value = samples[left] * (1.0 - frac) + samples[right] * frac
-        out.append(int(max(-32768, min(32767, round(value)))))
-    return out
+    """Kept under the old name because `noise_mix.py` imports it.
+
+    No longer linear: it delegates to the windowed-sinc filter. The old
+    interpolation had no anti-alias stage and folded everything above 8 kHz
+    back into the speech band.
+    """
+    return resample_sinc(samples, src_rate, dst_rate)
 
 
 def normalize(text: str) -> list[str]:
@@ -192,7 +190,7 @@ def main() -> int:
     print(f"server_ms    : p50={statistics.median(servers):.0f}  p95={p95}  max={servers[-1]}")
     print(f"CSV -> {args.out}")
     print()
-    print("Nho: clip la giong TTS tong hop, da resample 22.05k->16k bang noi suy tuyen tinh,")
+    print("Nho: clip la giong TTS tong hop, resample 22.05k->16k bang windowed-sinc,")
     print("va RTF do tren CPU may nay — khong phai so cua container node CarSky.")
     return 0
 

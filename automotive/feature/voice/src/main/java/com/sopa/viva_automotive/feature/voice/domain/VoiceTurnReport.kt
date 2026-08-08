@@ -1,5 +1,6 @@
 package com.sopa.viva_automotive.feature.voice.domain
 
+import com.sopa.viva_automotive.feature.voice.data.TranscriptionEvent
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.SafetyConfirmationRequiredException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
@@ -10,6 +11,39 @@ object VoiceTurnReport {
 
     const val DID_NOT_HEAR = "Mình chưa nghe rõ. Bạn thử lại giúp mình nhé."
     const val COMMAND_FAILED = "Mình chưa thực hiện được yêu cầu. Bạn thử lại giúp mình nhé."
+    const val ASR_UNAVAILABLE = "Bộ nhận dạng giọng nói chưa sẵn sàng."
+    const val MICROPHONE_UNAVAILABLE = "Mình chưa mở được micro. Bạn kiểm tra quyền ghi âm giúp mình nhé."
+
+    /**
+     * Dưới mức này thì một transcript **đã được đo** là không đủ chắc để thành lệnh
+     * xe; lượt đó hỏi lại thay vì thực thi (28-PIPELINE §5, hàng "ASR confidence thấp").
+     *
+     * Chỉ áp dụng khi engine thật sự trả về một con số. Vosk small trả `null` và
+     * `null` **không** rơi vào luật này — xem [needsRepeatForConfidence].
+     */
+    const val MIN_ACOUSTIC_CONFIDENCE = 0.6f
+
+    /**
+     * Câu tiếng Việt cho HMI/TTS ứng với mã lỗi của tầng ASR.
+     *
+     * Mã lỗi là thứ máy đọc; `diagnostic` là thứ để đọc log. Không cái nào được nói
+     * ra cho tài xế — bản trước đọc thẳng "Microphone is unavailable" lên màn hình
+     * xe tiếng Việt.
+     */
+    fun speechErrorSpeech(code: String): String = when (code) {
+        TranscriptionEvent.CODE_MODEL_UNAVAILABLE -> ASR_UNAVAILABLE
+        else -> DID_NOT_HEAR
+    }
+
+    /**
+     * `true` khi ASR **đã đo** confidence và con số đó quá thấp.
+     *
+     * `null` trả về `false`: thiếu confidence là một trạng thái quan sát được, không
+     * phải bằng chứng nghe kém. Nếu coi `null` là thấp thì bản offline dùng Vosk sẽ
+     * hỏi lại mọi câu và không bao giờ chạy được lệnh nào.
+     */
+    fun needsRepeatForConfidence(acousticConfidence: Float?): Boolean =
+        acousticConfidence != null && acousticConfidence < MIN_ACOUSTIC_CONFIDENCE
 
     fun intentName(intent: VehicleIntent): String = when (intent) {
         is VehicleIntent.SetTemperature, is VehicleIntent.AdjustTemperature -> "hvac_set_temp"

@@ -65,6 +65,28 @@ def segments_to_confidence(avg_logprobs_and_durations: list[tuple[float, float]]
     return max(0.0, min(1.0, weighted / total_duration))
 
 
+def build_transcribe_kwargs(settings: Settings) -> dict:
+    """Decoding options for one utterance.
+
+    A plain function, not a method, so the tests can check it without the
+    ~100 MB faster-whisper wheel on the machine.
+    """
+    kwargs = {
+        "language": settings.language,
+        "beam_size": settings.beam_size,
+        # The app already ran Silero VAD before sending (L3), so a second VAD
+        # pass here would only add latency and risk cutting the tail.
+        "vad_filter": False,
+    }
+    if settings.initial_prompt:
+        kwargs["initial_prompt"] = settings.initial_prompt
+    if settings.hotwords:
+        kwargs["hotwords"] = settings.hotwords
+    if settings.max_new_tokens > 0:
+        kwargs["max_new_tokens"] = settings.max_new_tokens
+    return kwargs
+
+
 class FasterWhisperTranscriber:
     """Thin wrapper over `faster_whisper.WhisperModel`.
 
@@ -92,11 +114,7 @@ class FasterWhisperTranscriber:
         audio = np.asarray(samples, dtype=np.float32)
         segments, info = self._model.transcribe(
             audio,
-            language=self._settings.language,
-            beam_size=self._settings.beam_size,
-            # The app already ran Silero VAD before sending (L3), so a second
-            # VAD pass here would only add latency and risk cutting the tail.
-            vad_filter=False,
+            **build_transcribe_kwargs(self._settings),
         )
 
         texts: list[str] = []

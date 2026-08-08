@@ -1,0 +1,36 @@
+{
+  "nodeKey": "central-broker-vss",
+  "total_signals_in_broker": 1268,
+  "m2_signals": [
+    {
+      "path": "Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature",
+      "dataType": "float",
+      "entryType": "actuator",
+      "description": "Temperature",
+      "unit": "Celsius"
+    },
+    {
+      "path": "Vehicle.Cabin.Door.Row1.DriverSide.IsLocked",
+      "dataType": "bool",
+      "entryType": "actuator",
+      "description": "Is item locked or unlocked. True = Locked. False = Unlocked.",
+      "unit": ""
+    },
+    {
+      "path": "Vehicle.Speed",
+      "dataType": "float",
+      "entryType": "sensor",
+      "description": "Vehicle speed.",
+      "unit": "km/h"
+    },
+    {
+      "path": "Vehicle.Cabin.HVAC.Station.Row1.Driver.FanSpeed",
+      "dataType": "uint8",
+      "entryType": "actuator",
+      "description": "Fan Speed, 0 = off. 100 = max",
+      "unit": "percent",
+      "min": 0,
+      "max": 100
+    }
+  ]
+}

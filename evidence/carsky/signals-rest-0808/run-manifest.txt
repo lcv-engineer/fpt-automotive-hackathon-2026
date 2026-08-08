@@ -1,0 +1,123 @@
+Evidence: SIGNALS REST — doc/ghi tin hieu CarSky KHONG qua Conduit
+Label: CARSKY PLATFORM — duong REST that, KHONG phai bang chung core flow cua app
+Captured at: 2026-08-07 19:30–19:37 UTC (2026-08-08 02:30–02:37 gio Asia/Saigon)
+Repository commit: c24c28b (nhanh main)
+Room: v37aa3knc6t1embelr5yi (device VIVA — room demo), 22/22 node phase=Running
+
+VI SAO CO FILE NAY
+------------------
+Tai lieu cua doi (docs/backend-docs/carsky-api.md §4, §4b va vong2/25) dang ghi
+rang khong gui duoc gi vao room vi ho endpoint Conduit tra 502. Dieu do DUNG voi
+ho endpoint dieu khien VM (shell/adb-exec/screenshot/tap/...), nhung SAI khi suy
+rong ra ca nen tang: ho endpoint /signals KHONG di qua Conduit va dang chay tot.
+
+BA CHO TAI LIEU GHI SAI — da kiem bang openapi.json cua nen tang
+----------------------------------------------------------------
+1. §4b ghi "GET /api/v1/signals/{roomId}/{nodeKey}/values".
+   Route that la **POST**, khong phai GET. Goi bang GET tra 404 "Route not found",
+   va do la ly do doi tuong route khong ton tai.
+2. nodeKey cua ho /signals KHONG phai UUID node trong /deployments/{room}/nodes.
+   No la truong "key" tra ve boi GET /signals/{roomId}:
+     central-broker-vss · bcm-can · pwt-can · drive-controls ·
+     battery-sensor · seatbelt-sensor · tirepressure-sensor
+3. Spec co **9 route** trong ho /signals, khong phai 2:
+     GET  /signals/{room}
+     GET  /signals/{room}/{node}                    — liet ke tin hieu + metadata
+     POST /signals/{room}/{node}/values             — doc gia tri hien tai
+     POST /signals/{room}/{node}/actuate            — ghi gia tri
+     GET  /signals/{room}/{node}/subscribe          — SSE, doi query param `paths`
+     GET/POST .../periodic, .../periodic/start, .../periodic/stop, .../periodic/subscribe
+
+DA CHAY THAT — tat ca 200
+-------------------------
+  GET  /signals/{room}                          -> 7 nguon tin hieu
+  GET  /signals/{room}/central-broker-vss       -> 1268 tin hieu VSS kem metadata
+  GET  /signals/{room}/bcm-can                  -> 33 tin hieu CAN
+  GET  /signals/{room}/drive-controls           -> 3 tin hieu GPIO
+  POST /signals/{room}/central-broker-vss/values-> gia tri song
+  POST /signals/{room}/central-broker-vss/actuate -> {"ok":true,"sent":1}
+
+METADATA TREN BROKER KHOP BANG M2 (03-contracts.md §0.2)
+--------------------------------------------------------
+  Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature
+      float · actuator · Celsius
+  Vehicle.Cabin.HVAC.Station.Row1.Driver.FanSpeed
+      uint8 · actuator · **percent 0..100**   <- dung ly do contract bat quy doi level x 20
+  Vehicle.Cabin.Door.Row1.DriverSide.IsLocked
+      bool · actuator · **True = Locked**     <- xac nhan polarity cua M2
+  Vehicle.Speed
+      float · sensor · km/h
+CAN (bcm-can) khop docs/dbc/README.md:
+  HvacCommand/Driver_Temperature [16,32] Celsius · HvacCommand/Driver_FanSpeed [0,5]
+  HvacStatus/Driver_Temperature  [-40,80]         · HvacStatus/Driver_FanSpeed  [0,5]
+GPIO (drive-controls): vcu/Speed [0,180] kmh **actuator** · vcu/Gear · vcu/DriveMode
+  -> day la cho dat toc do cho ablation A1, dat duoc bang REST.
+
+VONG WRITE -> READBACK TREN KUKSA — DA CHUNG MINH
+--------------------------------------------------
+  T0 19:34:34Z  POST /values  -> Driver.Temperature = null   (ts 2026-08-05T14:30:56.412Z)
+  T1 19:34:36Z  POST /actuate {"path":"...Driver.Temperature","value":24.0}
+                -> 200 {"ok":true,"sent":1}
+  T2 19:34:54Z  POST /values  -> Driver.Temperature = 24     (ts 2026-08-07T19:34:36.246Z)
+
+  Gia tri doi tu null sang 24 va timestamp nhay dung sang thoi diem ghi.
+  Day la mot vong ghi -> doc lai THAT tren nen tang CarSky, qua HTTPS, khong
+  can Conduit va khong can nydus-reach.
+
+CAI NAY KHONG CHUNG MINH DIEU GI — doc ky truoc khi trich
+----------------------------------------------------------
+1. KHONG chung minh core flow cua app chay tren CarSky. Day la REST goi thang
+   vao KUKSA broker, khong co APK, khong co VHAL, khong co SafetyGuard trong
+   duong nay. Ban chat no la mot cong cu DO, khong phai san pham.
+2. Ghi VSS tu ben ngoai KHONG lan xuong CAN.
+   - POST /values tren bcm-can tra {"values":[]}
+   - SSE bcm-can/subscribe voi paths=HvacCommand/Driver_Temperature trong 20 giay
+     chi nhan duoc mot su kien "ping", khong co frame nao.
+   - Thu lai voi co provider-based: {"value":23.0,"actuate":true} -> 200
+     {"ok":true,"sent":1} nhung gia tri hien tai VAN la 24 voi timestamp cu,
+     tuc khong co provider nao nhan lenh do.
+   Ly giai phu hop voi infotainment_gateway.lua trong blueprint: chuoi
+   VSS -> CAN duoc kich hoat tu phia VHAL (pins.vhal:on_change -> actuate_kuksa),
+   nghia la van PHAI co APK chay tren node skycraft moi dong duoc chuoi day du.
+3. Khong dung file nay cho E03/E04 (trace + p50/p95) hay E06/E07/E08 (readback
+   property qua CarPropertyManager). No khong thay the bat ky evidence nao do.
+
+DUNG DUOC VAO VIEC GI
+---------------------
+- O barem "Evidence tu platform" (4d) doi "log/trace/output tu CarSky". Day la
+  output tu CarSky, lay duoc va lap lai duoc.
+- Xac nhan bang M2 bang chinh metadata cua nen tang, thay vi bang tai lieu doi tu viet.
+- Khi APK duoc cai len node skycraft, day la CACH DOC lai de chung minh lenh cua
+  app that su cham toi KUKSA: ghi tu app -> POST /values doc lai tu ngoai.
+- Dat toc do cho ablation A1 qua drive-controls (vcu/Speed) bang REST.
+
+TRANG THAI DE LAI TRONG ROOM
+-----------------------------
+  Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature: null -> 24 (do lan ghi nay).
+  Ba path con lai (FanSpeed, Door IsLocked) van null, khong dung toi.
+  Vehicle.Speed KHONG bi ghi. Khong deploy, khong redeploy, khong xoa gi.
+  24 dung bang gia tri mac dinh trong kich ban demo nen khong lam lech buoi duyet.
+  Muon dua ve trang thai cu: POST /actuate voi {"value":null}.
+
+CACH TAI LAP
+------------
+  cd backend
+  KEY=$(grep '^CARSKY_API_KEY=' .env | cut -d= -f2-)
+  ROOM=$(grep '^CARSKY_ROOM_ID=' .env | cut -d= -f2-)
+  B=https://hackathon-2.carsky.io/api/v1
+  curl -s -H "x-api-key: $KEY" "$B/signals/$ROOM"
+  curl -s -H "x-api-key: $KEY" -H "Content-Type: application/json" \
+    -d '{"paths":["Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature"]}' \
+    "$B/signals/$ROOM/central-broker-vss/values"
+
+FILE TRONG THU MUC
+------------------
+  01-signal-sources.json      GET /signals/{room}
+  02-vss-m2-signals.json      4 tin hieu VSS cua bang M2 + tong so 1268
+  03-can-bcm-signals.json     GET /signals/{room}/bcm-can (33 tin hieu)
+  04-gpio-drive-controls.json GET /signals/{room}/drive-controls
+  05-vss-values-after.json    POST /values sau lan ghi
+  run-manifest.txt            file nay
+
+Khong commit openapi.json (128 KB, noi bo nen tang — the le 3.6). Tai lai bang:
+  curl -H "x-api-key: $KEY" https://hackathon-2.carsky.io/api/v1/openapi.json

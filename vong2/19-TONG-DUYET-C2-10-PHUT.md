@@ -1,5 +1,9 @@
 # Runbook tổng duyệt C2 — 10 phút
 
+> Chuẩn bị kỹ thuật build/CI/APK identity/ADB/install/diagnostics trước khi bấm
+> giờ nằm ở [CarSky AAOS device gate](25-CARSKY-AAOS-DEVICE-GATE.md). Không dùng
+> 10 phút tổng duyệt để sửa tunnel, tìm APK hoặc đoán privileged permission.
+
 Ngày dự kiến chạy: **02/08/2026**
 Mục tiêu: hoàn thành **một lượt liên tục**, thu evidence thật và chốt claim nào được phép dùng cho C2 ngày 03/08.
 

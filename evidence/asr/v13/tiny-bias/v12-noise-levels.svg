@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="340" viewBox="0 0 720 340" font-family="Segoe UI, Arial, sans-serif">
+<rect width="720" height="340" fill="#ffffff"/>
+<text x="360.0" y="22" text-anchor="middle" font-size="15" font-weight="600">viva-asr — do tre va WER theo muc nhieu</text>
+<text x="360.0" y="38" text-anchor="middle" font-size="10" fill="#8a6d1f">Nhieu TONG HOP tren giong TTS, do tren CPU may dev — khong phai so cua CarSky/Device</text>
+<line x1="62" y1="286.0" x2="658" y2="286.0" stroke="#e8e8e8" stroke-width="1"/>
+<text x="54" y="289.0" text-anchor="end" font-size="10" fill="#555">0</text>
+<text x="666" y="289.0" font-size="10" fill="#c2410c">0.00</text>
+<line x1="62" y1="226.0" x2="658" y2="226.0" stroke="#e8e8e8" stroke-width="1"/>
+<text x="54" y="229.0" text-anchor="end" font-size="10" fill="#555">1484</text>
+<text x="666" y="229.0" font-size="10" fill="#c2410c">0.25</text>
+<line x1="62" y1="166.0" x2="658" y2="166.0" stroke="#e8e8e8" stroke-width="1"/>
+<text x="54" y="169.0" text-anchor="end" font-size="10" fill="#555">2969</text>
+<text x="666" y="169.0" font-size="10" fill="#c2410c">0.50</text>
+<line x1="62" y1="106.0" x2="658" y2="106.0" stroke="#e8e8e8" stroke-width="1"/>
+<text x="54" y="109.0" text-anchor="end" font-size="10" fill="#555">4453</text>
+<text x="666" y="109.0" font-size="10" fill="#c2410c">0.75</text>
+<line x1="62" y1="46.0" x2="658" y2="46.0" stroke="#e8e8e8" stroke-width="1"/>
+<text x="54" y="49.0" text-anchor="end" font-size="10" fill="#555">5938</text>
+<text x="666" y="49.0" font-size="10" fill="#c2410c">1.00</text>
+<text x="54" y="34" text-anchor="end" font-size="10" fill="#555">ms</text>
+<text x="666" y="34" font-size="10" fill="#c2410c">WER</text>
+<rect x="95.8" y="143.6" width="38.7" height="142.4" fill="#2563eb"/>
+<text x="115.2" y="139.6" text-anchor="middle" font-size="9" fill="#1e3a8a">3524</text>
+<rect x="138.4" y="114.7" width="38.7" height="171.3" fill="#93c5fd"/>
+<text x="157.8" y="110.7" text-anchor="middle" font-size="9" fill="#1e3a8a">4238</text>
+<text x="136.5" y="304" text-anchor="middle" font-size="11">clean</text>
+<text x="136.5" y="318" text-anchor="middle" font-size="9" fill="#777">n=20 · loi=0</text>
+<rect x="244.8" y="129.0" width="38.7" height="157.0" fill="#2563eb"/>
+<text x="264.2" y="125.0" text-anchor="middle" font-size="9" fill="#1e3a8a">3884</text>
+<rect x="287.4" y="94.1" width="38.7" height="191.9" fill="#93c5fd"/>
+<text x="306.8" y="90.1" text-anchor="middle" font-size="9" fill="#1e3a8a">4748</text>
+<text x="285.5" y="304" text-anchor="middle" font-size="11">quiet · 20 dB</text>
+<text x="285.5" y="318" text-anchor="middle" font-size="9" fill="#777">n=20 · loi=0</text>
+<rect x="393.8" y="109.9" width="38.7" height="176.1" fill="#2563eb"/>
+<text x="413.2" y="105.9" text-anchor="middle" font-size="9" fill="#1e3a8a">4356</text>
+<rect x="436.4" y="95.1" width="38.7" height="190.9" fill="#93c5fd"/>
+<text x="455.8" y="91.1" text-anchor="middle" font-size="9" fill="#1e3a8a">4722</text>
+<text x="434.5" y="304" text-anchor="middle" font-size="11">cabin · 10 dB</text>
+<text x="434.5" y="318" text-anchor="middle" font-size="9" fill="#777">n=20 · loi=0</text>
+<rect x="542.8" y="129.1" width="38.7" height="156.9" fill="#2563eb"/>
+<text x="562.2" y="125.1" text-anchor="middle" font-size="9" fill="#1e3a8a">3882</text>
+<rect x="585.4" y="94.0" width="38.7" height="192.0" fill="#93c5fd"/>
+<text x="604.8" y="90.0" text-anchor="middle" font-size="9" fill="#1e3a8a">4750</text>
+<text x="583.5" y="304" text-anchor="middle" font-size="11">highway · 5 dB</text>
+<text x="583.5" y="318" text-anchor="middle" font-size="9" fill="#777">n=20 · loi=0</text>
+<polyline points="136.5,-6018.0 285.5,-4257.2 434.5,-5603.0 583.5,-5470.8" fill="none" stroke="#c2410c" stroke-width="2"/>
+<circle cx="136.5" cy="-6018.0" r="3.5" fill="#c2410c"/>
+<text x="136.5" y="-6027.0" text-anchor="middle" font-size="9" fill="#c2410c">26.267</text>
+<circle cx="285.5" cy="-4257.2" r="3.5" fill="#c2410c"/>
+<text x="285.5" y="-4266.2" text-anchor="middle" font-size="9" fill="#c2410c">18.930</text>
+<circle cx="434.5" cy="-5603.0" r="3.5" fill="#c2410c"/>
+<text x="434.5" y="-5612.0" text-anchor="middle" font-size="9" fill="#c2410c">24.538</text>
+<circle cx="583.5" cy="-5470.8" r="3.5" fill="#c2410c"/>
+<text x="583.5" y="-5479.8" text-anchor="middle" font-size="9" fill="#c2410c">23.987</text>
+<rect x="62" y="324" width="10" height="10" fill="#2563eb"/>
+<text x="76" y="333" font-size="10" fill="#333">server p50</text>
+<rect x="144" y="324" width="10" height="10" fill="#93c5fd"/>
+<text x="158" y="333" font-size="10" fill="#333">server p95</text>
+<rect x="226" y="324" width="10" height="10" fill="#c2410c"/>
+<text x="240" y="333" font-size="10" fill="#333">WER trung binh</text>
+</svg>

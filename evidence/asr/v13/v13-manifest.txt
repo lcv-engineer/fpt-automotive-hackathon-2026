@@ -1,0 +1,30 @@
+## V13 Benchmark Manifest
+
+**Run Date**: 2026-08-06
+**Environment**: Local Docker on CPU (Not CarSky node, Not on-device)
+**Corpus**: `evidence/asr/corpus-human` (16kHz, mono, 16-bit)
+**Models Benchmarked**: 
+- `vinai/PhoWhisper-tiny` (int8)
+- `vinai/PhoWhisper-base` (int8)
+- `vinai/PhoWhisper-small` (build failed due to HuggingFace CDN 500 Error, but not required based on results below)
+
+### Kết quả Latency (server_ms)
+| Model | Biasing | Level | p50 | p95 | max |
+|-------|---------|-------|-----|-----|-----|
+| tiny  | bias    | clean | 3524| 4238| 4287|
+| base  | bias    | clean | 347 | 6265| 7105|
+| tiny  | nobias  | clean | 188 | 244 | 289 |
+| base  | nobias  | clean | 354 | 920 | 981 |
+
+### Kết quả Intent Accuracy (Tổng 80 clips)
+| Model | Biasing | Correct | Accuracy |
+|-------|---------|---------|----------|
+| tiny  | bias    | 4 / 80  | 5.0%     |
+| base  | bias    | 17 / 80 | 21.25%   |
+| tiny  | nobias  | 23 / 80 | 28.75%   |
+| base  | nobias  | 9 / 80  | 11.25%   |
+
+### Phân tích và Kết luận
+> Prompt 161 ký tự hiện tại gây lặp từ và phá ngân sách latency nên bị loại. Benchmark chưa chứng minh INT8 hoặc kích thước model là nguyên nhân của intent accuracy thấp; kết quả đang bị ảnh hưởng bởi việc router chưa chuẩn hóa số tiếng Việt. Chưa chọn model cuối cùng cho đến khi chấm lại sau chuẩn hóa và chạy đối chứng float32 nếu cần.
+
+Fallback tạm thời (demo): **tiny-nobias** (nhanh hơn, accuracy quan sát được tốt hơn base).

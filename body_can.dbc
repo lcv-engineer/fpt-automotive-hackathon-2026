@@ -1,0 +1,123 @@
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: Gateway HVAC BCM VCU
+
+// ─── GLOBAL — Gateway ↔ ECU, strictly VSS-aligned ───────────────────
+// Each signal maps 1:1 to a VSS leaf node; the Body Gateway script
+// translates KUKSA actuate/publish ↔ CAN. Signal names follow the VSS
+// leaf name, prefixed with the disambiguating path segments (zone /
+// side) where the same leaf appears at multiple VSS branches.
+//
+// HvacCommand and HvacStatus share an identical bit layout — the only
+// difference is direction (Gateway→HVAC vs HVAC→Gateway) and the
+// Temperature scale/offset (setpoint vs measured ambient range).
+
+BO_ 256 HvacCommand: 6 Gateway
+ SG_ Driver_Temperature : 0|16@1+ (0.1,0) [16|32] "Celsius" HVAC
+ SG_ Passenger_Temperature : 16|16@1+ (0.1,0) [16|32] "Celsius" HVAC
+ SG_ Driver_FanSpeed : 32|8@1+ (1,0) [0|5] "" HVAC
+ SG_ IsAirConditioningActive : 40|1@1+ (1,0) [0|1] "" HVAC
+ SG_ Driver_AirDistribution : 41|2@1+ (1,0) [0|2] "" HVAC
+ SG_ IsRecirculationActive : 43|1@1+ (1,0) [0|1] "" HVAC
+ SG_ IsFrontDefrosterActive : 44|1@1+ (1,0) [0|1] "" HVAC
+ SG_ IsRearDefrosterActive : 45|1@1+ (1,0) [0|1] "" HVAC
+ SG_ IsAutoPowerOptimize : 46|1@1+ (1,0) [0|1] "" HVAC
+
+BO_ 257 HvacStatus: 8 HVAC
+ SG_ Driver_Temperature : 0|16@1+ (0.1,-40) [-40|80] "Celsius" Gateway
+ SG_ Passenger_Temperature : 16|16@1+ (0.1,-40) [-40|80] "Celsius" Gateway
+ SG_ Driver_FanSpeed : 32|8@1+ (1,0) [0|5] "" Gateway
+ SG_ IsAirConditioningActive : 40|1@1+ (1,0) [0|1] "" Gateway
+ SG_ Driver_AirDistribution : 41|2@1+ (1,0) [0|2] "" Gateway
+ SG_ IsRecirculationActive : 43|1@1+ (1,0) [0|1] "" Gateway
+ SG_ IsFrontDefrosterActive : 44|1@1+ (1,0) [0|1] "" Gateway
+ SG_ IsRearDefrosterActive : 45|1@1+ (1,0) [0|1] "" Gateway
+ SG_ IsAutoPowerOptimize : 46|1@1+ (1,0) [0|1] "" Gateway
+
+BO_ 528 DoorCommand: 4 Gateway
+ SG_ Row1Driver_IsLocked : 0|8@1+ (1,0) [0|1] "" BCM
+ SG_ Row1Passenger_IsLocked : 8|8@1+ (1,0) [0|1] "" BCM
+ SG_ Row2Driver_IsLocked : 16|8@1+ (1,0) [0|1] "" BCM
+ SG_ Row2Passenger_IsLocked : 24|8@1+ (1,0) [0|1] "" BCM
+
+BO_ 769 DoorStatus: 4 BCM
+ SG_ Row1Driver_IsLocked : 0|8@1+ (1,0) [0|1] "" Gateway
+ SG_ Row1Passenger_IsLocked : 8|8@1+ (1,0) [0|1] "" Gateway
+ SG_ Row2Driver_IsLocked : 16|8@1+ (1,0) [0|1] "" Gateway
+ SG_ Row2Passenger_IsLocked : 24|8@1+ (1,0) [0|1] "" Gateway
+
+BO_ 784 TirePressure: 8 BCM
+ SG_ Row1Left_TirePressure : 0|16@1+ (0.1,0) [0|500] "kPa" Gateway
+ SG_ Row1Right_TirePressure : 16|16@1+ (0.1,0) [0|500] "kPa" Gateway
+ SG_ Row2Left_TirePressure : 32|16@1+ (0.1,0) [0|500] "kPa" Gateway
+ SG_ Row2Right_TirePressure : 48|16@1+ (0.1,0) [0|500] "kPa" Gateway
+
+BO_ 770 PowerState: 1 BCM
+ SG_ LowVoltageSystemState : 0|8@1+ (1,0) [0|5] "" Gateway
+
+// SeatBelt vECU (AUTOSAR) status, mirrored onto the Body bus from its own
+// CAN via VECU_CAN2_IFACE. 2-bit FSM: Body Gateway maps READY ⇒ IsBelted=true
+// and INIT ⇒ OccupancyStatus=EMPTY (any other state ⇒ OCCUPIED).
+BO_ 1343 VCU_TX_SEATBELT: 8 VCU
+ SG_ VCU_Seatbelt_Sts : 0|2@1+ (1,0) [0|3] "" Gateway
+
+// Cross-domain speed relay (Powertrain → Body). Vehicle.Speed originates in
+// the Powertrain domain; the Body Gateway subscribes it from KUKSA and
+// re-emits it here so the SeatBelt vECU — which reads speed off the Body CAN
+// (VECU_CAN0_IFACE=can) — sees it for its NOT_READY_2 (speed>20) state.
+// ID 0x460 + scale 0.1 match the vECU CAN0 speed_reader. No CAN-to-CAN
+// bridge: KUKSA is the only cross-domain path.
+BO_ 1120 PWT_VehicleSpeed: 4 Gateway
+ SG_ Speed_kph : 0|16@1+ (0.1,0) [0|300] "km/h" VCU
+
+// ─── INTERNAL — ECU ↔ ECU within body zone (no VSS contract) ────────
+// Reserved for messages that don't reach the Gateway. Add SeatBelt vECU
+// inputs/outputs, BCM↔HVAC cross-talk, etc. here when needed.
+
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 10000;
+BA_DEF_DEF_ "GenMsgCycleTime" 0;
+
+// Commands are event-driven (cycle 0). Status messages broadcast
+// cyclically so a late-joining Body Gateway catches the current ECU
+// state on the next tick — matches real automotive bus behaviour.
+BA_ "GenMsgCycleTime" BO_ 256 0;
+BA_ "GenMsgCycleTime" BO_ 257 200;
+BA_ "GenMsgCycleTime" BO_ 528 0;
+BA_ "GenMsgCycleTime" BO_ 769 200;
+BA_ "GenMsgCycleTime" BO_ 784 1000;
+BA_ "GenMsgCycleTime" BO_ 770 1000;
+// vECU owns the cyclic TX (AUTOSAR Com PERIODIC 100ms); nydus only receives
+// 0x53F here, so leave the nydus-side cycle at 0 (no periodic :publish).
+BA_ "GenMsgCycleTime" BO_ 1343 0;
+// Speed relay is a nydus :publish from the Body Gateway — broadcast at 10 Hz
+// so the vECU's speed_reader stays fresh even when the value is steady.
+BA_ "GenMsgCycleTime" BO_ 1120 100;
+
+
+VAL_ 256 IsAirConditioningActive 0 "Off" 1 "On" ;
+VAL_ 256 IsRecirculationActive 0 "Off" 1 "On" ;
+VAL_ 256 IsAutoPowerOptimize 0 "Off" 1 "On" ;
+VAL_ 256 IsFrontDefrosterActive 0 "Off" 1 "On" ;
+VAL_ 256 IsRearDefrosterActive 0 "Off" 1 "On" ;
+VAL_ 256 Driver_AirDistribution 0 "UP" 1 "MIDDLE" 2 "DOWN" ;
+VAL_ 257 IsAirConditioningActive 0 "Off" 1 "On" ;
+VAL_ 257 IsRecirculationActive 0 "Off" 1 "On" ;
+VAL_ 257 IsAutoPowerOptimize 0 "Off" 1 "On" ;
+VAL_ 257 IsFrontDefrosterActive 0 "Off" 1 "On" ;
+VAL_ 257 IsRearDefrosterActive 0 "Off" 1 "On" ;
+VAL_ 257 Driver_AirDistribution 0 "UP" 1 "MIDDLE" 2 "DOWN" ;
+VAL_ 528 Row1Driver_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 528 Row1Passenger_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 528 Row2Driver_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 528 Row2Passenger_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 769 Row1Driver_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 769 Row1Passenger_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 769 Row2Driver_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 769 Row2Passenger_IsLocked 0 "Unlocked" 1 "Locked" ;
+VAL_ 770 LowVoltageSystemState 0 "UNDEFINED" 1 "LOCK" 2 "OFF" 3 "ACC" 4 "ON" 5 "START" ;
+VAL_ 1343 VCU_Seatbelt_Sts 0 "INIT" 1 "READY" 2 "NOT_READY_1" 3 "NOT_READY_2" ;

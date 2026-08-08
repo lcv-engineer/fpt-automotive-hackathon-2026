@@ -1,0 +1,134 @@
+name: carsky-push-asr-image
+
+# Build `viva-asr` rồi push lên registry của CarSky, và in ra **digest**.
+#
+# Digest đó là đầu vào của workflow `carsky-deploy-asr`. Hai workflow tách rời
+# có chủ đích: push là thao tác chỉ thêm (không ai đang chạy bị ảnh hưởng), còn
+# deploy động vào room demo. Gộp chung thì mỗi lần muốn build thử lại phải cân
+# nhắc xem có làm sập buổi duyệt không.
+#
+# ## ✅ Đã chạy được từ 07/08/2026
+#
+# Registry đòi credential riêng — API key CarSky KHÔNG dùng được (thử 06/08:
+# `Basic viva:<api-key>`, `Bearer <api-key>` và ẩn danh đều 401). Cặp đúng nằm
+# ở `backend/.env` (`CARSKY_REGISTRY_USER` / `CARSKY_REGISTRY_TOKEN`) và đã đặt
+# lên Settings → Secrets → Actions thành CARSKY_REGISTRY_USERNAME /
+# CARSKY_REGISTRY_PASSWORD. Chạy thật 07/08: build 3m44s, push tag `0.2.0`.
+#
+# ## Push xong thì CHƯA phải deploy xong
+#
+# `PATCH /api/v1/nodes/{nodeId}` trả **404** — không đổi được image của node
+# bằng API. Sau khi workflow này in ra digest, phải vào **web UI CarSky** đổi
+# trường image của node `VIVA ASR`, rồi mới chạy `carsky-deploy-asr` để restart
+# và xác minh. Chi tiết ở docs/backend-docs/carsky-api.md §9c.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag để push (digest vẫn là thứ dùng khi deploy)"
+        required: true
+        default: "phowhisper-tiny-int8"
+        type: string
+      hf_model:
+        description: "Model gốc trên HuggingFace"
+        required: true
+        default: "vinai/PhoWhisper-tiny"
+        type: string
+      model_name:
+        # TÁCH KHỎI `tag` có chủ đích. Bản trước dùng `ASR_MODEL_NAME=${{ inputs.tag }}`,
+        # tức gộp "tên bản phát hành" với "nhãn model" làm một. Nó chỉ đúng khi
+        # tag tình cờ trùng tên model — và đó là lý do tag mặc định là
+        # `phowhisper-tiny-int8`. Push ngày 07/08 với `tag=0.2.0` làm lộ ra:
+        # image ra đời mang `ASR_MODEL_NAME=0.2.0`, nên `/health` và header
+        # `X-Asr-Model` khai báo một cái tên model không tồn tại.
+        description: "Nhãn model báo cáo ở /health và header X-Asr-Model"
+        required: true
+        default: "phowhisper-tiny-int8"
+        type: string
+
+env:
+  IMAGE: registry.hackathon-2.carsky.io/viva/viva-asr
+
+jobs:
+  push:
+    name: build + push + in digest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: kiểm secret
+        run: |
+          missing=""
+          [ -z "${{ secrets.CARSKY_REGISTRY_USERNAME }}" ] && missing="$missing CARSKY_REGISTRY_USERNAME"
+          [ -z "${{ secrets.CARSKY_REGISTRY_PASSWORD }}" ] && missing="$missing CARSKY_REGISTRY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Thiếu secret:$missing — xem phần đầu file workflow."
+            exit 1
+          fi
+
+      # Bắt buộc cho build arm64 trên runner x86 — thiếu nó thì stage `runtime`
+      # (có `pip install`) không chạy được dưới kiến trúc khác.
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: registry.hackathon-2.carsky.io
+          username: ${{ secrets.CARSKY_REGISTRY_USERNAME }}
+          password: ${{ secrets.CARSKY_REGISTRY_PASSWORD }}
+
+      - name: build và push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: asr
+          push: true
+          # ⚠️ ĐỪNG thu về mỗi `linux/amd64`. Bản trước ghi "node chạy trên
+          # cluster x86" — đó là GIẢ ĐỊNH chưa ai kiểm, và nó đã tốn một buổi:
+          #
+          #   0.1.0 (chạy được)  : linux/amd64 + linux/arm64
+          #   0.2.0 (amd64-only) : Redeploy -> "Partial redeploy: 1 node(s) failed"
+          #
+          # Nền tảng không cho xem pod đang fail (nodes/watch giữ nguyên Running,
+          # logs chỉ trỏ về pod cũ, container-exec 502) nên không đọc được lý do
+          # trực tiếp. Nhưng bản duy nhất từng chạy được là bản đa kiến trúc, và
+          # biến DUY NHẤT khác giữa hai lần là dòng này.
+          #
+          # Giữ đúng bộ kiến trúc của 0.1.0 cho tới khi có ai đó xác minh được
+          # kiến trúc thật của node. Build lâu hơn vài phút, đổi lại không cược.
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.IMAGE }}:${{ inputs.tag }}
+          build-args: |
+            ASR_HF_MODEL=${{ inputs.hf_model }}
+            ASR_MODEL_NAME=${{ inputs.model_name }}
+            # Không truyền thì Dockerfile lấy mặc định `unknown` và nướng nó vào
+            # ENV của image — mọi bản đẩy lên sẽ không truy ngược được về commit,
+            # đúng thứ mà kỷ luật ghim-digest sinh ra để bảo vệ.
+            VIVA_GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: in digest để đem sang bước deploy
+        run: |
+          REF="${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+          {
+            echo "### Image đã push"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| tag | \`${{ env.IMAGE }}:${{ inputs.tag }}\` |"
+            echo "| digest | \`${{ steps.build.outputs.digest }}\` |"
+            echo ""
+            echo "Chạy \`carsky-deploy-asr\` với ô **image**:"
+            echo ""
+            echo '```'
+            echo "$REF"
+            echo '```'
+            echo ""
+            echo "Dùng digest chứ không dùng tag: tag là con trỏ động, còn digest"
+            echo "khoá luôn cả model đã convert nằm trong image."
+          } >> "$GITHUB_STEP_SUMMARY"

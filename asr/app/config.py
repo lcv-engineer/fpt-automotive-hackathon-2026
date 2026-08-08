@@ -29,6 +29,13 @@ def _env_int(name: str, default: int) -> int:
         raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
 
 
+def _env_text(name: str, default: str | None) -> str | None:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return raw.strip()
+
+
 @dataclass(frozen=True)
 class Settings:
     """Runtime settings, resolved once at import of `app.main`."""
@@ -54,6 +61,17 @@ class Settings:
     # for the whole edge path is 1500 ms (03-contracts.md §1.3).
     beam_size: int = 1
 
+    # Domain biasing. Whisper conditions the decoder on this text, which pulls
+    # near-homophone errors back toward in-domain words — the "dat"->"dac" and
+    # "do C"->"do xe" class in evidence/asr/asr-bench-manifest.txt. It costs no
+    # extra decoding time because the prompt is just prepended context.
+    #
+    # None, not "": an empty prompt still gets tokenized and prepended.
+    initial_prompt: str | None = None
+    
+    hotwords: str | None = None
+    max_new_tokens: int = 0
+
     # 30 s of 16 kHz mono PCM16. A client that sends more is streaming a whole
     # session instead of one utterance; fail fast with 413 instead of timing
     # out the app.
@@ -74,6 +92,9 @@ class Settings:
             num_workers=_env_int("ASR_NUM_WORKERS", Settings.num_workers),
             language=os.getenv("ASR_LANGUAGE", Settings.language),
             beam_size=_env_int("ASR_BEAM_SIZE", Settings.beam_size),
+            initial_prompt=_env_text("ASR_INITIAL_PROMPT", Settings.initial_prompt),
+            hotwords=_env_text("ASR_HOTWORDS", Settings.hotwords),
+            max_new_tokens=_env_int("ASR_MAX_NEW_TOKENS", Settings.max_new_tokens),
             max_body_bytes=_env_int("ASR_MAX_BODY_BYTES", Settings.max_body_bytes),
             min_audio_ms=_env_int("ASR_MIN_AUDIO_MS", Settings.min_audio_ms),
         )

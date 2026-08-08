@@ -54,15 +54,21 @@ def _error(status_code: int, error: str, detail: str | None = None, **headers: s
 @app.get("/health", response_model=HealthResponse)
 def health() -> Response:
     state = holder.state
+    config_dict = {
+        "compute_type": settings.compute_type,
+        "initial_prompt": settings.initial_prompt,
+        "hotwords": settings.hotwords,
+        "max_new_tokens": settings.max_new_tokens,
+    }
     if state is ModelState.READY:
         return JSONResponse(
             status_code=200,
-            content={"status": "ok", "model": settings.model_name},
+            content={"status": "ok", "model": settings.model_name, "config": config_dict},
         )
     # Never answer 200 while the model is absent: a green health check that
     # lies is worse than no health check, because CarSky would route traffic
     # to a pod that cannot serve.
-    payload = {"status": state.value, "model": settings.model_name}
+    payload = {"status": state.value, "model": settings.model_name, "config": config_dict}
     if state is ModelState.FAILED and holder.error:
         payload["detail"] = holder.error
     return JSONResponse(status_code=503, content=payload, headers={"Retry-After": "5"})

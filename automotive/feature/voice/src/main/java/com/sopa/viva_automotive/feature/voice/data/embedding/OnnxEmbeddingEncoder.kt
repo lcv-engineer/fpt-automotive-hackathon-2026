@@ -51,8 +51,9 @@ class OnnxEmbeddingEncoder @Inject constructor(
                 tokenizer = BertWordPieceTokenizer.fromVocabLines(
                     vocabFile.readLines(Charsets.UTF_8),
                     maxLength = MAX_SEQ_LEN,
+                    lowercase = false,
                 )
-                Log.i(TAG, "MiniLM embedding encoder ready (${modelFile.length() / 1024} KB)")
+                Log.i(TAG, "Multilingual embedding encoder ready (${modelFile.length() / 1024} KB)")
             }.onFailure {
                 Log.e(TAG, "Failed to init embedding encoder", it)
                 session = null
@@ -91,19 +92,28 @@ class OnnxEmbeddingEncoder @Inject constructor(
 
     private fun infer(ort: OrtSession, encoding: BertWordPieceTokenizer.Encoding): FloatArray {
         val shape = longArrayOf(1, encoding.inputIds.size.toLong())
-        OnnxTensor.createTensor(env, LongBuffer.wrap(encoding.inputIds), shape).use { inputIds ->
-            OnnxTensor.createTensor(env, LongBuffer.wrap(encoding.attentionMask), shape).use { attention ->
-                OnnxTensor.createTensor(env, LongBuffer.wrap(encoding.tokenTypeIds), shape).use { typeIds ->
-                    val inputs = mapOf(
-                        "input_ids" to inputIds,
-                        "attention_mask" to attention,
-                        "token_type_ids" to typeIds,
-                    )
-                    ort.run(inputs).use { result ->
-                        return meanPoolAndNormalize(result[0].value, encoding.attentionMask)
-                    }
-                }
+        // Build only what this graph declares. BERT takes token_type_ids;
+        // DistilBERT does not, and handing it one is a hard ORT failure. Reading
+        // inputNames keeps the encoder working across both families instead of
+        // encoding one model's signature as a law.
+        val declared = ort.inputNames
+        val tensors = LinkedHashMap<String, OnnxTensor>()
+        try {
+            tensors["input_ids"] =
+                OnnxTensor.createTensor(env, LongBuffer.wrap(encoding.inputIds), shape)
+            if ("attention_mask" in declared) {
+                tensors["attention_mask"] =
+                    OnnxTensor.createTensor(env, LongBuffer.wrap(encoding.attentionMask), shape)
             }
+            if ("token_type_ids" in declared) {
+                tensors["token_type_ids"] =
+                    OnnxTensor.createTensor(env, LongBuffer.wrap(encoding.tokenTypeIds), shape)
+            }
+            ort.run(tensors).use { result ->
+                return meanPoolAndNormalize(result[0].value, encoding.attentionMask)
+            }
+        } finally {
+            tensors.values.forEach { it.close() }
         }
     }
 
