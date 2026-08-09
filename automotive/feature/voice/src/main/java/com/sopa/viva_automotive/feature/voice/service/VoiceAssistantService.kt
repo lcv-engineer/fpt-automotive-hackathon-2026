@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
+import android.provider.Settings
 import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -231,7 +232,23 @@ class VoiceAssistantService : LifecycleService() {
             // §5: transcript đã được **đo** là kém chắc thì hỏi lại, không biến thành
             // lệnh xe. Vosk trả null nên nhánh này chưa chạy hôm nay — nó nằm sẵn cho
             // adapter nào thật sự có confidence đã hiệu chỉnh.
-            VoiceTurnReport.needsRepeatForConfidence(final.acousticConfidence) -> {
+            VoiceTurnReport.needsRepeatForConfidence(
+                final.acousticConfidence,
+                minAcousticConfidence(),
+            ) -> {
+                // Ghi con số ra dòng RIÊNG, tuyệt đối không nhét vào chuỗi verdict:
+                // 03-contracts.md §1.2 quy định `verdict := "Confirm:"<RULE_ID>` và
+                // harness gom nhóm theo đúng chuỗi đó. Thêm số vào thì mỗi giá trị
+                // confidence hoá thành một "rule" riêng và bảng verdict vô nghĩa.
+                //
+                // Có con số này mới phân biệt được 0,59 (suýt qua — chỉnh ngưỡng là
+                // xong) với 0,12 (rác thật — sai model). Thiếu nó, hai ca đó nhìn y
+                // hệt nhau trong log.
+                Log.i(
+                    VOICE_TAG,
+                    "$VOICE_TAG|low_confidence|conf=${final.acousticConfidence}" +
+                        "|min=${minAcousticConfidence()}|text=\"${final.text}\"",
+                )
                 stateManager.transitionToError(VoiceTurnReport.DID_NOT_HEAR)
                 speak(VoiceTurnReport.DID_NOT_HEAR, trace)
                 trace.summary(final.text, "-", TraceVerdict.Confirm("G3_LOW_CONFIDENCE"))
@@ -323,6 +340,26 @@ class VoiceAssistantService : LifecycleService() {
             VoiceTurnReport.verdictFor(intent, error),
         )
     }
+
+    /**
+     * Ngưỡng confidence đang áp, có tính tới cờ ghi đè lúc chạy.
+     *
+     * ```
+     * adb shell settings put global viva_min_conf 40   # = 0.40
+     * adb shell settings delete global viva_min_conf   # về mặc định
+     * ```
+     *
+     * Đọc lại mỗi lượt chứ không cache: mục đích của cờ này là **dò ngưỡng giữa
+     * các lượt nói** mà không phải khởi động lại app.
+     *
+     * Đọc lỗi thì coi như chưa đặt và dùng mặc định — mất cờ gỡ lỗi còn hơn âm
+     * thầm nới lỏng một cổng an toàn.
+     */
+    private fun minAcousticConfidence(): Float = runCatching {
+        VoiceTurnReport.minAcousticConfidence(
+            Settings.Global.getInt(contentResolver, VoiceTurnReport.SETTING_MIN_CONFIDENCE, -1),
+        )
+    }.getOrDefault(VoiceTurnReport.MIN_ACOUSTIC_CONFIDENCE)
 
     /**
      * TTS is best-effort: it takes audio focus, and a rejected focus request or
