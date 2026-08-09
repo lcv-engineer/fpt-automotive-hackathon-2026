@@ -2,12 +2,14 @@ package com.sopa.viva_automotive.feature.voice.di
 
 import android.content.Context
 import com.sopa.viva_automotive.feature.voice.data.audio.AndroidVolumeController
-import com.sopa.viva_automotive.feature.voice.data.embedding.OnnxEmbeddingIntentMatcher
 import com.sopa.viva_automotive.feature.voice.data.asr.HttpAsrClient
+import com.sopa.viva_automotive.feature.voice.data.embedding.OnnxEmbeddingIntentMatcher
+import com.sopa.viva_automotive.feature.voice.data.media.AndroidMediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryRepository
 import com.sopa.viva_automotive.feature.voice.domain.delivery.InMemoryDeliveryRepository
 import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMatcher
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.integration.AppCommandGateway
 import com.viva.voice.agent.CommandGateway
 import com.viva.voice.agent.VoiceAgent
@@ -52,6 +54,17 @@ abstract class VoiceModule {
         impl: AndroidVolumeController,
     ): VolumeController
 
+    @Binds
+    @Singleton
+    abstract fun bindMediaCommandExecutor(
+        impl: AndroidMediaCommandExecutor,
+    ): MediaCommandExecutor
+
+    /**
+     * Singleton because the route is mutable state: the stop the driver just
+     * confirmed must still be delivered on the next turn, and a per-injection
+     * instance would silently reset it.
+     */
     @Binds
     @Singleton
     abstract fun bindDeliveryRepository(

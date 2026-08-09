@@ -84,7 +84,11 @@ class HttpAsrClient @Inject constructor() : AsrClient {
 
             val json = JSONObject(body)
             val text = json.optString("text").trim()
-            val confidence = json.optDouble("confidence", 0.0).toFloat().coerceIn(0f, 1f)
+            val acousticConfidence = if (json.has("confidence") && !json.isNull("confidence")) {
+                json.optDouble("confidence").toFloat().coerceIn(0f, 1f)
+            } else {
+                null
+            }
             val serverMs = json.optInt("server_ms", 0).coerceAtLeast(0)
             val elapsedMs = ((System.nanoTime() - started) / 1_000_000L).toInt().coerceAtLeast(0)
 
@@ -92,9 +96,9 @@ class HttpAsrClient @Inject constructor() : AsrClient {
             Log.i(
                 TAG,
                 "transcribe samples=${pcm16.size} rate=$sampleRate " +
-                    "text=\"$text\" conf=$confidence server_ms=$serverMs wall_ms=$elapsedMs",
+                    "text=\"$text\" conf=$acousticConfidence server_ms=$serverMs wall_ms=$elapsedMs",
             )
-            AsrResult(text = text, confidence = confidence, serverMs = serverMs)
+            AsrResult(text = text, acousticConfidence = acousticConfidence, serverMs = serverMs)
         } finally {
             connection.disconnect()
         }

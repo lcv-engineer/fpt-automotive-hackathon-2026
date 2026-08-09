@@ -2,6 +2,7 @@ package com.sopa.viva_automotive.feature.voice.domain
 
 import com.sopa.viva_automotive.feature.voice.data.TranscriptionEvent
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaTransportException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyConfirmationRequiredException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
 import com.viva.voice.trace.Stage
@@ -53,9 +54,7 @@ object VoiceTurnReport {
         is VehicleIntent.SetDoorLock -> "door_lock"
         is VehicleIntent.QueryStatus -> "vehicle_status_" + intent.kind.name.lowercase()
         is VehicleIntent.VolumeAdjust -> "volume_adjust"
-        is VehicleIntent.MediaPlay -> "media_play"
-        VehicleIntent.MediaPause -> "media_pause"
-        VehicleIntent.MediaNext -> "media_next"
+        is VehicleIntent.Media -> intent.command.intentName
         is VehicleIntent.RadioTune -> "radio_tune"
         VehicleIntent.RadioNextStation -> "radio_next"
         is VehicleIntent.Delivery -> intent.command.intentName
@@ -82,6 +81,7 @@ object VoiceTurnReport {
         intent is VehicleIntent.Clarification -> intent.promptVi
         intent is VehicleIntent.Unknown -> DID_NOT_HEAR
         error is CommandNotWiredException -> error.message ?: COMMAND_FAILED
+        error is MediaTransportException -> error.message ?: COMMAND_FAILED
         else -> COMMAND_FAILED
     }
 }

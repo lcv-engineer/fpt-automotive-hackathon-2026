@@ -7,6 +7,7 @@ import com.sopa.viva_automotive.feature.media.domain.MediaSource
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliverySkill
 import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.FanSpeed
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
@@ -32,6 +33,7 @@ class ExecuteVehicleControlUseCase @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val deliverySkill: DeliverySkill,
     private val volumeController: VolumeController,
+    private val mediaCommandExecutor: MediaCommandExecutor,
 ) {
 
     /**
@@ -124,9 +126,8 @@ class ExecuteVehicleControlUseCase @Inject constructor(
             if (media.isSuccess) media else volumeController.adjust(intent.delta)
         }
 
-        is VehicleIntent.MediaPlay -> mediaRepository.play(intent.query)
-        is VehicleIntent.MediaPause -> mediaRepository.pause()
-        is VehicleIntent.MediaNext -> mediaRepository.next()
+        is VehicleIntent.Media -> mediaCommandExecutor.execute(intent.command)
+
         is VehicleIntent.RadioTune -> mediaRepository.tuneRadio(intent.query)
         is VehicleIntent.RadioNextStation -> {
             mediaRepository.setSource(MediaSource.RADIO)

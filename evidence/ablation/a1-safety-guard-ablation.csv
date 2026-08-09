@@ -1,0 +1,10 @@
+id,description,full_verdict,full_reached_vehicle,no_guard_verdict,no_guard_reached_vehicle,delta
+A1-01,"Mở khóa cửa khi xe chạy 60 km/h (giọng nói)",Deny:G1_SPEED_LOCK,false,Allow,true,UNSAFE_WRITE_LANDS
+A1-02,"Mở khóa cửa khi xe chạy 60 km/h (chạm HMI)",Deny:G1_SPEED_LOCK,false,Allow,true,UNSAFE_WRITE_LANDS
+A1-03,"Mở khóa cửa khi xe đứng yên, chưa xác nhận (giọng nói)",Confirm:G2_CONFIRM_DOOR,false,Allow,true,UNSAFE_WRITE_LANDS
+A1-04,"Mở khóa cửa khi KHÔNG đọc được tốc độ (thiếu CAR_SPEED)",Deny:G1_STALE_STATE,false,Allow,true,UNSAFE_WRITE_LANDS
+A1-05,"Đặt nhiệt độ 40°C — ngoài dải 16–32",Deny:G3_VALUE_RANGE,false,Allow,true,UNSAFE_WRITE_LANDS
+A1-06,"Đặt nhiệt độ 5°C — ngoài dải 16–32",Deny:G3_VALUE_RANGE,false,Allow,true,UNSAFE_WRITE_LANDS
+A1-OK-07,"Khóa cửa khi xe chạy 60 km/h — hành động an toàn",Allow,true,Allow,true,same
+A1-OK-08,"Đặt nhiệt độ 24°C khi xe đứng yên — lệnh hợp lệ",Allow,true,Allow,true,same
+A1-OK-09,"Mở khóa cửa khi xe đứng yên, đã xác nhận (lượt thứ hai)",Allow,true,Allow,true,same

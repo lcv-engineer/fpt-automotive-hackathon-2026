@@ -2,6 +2,8 @@ package com.sopa.viva_automotive.feature.voice.domain
 
 import com.sopa.viva_automotive.feature.voice.data.TranscriptionEvent
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaTransportException
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.SafetyConfirmationRequiredException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
@@ -128,7 +130,18 @@ class VoiceTurnReportTest {
         assertEquals("hvac_set_fan", VoiceTurnReport.intentName(VehicleIntent.SetFanSpeed(3)))
         assertEquals("door_lock", VoiceTurnReport.intentName(VehicleIntent.SetDoorLock(true)))
         assertEquals("volume_adjust", VoiceTurnReport.intentName(VehicleIntent.VolumeAdjust(1)))
-        assertEquals("media_next", VoiceTurnReport.intentName(VehicleIntent.MediaNext))
+        assertEquals(
+            "media_play",
+            VoiceTurnReport.intentName(VehicleIntent.Media(MediaCommand.PLAY)),
+        )
+        assertEquals(
+            "media_pause",
+            VoiceTurnReport.intentName(VehicleIntent.Media(MediaCommand.PAUSE)),
+        )
+        assertEquals(
+            "media_next",
+            VoiceTurnReport.intentName(VehicleIntent.Media(MediaCommand.NEXT)),
+        )
     }
 
     @Test
@@ -196,7 +209,7 @@ class VoiceTurnReportTest {
         assertEquals(
             "Error:exec_done",
             VoiceTurnReport.verdictFor(
-                VehicleIntent.MediaNext,
+                VehicleIntent.Media(MediaCommand.NEXT),
                 CommandNotWiredException("chưa nối"),
             ).wire,
         )
@@ -229,8 +242,21 @@ class VoiceTurnReportTest {
         assertEquals(
             "chưa nối trình phát nhạc",
             VoiceTurnReport.failureSpeech(
-                VehicleIntent.MediaNext,
+                VehicleIntent.Media(MediaCommand.NEXT),
                 CommandNotWiredException("chưa nối trình phát nhạc"),
+            ),
+        )
+    }
+
+    @Test
+    fun `media connection failure speaks its specific Vietnamese reason`() {
+        val reason = "Mình chưa kết nối được trình phát nhạc. Bạn thử lại giúp mình nhé."
+
+        assertEquals(
+            reason,
+            VoiceTurnReport.failureSpeech(
+                VehicleIntent.Media(MediaCommand.PLAY),
+                MediaTransportException(reason),
             ),
         )
     }

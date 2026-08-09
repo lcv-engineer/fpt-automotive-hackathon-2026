@@ -27,9 +27,7 @@ class AppCommandGateway @Inject constructor(
         val vehicleIntent = when (action) {
             is AutomotiveVoiceAction.VehicleControl -> action.intent
             is AutomotiveVoiceAction.VolumeAdjust -> VehicleIntent.VolumeAdjust(action.delta)
-            is AutomotiveVoiceAction.MediaPlay -> VehicleIntent.MediaPlay(action.query)
-            AutomotiveVoiceAction.MediaPause -> VehicleIntent.MediaPause
-            AutomotiveVoiceAction.MediaNext -> VehicleIntent.MediaNext
+            is AutomotiveVoiceAction.Media -> VehicleIntent.Media(action.command)
             is AutomotiveVoiceAction.Delivery -> VehicleIntent.Delivery(action.command)
         }
 

@@ -1,6 +1,7 @@
 package com.sopa.viva_automotive.feature.voice.domain.model
 
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import com.sopa.viva_automotive.vehicleservice.api.VehicleZone
 
 sealed interface VehicleIntent {
@@ -29,11 +30,7 @@ sealed interface VehicleIntent {
 
     data class VolumeAdjust(val delta: Int) : VehicleIntent
 
-    data class MediaPlay(val query: String? = null) : VehicleIntent
-
-    data object MediaPause : VehicleIntent
-
-    data object MediaNext : VehicleIntent
+    data class Media(val command: MediaCommand) : VehicleIntent
 
     data class RadioTune(val query: String? = null) : VehicleIntent
 

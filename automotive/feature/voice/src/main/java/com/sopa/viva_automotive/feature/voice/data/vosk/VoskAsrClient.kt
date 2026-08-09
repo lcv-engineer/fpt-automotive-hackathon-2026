@@ -80,9 +80,10 @@ class VoskAsrClient @Inject constructor(
         trace.mark(Stage.ASR_DONE)
         Log.i(TAG, "transcribe sampleRate=$sampleRate samples=${pcm16.size} text=\"$text\" ${serverMs}ms")
 
+        // Vosk small does not expose acoustic confidence; null keeps G3 honest.
         return AsrResult(
             text = text,
-            confidence = if (text.isNotEmpty()) 0.9f else 0f,
+            acousticConfidence = null,
             serverMs = serverMs,
         )
     }

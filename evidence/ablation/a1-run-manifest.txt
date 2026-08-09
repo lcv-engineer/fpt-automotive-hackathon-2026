@@ -1,0 +1,78 @@
+Evidence ID: A1 (N4 ablation — bo SafetyGuard)
+Label: JVM/source ablation — KHONG phai Device evidence
+Captured at: 2026-08-08 (gio Asia/Saigon)
+Repository commit: xem nhanh feat/a1-ablation-va-baseline-manifest
+Java: Temurin 21 (JDK tren may dev)
+
+Command:
+  cd automotive
+  .\gradlew :vehicle-service:impl:testDebugUnitTest --tests "*SafetyGuardAblationTest*"
+
+Source: automotive/vehicle-service/impl/src/test/.../ablation/SafetyGuardAblationTest.kt
+Output: evidence/ablation/a1-safety-guard-ablation.csv
+
+CO CHE TAT — va vi sao lan nay do duoc
+---------------------------------------
+23-N4-ABLATION.md de cot `no_guard` la *chua do* voi ly do "chua co co che tat
+that", va canh bao dung dung mot co gia. Canh bao do dung, nhung co che tat
+that thi da co san trong kien truc: guard la mot DECORATOR quanh
+`VehicleRepository`, nen "bo guard" dung nghia la bind thang repository goc.
+
+  full     = GuardedVehicleRepository(MockVehicleRepository, DefaultSafetyGuard)
+             — y het VehicleServiceModule cua ca hai bien the app
+  no_guard = MockVehicleRepository tran
+
+Day khong phai co `isEnabled` dung rieng cho phep do. No la wiring production
+TRU DI mot lop — tuc dung thu se xay ra neu doi khong viet phan nay. Do la
+counterfactual ma barem hoi o o "Muc quyet dinh cua phan team-owned".
+
+KET QUA TONG HOP (9 ca)
+------------------------
+  UNSAFE_WRITE_LANDS   6   lenh bi guard chan lai ghi duoc xuong xe khi bo guard
+  same                 3   ca doi chung hop le — di qua o CA HAI cau hinh
+
+  A1-01  Mo khoa cua @60 km/h (giong noi)      Deny:G1_SPEED_LOCK    -> Allow, ghi that
+  A1-02  Mo khoa cua @60 km/h (cham HMI)       Deny:G1_SPEED_LOCK    -> Allow, ghi that
+  A1-03  Mo khoa cua @0 km/h, chua xac nhan    Confirm:G2_CONFIRM_DOOR -> Allow, ghi that
+  A1-04  Mo khoa cua khi khong doc duoc toc do Deny:G1_STALE_STATE   -> Allow, ghi that
+  A1-05  Dat nhiet do 40°C                     Deny:G3_VALUE_RANGE   -> Allow, ghi that
+  A1-06  Dat nhiet do 5°C                      Deny:G3_VALUE_RANGE   -> Allow, ghi that
+  A1-OK-07 Khoa cua @60 km/h                   Allow -> Allow  (khong doi)
+  A1-OK-08 Dat nhiet do 24°C @0 km/h           Allow -> Allow  (khong doi)
+  A1-OK-09 Mo khoa cua @0 km/h, DA xac nhan    Allow -> Allow  (khong doi)
+
+Ba ca A1-OK khong phai trang tri. Mot guard chan TAT CA cung cho ra
+"6 lenh nguy hiem bi chan", nen neu khong co doi chung thi con so tren khong
+noi len dieu gi. Ba ca do chung minh guard chan dung cho can chan.
+
+HAI CA DANG CHU Y NHAT
+-----------------------
+A1-02 (cham HMI): guard nam o bien `VehicleRepository` nen no chan ca duong
+  CHAM, khong chi duong giong noi. Neu guard dat tren duong voice nhu thiet ke
+  ban dau thi ca nay se ghi duoc xuong xe o CA HAI cau hinh — tuc cau
+  "khong lenh nao toi xe ma khong qua tang an toan" se la loi khai sai.
+
+A1-04 (khong doc duoc toc do): dung tinh huong cua flavor `real` HOM NAY —
+  AndroidManifest xin `android.car.permission.CAR_SPEED` nhung
+  `privapp-permissions-com.sopa.viva_automotive.xml` chua co quyen do. Khi thieu
+  toc do, guard TU CHOI (fail-closed) thay vi doan. An toan, nhung hau qua la
+  kich ban demo "xe dung -> xac nhan -> mo cua" se KHONG chay tren flavor `real`
+  cho toi khi quyen duoc cap.
+
+GIOI HAN PHAI KHAI KHI TRICH
+-----------------------------
+1. Dau kia la `MockVehicleRepository`, KHONG phai VHAL that. Bang nay chung minh
+   guard chan TRUOC KHI cham setter; no khong chung minh gi ve Device CarSky.
+2. Chi phu cac luat that su nam tren duong san pham. `vhal_server.luau` con co
+   G1.4 (am luong) va G2.1 (so), nhung theo 03-contracts.md §0.1 thi
+   `volume_adjust` di CarAudioManager va router khong co intent nao ve so — hai
+   luat do KHONG thuoc phep do nay va khong duoc gop vao con so 6/9.
+3. Ablation tang JVM, cung hang voi A4. Khong phai Device evidence.
+
+QUAN HE VOI A4
+---------------
+A4 (bo grammar T0)  : 12/22 cau mat lenh, 2 cau dang le bi tu choi thanh lenh xe
+A1 (bo SafetyGuard) : 6/9 lenh nguy hiem ghi duoc xuong xe
+
+Hai phep do o hai tang khac nhau va khong cong don duoc: A4 do tang HIEU cau,
+A1 do tang CHO PHEP THUC THI. Mot cau co the qua A4 roi van bi A1 chan.

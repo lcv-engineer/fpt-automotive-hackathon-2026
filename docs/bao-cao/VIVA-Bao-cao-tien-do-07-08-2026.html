@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>VIVA — Bao cao tien do 07/08/2026</title>
+<style>
+@page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt; line-height: 1.55; color: #14181d; margin: 0;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+h1 { font-size: 21pt; margin: 0 0 4pt; color: #0b1f3a; letter-spacing: -0.3pt; }
+h2 { font-size: 14pt; margin: 20pt 0 7pt; color: #0b1f3a;
+     border-bottom: 2px solid #d8e0ea; padding-bottom: 4pt; page-break-after: avoid; }
+h3 { font-size: 11.5pt; margin: 14pt 0 5pt; color: #234; page-break-after: avoid; }
+p { margin: 6pt 0; }
+ul, ol { margin: 6pt 0 6pt 0; padding-left: 20pt; }
+li { margin: 3pt 0; }
+hr { border: 0; border-top: 1px solid #dde3ea; margin: 16pt 0; }
+a { color: #10508a; text-decoration: none; }
+code {
+  font-family: Consolas, "SF Mono", monospace; font-size: 9pt;
+  background: #eef2f6; padding: 1pt 4pt; border-radius: 3px; color: #14304d;
+}
+blockquote {
+  margin: 8pt 0; padding: 8pt 12pt; background: #f5f8fb;
+  border-left: 3px solid #7fa3c8; color: #2b3a4a; font-size: 9.8pt;
+}
+blockquote p { margin: 3pt 0; }
+table {
+  border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 9.2pt;
+  page-break-inside: avoid;
+}
+th {
+  background: #0b1f3a; color: #fff; text-align: left; font-weight: 600;
+  padding: 5pt 7pt; border: 1px solid #0b1f3a;
+}
+td { padding: 5pt 7pt; border: 1px solid #ccd6e0; vertical-align: top; }
+tr:nth-child(even) td { background: #f7fafc; }
+strong { color: #0b1f3a; }
+.meta { color: #5a6673; font-size: 9pt; }
+</style>
+</head>
+<body>
+<h1>BÁO CÁO TIẾN ĐỘ — TEAM VIVA · 07/08/2026</h1>
+<blockquote>
+<p><strong>Gửi:</strong> Mentor CDC / BGK · <strong>Người lập:</strong> Ngô Văn Long (đội trưởng) <strong>Snapshot được báo cáo:</strong> commit <code>f93751e</code> · nhánh <code>main</code> (đã đồng bộ với <code>origin/main</code>) <strong>Nguyên tắc của bản này:</strong> mọi con số dưới đây được chạy lại trong ngày 07/08 trước khi viết. Việc chưa có bằng chứng thì ghi <strong>chưa</strong>, không ghi &quot;gần xong&quot;. Việc đã làm nhưng chưa hợp nhất vào <code>main</code> thì ghi rõ là <strong>chưa hợp nhất</strong>, không tính là xong.</p>
+</blockquote>
+<hr>
+<h2>1. Trả lời thẳng ba câu mentor hỏi</h2>
+<p><strong>① &quot;Đã chuẩn bị demo được gì chưa?&quot;</strong></p>
+<p>Có. Đội demo được <strong>một sản phẩm chạy thật trên Android Automotive OS 14</strong>, ở nhãn <strong>MÔ PHỎNG</strong> (máy ảo AAOS trên máy dev, lớp xe là repository mô phỏng). Chi tiết ở §4.</p>
+<p><strong>② &quot;Video thuyết minh, demo sản phẩm đến thời điểm hiện tại.&quot;</strong></p>
+<p>Kịch bản quay đã cập nhật theo đúng trạng thái hôm nay: <code>vong2/30-KICH-BAN-VIDEO-07-08.md</code>.</p>
+<p><strong>③ &quot;Nếu chưa demo cần file báo cáo tiến độ từng thành viên và cả team chạy đến đâu.&quot;</strong></p>
+<p>Đây là file đó. Tiến độ từng người ở §6.</p>
+<hr>
+<h2>2. Điều quan trọng nhất trong bản báo cáo này</h2>
+<p><strong>Đội không thiếu công việc. Đội thiếu một lần hợp nhất.</strong></p>
+<p>Phần lớn tiến bộ 48 giờ qua đang nằm trên <strong>bốn nhánh chưa merge</strong>, trong khi <code>main</code> — nhánh sẽ được chấm — chưa có chúng:</p>
+<table><thead><tr>
+<th>Nhánh</th>
+<th>Người</th>
+<th>Commit chưa merge</th>
+<th>Nội dung</th>
+<th>CI</th>
+</tr></thead><tbody>
+<tr>
+<td><code>fix/nlu-chiu-loi-asr-tren-main</code></td>
+<td>Vĩ</td>
+<td>6</td>
+<td>Router chịu được lỗi thanh điệu của ASR (<strong>18/34 → 34/34</strong>), đọc được số viết bằng chữ (<strong>34/41 → 41/41</strong>), chặn false-accept <code>&quot;sung&quot;</code>/<code>&quot;xăng&quot;</code>, 2 phiên emulator mới</td>
+<td>🟢 <strong>xanh</strong></td>
+</tr>
+<tr>
+<td><code>feature/automotive</code></td>
+<td>Dương</td>
+<td>4</td>
+<td><strong>Module media đầy đủ</strong>: <code>MediaScreen</code>, <code>MediaViewModel</code>, <code>VivaMediaRepository</code> (464 dòng), cast, radio catalog, metadata inspector</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tung4506/vhal&amp;dtc</code></td>
+<td>Tùng</td>
+<td>5</td>
+<td><strong>Property ID Luau đúng chuẩn AAOS</strong>, safety scenario pack 8 tình huống, <code>VHAL_BASELINE_MANIFEST.md</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>feat/router-chiu-loi-thanh-dieu</code></td>
+<td>Vĩ</td>
+<td>8</td>
+<td>Runbook bật mic ảo cho emulator, chế độ <code>-Record</code> để thu ngữ liệu nói thật</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p>Hệ quả cụ thể, đo được:</p>
+<ul>
+<li>Tài liệu của đội đang ghi <em>&quot;C-MEDIA đỏ — chưa có adapter nào&quot;</em>. <strong>Sai.</strong> Adapter có thật, 12 file, chỉ là <code>:feature:media</code> chưa nằm trong <code>settings.gradle.kts</code> của <code>main</code>.</li>
+<li><code>main</code> đang chạy <code>vhal_server.luau</code> với Property ID <strong>không khớp</strong> bảng M2 và app. Bản đúng nằm ở nhánh Tùng và <strong>merge sạch, không xung đột</strong>.</li>
+<li><code>main</code> đang có <strong>1 unit test đỏ</strong> (§3), còn nhánh của Vĩ thì CI xanh.</li>
+</ul>
+<p>Đây là rủi ro lịch nghiêm trọng hơn bất kỳ tính năng nào còn thiếu, vì nó không cần thêm code — chỉ cần một buổi hợp nhất.</p>
+<hr>
+<h2>3. Kiểm chứng chạy lại ngày 07/08</h2>
+<table><thead><tr>
+<th>Kiểm chứng</th>
+<th>Lệnh</th>
+<th>Kết quả</th>
+</tr></thead><tbody>
+<tr>
+<td>Unit test JVM</td>
+<td><code>automotive/gradlew test</code></td>
+<td>🟡 <strong>256 test · 255 pass · 1 fail</strong></td>
+</tr>
+<tr>
+<td>Test service ASR</td>
+<td><code>asr/python -m pytest -q</code></td>
+<td>🟢 <strong>39 passed</strong></td>
+</tr>
+<tr>
+<td>Backend harness Go</td>
+<td><code>backend/go test ./...</code></td>
+<td>🟢 pass toàn bộ package</td>
+</tr>
+<tr>
+<td>Build APK</td>
+<td>đã có sẵn</td>
+<td>🟢 <code>mock</code> 334,9 MB · <code>real</code> 334,3 MB</td>
+</tr>
+</tbody></table>
+<p><strong>Về 1 test đỏ:</strong> đó là <code>GrammarIntentRouterTest &gt; media play keeps an optional query…</code>. Nguyên nhân là <strong>kỳ vọng trong test viết sai</strong>, không phải lỗi sản phẩm — router trả <code>&quot;playlist một ngày mới&quot;</code> (đúng), test kỳ vọng <code>&quot;một ngày mới&quot;</code>. Sửa một dòng. Đội ghi ra đây thay vì lặng lẽ vá để giữ đúng nguyên tắc evidence của mình.</p>
+<p><strong>Về CI:</strong> hai workflow trên <code>main</code> cho commit <code>f93751e</code> kết thúc <code>failure</code> vì job chính bị <strong>cancelled</strong> (job <code>pytest</code> của <code>asr-ci</code> vẫn pass). Chưa có bằng chứng CI cho snapshot hiện tại. Nhánh của Vĩ ở <code>831924e</code> thì <code>android-ci</code> và <code>backend-ci</code> <strong>đều xanh</strong>.</p>
+<hr>
+<h2>4. Demo được gì hôm nay — và không demo gì</h2>
+<h3>Demo được, có bằng chứng mở ngay</h3>
+<table><thead><tr>
+<th>Nội dung</th>
+<th>Bằng chứng</th>
+</tr></thead><tbody>
+<tr>
+<td>APK cài lên AAOS 14, mở sạch, không crash/ANR</td>
+<td><code>evidence/c2/local-emulator-20260805/install-launch-crash.log</code></td>
+</tr>
+<tr>
+<td>HMI cockpit render ở 1408×792: Climate · Driver/Passenger Temp · Airflow · nút mic</td>
+<td><code>.../hmi-landscape-1408x792.png</code></td>
+</tr>
+<tr>
+<td><strong>SafetyGuard chặn thật</strong>: mở khóa cửa ở 60 km/h → <code>Deny:G1_SPEED_LOCK</code>, cửa không bị ghi</td>
+<td><code>evidence/emulator/safety-speed60.log</code> + ảnh HMI</td>
+</tr>
+<tr>
+<td><strong>Bộ 22 câu chạy trên app thật</strong>: 17 PASS · 5 FAIL · 0 MISSING (5 FAIL đều là <em>known gap</em> media/volume)</td>
+<td><code>evidence/emulator/session-20260805-165301/results.csv</code></td>
+</tr>
+<tr>
+<td><strong>Ablation A4</strong>: bỏ tầng grammar của đội → <strong>12/22 câu mất lệnh</strong>, <strong>2 câu đáng lẽ bị từ chối lại thành lệnh xe thật</strong></td>
+<td><code>evidence/ablation/a4-grammar-ablation.csv</code></td>
+</tr>
+<tr>
+<td><strong>Container ASR tiếng Việt chạy trên CarSky</strong>: 22/22 node <code>Running</code>, image pull theo digest</td>
+<td><code>evidence/carsky/v7-manifest.txt</code></td>
+</tr>
+<tr>
+<td>Bộ ngữ liệu giọng thật 20 câu × 4 mức nhiễu, thu thẳng ở 16 kHz</td>
+<td><code>evidence/asr/corpus-human/</code></td>
+</tr>
+</tbody></table>
+<h3>Không demo, và nói rõ vì sao</h3>
+<ul>
+<li><strong>Chưa có một lượt end-to-end trên Device CarSky.</strong> Đường vào đang đứt ở phía nền tảng: họ endpoint <code>adb-exec</code>/<code>shell</code>/<code>container-exec</code> trả <code>502 &quot;Conduit service not configured&quot;</code> kể cả khi room chạy đủ 22/22 node, và đội chưa lấy được binary <code>nydus-reach</code>. Bằng chứng và bốn phép thử loại trừ: <code>docs/backend-docs/carsky-api.md</code> §4.</li>
+<li><strong>Chưa nói bất kỳ số p95 end-to-end nào</strong> — chưa có E03/E04.</li>
+<li><strong>Chưa nói &quot;full-stack tới CAN&quot;</strong> cho luồng điều khiển xe.</li>
+<li><strong>Chưa có lượt nào qua micro thật.</strong> Cả 3 phiên benchmark đều là <strong>bơm text</strong>, đo <code>router → guard → skill</code>, không đo mic/VAD/ASR/độ ồn. Mỗi phiên tự khai điều này trong <code>run_manifest.txt</code>.</li>
+</ul>
+<hr>
+<h2>5. Phát hiện lớn nhất tuần này: đội đo sai chính mình</h2>
+<p>Ngày 06/08 đội chạy ma trận model ASR và ghi kết luận <em>&quot;intent accuracy 28,75% — chưa chọn được model&quot;</em>. Rà lại ngày 07/08 cho thấy <strong>con số đó là lỗi thước đo, không phải lỗi sản phẩm.</strong></p>
+<p>Nguyên nhân: <code>evidence/asr/v13/score.py</code> là một <strong>bản port <code>GrammarIntentRouter</code> sang Python</strong>. Chính spec của đội đã cấm việc này bằng văn bản:</p>
+<blockquote>
+<p><em>&quot;Không port router sang Python. Router chính là thứ đang được kiểm; một bản sao Python sẽ trôi khỏi bản Kotlin và biến con số thành vô nghĩa đúng lúc nó bắt đầu quan trọng.&quot;</em></p>
+</blockquote>
+<p>Đội <strong>đã viết đúng công cụ</strong> cho việc này (<code>IntentAccuracyScorer.kt</code>, chấm qua router thật) rồi không dùng nó. Chấm lại <strong>chính bốn file CSV đó</strong> bằng router thật:</p>
+<table><thead><tr>
+<th>Cấu hình</th>
+<th>Bản port Python</th>
+<th><strong>Router thật (Kotlin)</strong></th>
+<th><code>server_ms</code> p95</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>PhoWhisper-tiny, không biasing</strong></td>
+<td>28,75%</td>
+<td><strong>65,00%</strong></td>
+<td><strong>244 ms</strong></td>
+</tr>
+<tr>
+<td>PhoWhisper-base, có biasing</td>
+<td>21,25%</td>
+<td>43,75%</td>
+<td>6265 ms</td>
+</tr>
+<tr>
+<td>PhoWhisper-base, không biasing</td>
+<td>11,25%</td>
+<td>30,00%</td>
+<td>920 ms</td>
+</tr>
+<tr>
+<td>PhoWhisper-tiny, có biasing</td>
+<td>5,00%</td>
+<td>5,00%</td>
+<td>4238 ms</td>
+</tr>
+</tbody></table>
+<p>Thêm nữa, 16/80 dòng trong mẫu là các câu <strong>cố ý không sinh hành động</strong> (ngoài phạm vi, thiếu slot), nhưng vẫn nằm ở mẫu số — nên trên tập câu thật sự là lệnh xe, tỉ lệ còn cao hơn 65%.</p>
+<p><strong>Ba kết luận:</strong></p>
+<ol>
+<li>Cấu hình <strong>PhoWhisper-tiny INT8, không domain biasing</strong> vừa nhanh nhất vừa chính xác nhất → chọn được theo đúng luật đã chốt trước khi thấy số, không cần build thêm bậc <code>small</code>.</li>
+<li>Kết luận <em>&quot;chưa chọn được model&quot;</em> trong manifest v13 phải viết lại.</li>
+<li>Đội xin được tính đây là một mục cho phần <strong>&quot;AI sai ở đâu&quot;</strong> của write-up: một quy trình có AI hỗ trợ đã sinh ra một công cụ đo <em>trông hợp lý</em> nhưng lệch khỏi thứ đang được đo, và chính ràng buộc đội tự đặt ra trong spec là thứ bắt được nó.</li>
+</ol>
+<hr>
+<h2>6. Tiến độ từng thành viên</h2>
+<p>Số commit lấy từ <code>git log --all --no-merges</code> tính từ 21/07/2026, gộp cả bí danh Git của cùng một người. Commit không đo hết đóng góp; phần &quot;cần bổ sung&quot; là chỗ repo không nói được.</p>
+<h3>6.1 Ngô Văn Long — đội trưởng · AI Engineer (Voice AI &amp; kiến trúc)</h3>
+<p><strong>45 commit · gần nhất 07/08</strong></p>
+<p>Đã xong, có bằng chứng:</p>
+<ul>
+<li><strong>Hợp nhất đường mic/VAD/ASR</strong> — thành tựu kiến trúc lớn nhất tuần: nay chỉ còn <strong>một</strong> chủ sở hữu microphone trong toàn repo (<code>grep -rn &#x27;AudioRecord(&#x27;</code> ra đúng 1 kết quả). Silero VAD đã nằm trên đường chạy APK với pre-roll 500 ms; trước đó VAD có code, có test, nhưng không bao giờ được gọi.</li>
+<li>Tách <code>acousticConfidence</code> khỏi <code>nluConfidence</code>; Vosk trả <code>null</code> <strong>có chủ đích</strong> thay vì bịa <code>1.0</code>.</li>
+<li>Adapter remote PhoWhisper đọc chung dòng PCM với VAD/Vosk (<code>-PvivaAsrEngine=remote</code>).</li>
+<li>Thay embedding NLU tầng T1 từ MiniLM tiếng Anh sang <strong>DistilUSE đa ngữ</strong>, hiệu chỉnh lại ngưỡng cosine bằng số đo (0,82 — cặp đúng ≥ 0,849, đối chứng ngoài phạm vi đỉnh 0,797).</li>
+<li>Chuẩn hoá số tiếng Việt trong router (<code>&quot;hai lăm&quot;</code> → 25), gỡ prompt biasing 161 ký tự gây lặp từ.</li>
+<li>Bộ ngữ liệu <strong>giọng thật 20 câu</strong>, thu thẳng ở 16 kHz — gỡ cùng lúc hai giới hạn của bộ đo cũ (giọng tổng hợp + resample).</li>
+<li>Bộ tài liệu nộp: Claim–Evidence Map, Product &amp; Integration Card, write-up, Q&amp;A BGK, kịch bản demo, runbook CarSky device gate, spec + plan nâng cấp model.</li>
+</ul>
+<p>Đang chặn / còn nợ:</p>
+<ul>
+<li>1 test đỏ đang nằm trên <code>main</code> (§3).</li>
+<li>Chưa hợp nhất bốn nhánh ở §2 — <strong>đây là việc của đội trưởng và là ưu tiên số 1</strong>.</li>
+<li>Tài liệu nộp (write-up, Q&amp;A, slide) đang mô tả snapshot 04/08, tức <strong>tự khai thấp hơn</strong> thực tế: vẫn ghi <em>&quot;Silero VAD chưa cắm&quot;</em>, <em>&quot;SafetyGuard chưa có&quot;</em>, <em>&quot;139 test&quot;</em>, <em>&quot;MiniLM&quot;</em>.</li>
+</ul>
+<h3>6.2 Lê Công Vĩ — Senior Backend (Agent &amp; DevOps)</h3>
+<p><strong>50 commit · gần nhất 06/08</strong> — người đóng nhiều gate nhất</p>
+<p>Đã xong, có bằng chứng:</p>
+<ul>
+<li><strong>Benchmark harness <code>viva-tools</code> (Go)</strong>: parse <code>VIVA_TRACE</code>, ngữ pháp verdict, p50/p95 giữ nguyên lượt lỗi trong mẫu, bộ 22 câu PASS/FAIL. Không dependency ngoài standard library.</li>
+<li><strong>Container <code>viva-asr</code></strong>: PhoWhisper → CTranslate2 INT8, image multi-arch, <strong>đã được CarSky pull theo digest và chạy 22/22 node</strong>. Đây là bằng chứng platform mạnh nhất đội đang có.</li>
+<li><strong><code>SafetyGuard</code> đặt ở biên <code>VehicleRepository</code></strong> thay vì trên đường voice — quyết định kiến trúc đúng, vì nó chặn <strong>mọi</strong> đường ghi (giọng nói <em>và</em> chạm HMI), không chỉ đường giọng nói.</li>
+<li><strong>Ablation A4</strong> — số đo định lượng phần team-owned.</li>
+<li><code>DeliverySkill</code> 3 intent + luồng xác nhận hai lượt có xử lý huỷ.</li>
+<li>Lập bản đồ giới hạn REST API CarSky (<code>docs/backend-docs/carsky-api.md</code>) — tài liệu tốt nhất repo.</li>
+<li><strong>Chưa merge:</strong> router chịu lỗi thanh điệu ASR 18/34 → 34/34, số viết bằng chữ 34/41 → 41/41, chặn false-accept, runbook bật mic ảo, chế độ <code>-Record</code> thu ngữ liệu nói thật.</li>
+</ul>
+<p>Đang chặn:</p>
+<ul>
+<li>Không gửi được request nào vào container ASR từ ngoài room (Conduit 502, thiếu <code>nydus-reach</code>). Hệ quả: mọi số latency ASR vẫn là số CPU máy dev.</li>
+</ul>
+<h3>6.3 Lê Đức Tùng — Embedded/System (VHAL &amp; DTC)</h3>
+<p><strong>7 commit · gần nhất 06/08</strong></p>
+<p>Đã xong, có bằng chứng:</p>
+<ul>
+<li><code>vhal_server.luau</code> — Script Node Luau làm VHAL ↔ CAN hai chiều, có tầng safety G1.</li>
+<li><strong>Chưa merge:</strong> cập nhật Property ID đúng chuẩn AAOS (<code>0x15600503</code>, <code>0x15400500</code>, <code>0x16200b02</code>) và polarity door lock; safety scenario pack 8 tình huống; <code>VHAL_BASELINE_MANIFEST.md</code>.</li>
+<li><code>test_vhal_embedded.py</code>, <code>uds_dtc_simulator.py</code>.</li>
+</ul>
+<p>Đang chặn — <strong>đây là đường găng của cả đội</strong>:</p>
+<ul>
+<li><strong>M1a — quyền privileged VHAL chưa ai kiểm.</strong> Probe 03/08 chứng minh image là <code>userdebug</code>, <code>ro.debuggable=1</code>, có <code>/system/priv-app</code> 61 gói → khả thi về nguyên tắc; nhưng shell hiện tại <strong>không ghi được</strong> vào đó, chưa <code>adb root</code>/<code>remount</code> thành công.</li>
+<li><strong>M1 — <code>VivaCarService</code></strong> (service framework mentor yêu cầu ở kick-off 30/07) <strong>chưa được dựng</strong>.</li>
+<li><strong>Lệch quyền chưa xử lý</strong>: manifest xin <code>android.car.permission.CAR_SPEED</code> nhưng quyền này chưa được cấp bằng bất kỳ đường nào — app chỉ xin runtime <code>RECORD_AUDIO</code>, và allowlist privapp không có <code>CAR_SPEED</code>. Hệ quả trên flavor <code>real</code>: <code>SafetyGuard</code> không đọc được tốc độ → <strong>mọi lệnh mở cửa đều bị từ chối</strong> với <code>G1_STALE_STATE</code>. An toàn, nhưng kịch bản demo &quot;xe dừng → xác nhận → mở cửa&quot; sẽ không chạy được.</li>
+<li>Bốn mục trong <code>docs/dbc/README.md</code> mục <em>&quot;Cần xử lý&quot;</em> vẫn mở: <code>EngineData</code> không tồn tại (xe là EV), quy đổi quạt percent ↔ mức 0–5, <code>HVAC_POWER_ON</code> chưa biết map vào signal nào, <code>DOOR_LOCK</code> là 4 cửa riêng chứ không phải 1.</li>
+<li>5 dòng 🟠 <strong>CHỜ N3b</strong> trong Baseline Manifest — đầu vào cho 8 điểm khối team-owned.</li>
+</ul>
+<h3>6.4 Việt Dương — Fullstack/Android (HMI &amp; Media)</h3>
+<p><strong>4 commit · gần nhất 05/08</strong></p>
+<p>Đã xong, có bằng chứng:</p>
+<ul>
+<li><strong>Toàn bộ app AAOS đa module</strong> dưới <code>automotive/</code>: <code>:app</code>, <code>:core:common/ui/database</code>, <code>:feature:voice/hvac/vehicle-status/settings</code>, <code>:vehicle-service:api/impl</code>. Đây là nền mà mọi thứ ở §4 đang chạy trên đó.</li>
+<li>Hai flavor <code>mock</code> / <code>real</code>; flavor <code>mock</code> đã xác nhận cài và chạy trên AAOS 14 không crash.</li>
+<li><strong>Chưa merge — và đây là chỗ tài liệu đội đang nói sai về Dương:</strong> module media đầy đủ (<code>MediaScreen</code>, <code>MediaViewModel</code>, <code>VivaMediaRepository</code> 464 dòng, cast, radio catalog, metadata inspector) đã tồn tại trên <code>feature/automotive</code>, nhưng <code>:feature:media</code> chưa nằm trong <code>settings.gradle.kts</code> của <code>main</code>.</li>
+</ul>
+<p>Đang chặn / còn nợ:</p>
+<ul>
+<li>Merge nhánh <code>feature/automotive</code> là nhánh có dấu hiệu xung đột cao nhất trong bốn nhánh — cần làm sớm, không để tới hạn.</li>
+<li>Text HMI vẫn là tiếng Anh (<code>Climate</code>, <code>Airflow</code>, <code>Fan speed</code>) — với sản phẩm bán câu chuyện trợ lý <strong>tiếng Việt</strong> thì đây là chỗ BGK nhìn thấy đầu tiên.</li>
+<li>E02 (artifact identity), E05 (install/launch/crash trên Device), E11 (video đổi track + duck) chưa có.</li>
+</ul>
+<hr>
+<h2>7. Bảng gate — trạng thái 07/08</h2>
+<table><thead><tr>
+<th>Gate</th>
+<th>Nội dung</th>
+<th>Trạng thái</th>
+</tr></thead><tbody>
+<tr>
+<td>Build gate</td>
+<td>Compile, đóng gói 2 APK variant</td>
+<td>🟢 <strong>MỞ</strong></td>
+</tr>
+<tr>
+<td>Test gate</td>
+<td>Toàn bộ unit test xanh</td>
+<td>🟡 <strong>255/256</strong> — 1 kỳ vọng test viết sai</td>
+</tr>
+<tr>
+<td>CI gate</td>
+<td><code>android-ci</code> / <code>asr-ci</code> xanh trên <code>main</code></td>
+<td>🔴 <strong>ĐÓNG</strong> — job bị cancelled, chưa có bằng chứng CI cho <code>f93751e</code></td>
+</tr>
+<tr>
+<td><strong>Merge gate</strong></td>
+<td>Công việc của cả 4 người nằm trên <code>main</code></td>
+<td>🔴 <strong>ĐÓNG</strong> — 4 nhánh, 23 commit chưa hợp nhất</td>
+</tr>
+<tr>
+<td>Container gate</td>
+<td>Image <code>viva-asr</code> được CarSky pull, node <code>Running</code></td>
+<td>🟢 <strong>MỞ</strong></td>
+</tr>
+<tr>
+<td>Emulator gate</td>
+<td>APK chạy trên AAOS 14, HMI hiển thị, guard chặn thật</td>
+<td>🟢 <strong>MỞ</strong></td>
+</tr>
+<tr>
+<td>Device identity</td>
+<td>Đọc được serial/fingerprint Device <code>VIVA</code></td>
+<td>🟡 <strong>PARTIAL</strong> — thiếu <code>adb devices -l</code> qua <code>nydus-reach</code></td>
+</tr>
+<tr>
+<td>Device core flow</td>
+<td>HVAC/door write + readback thật trên CarSky</td>
+<td>🔴 <strong>ĐÓNG</strong> — quyền privileged chưa kiểm; <code>VivaCarService</code> chưa dựng</td>
+</tr>
+<tr>
+<td>Benchmark trên Device</td>
+<td>≥20 lượt thật, p50/p95 tái lập</td>
+<td>🔴 <strong>ĐÓNG</strong></td>
+</tr>
+<tr>
+<td>Lượt qua micro thật</td>
+<td>Một câu nói thật đi hết pipeline</td>
+<td>🔴 <strong>ĐÓNG</strong> — cả 3 phiên đều là bơm text</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>8. Ba rủi ro đội tự đánh giá là thật</h2>
+<ol>
+<li><strong>Rủi ro hợp nhất, không phải rủi ro tính năng.</strong> 23 commit trên 4 nhánh, trong đó có module media và bản sửa Property ID — hai thứ mà tài liệu của chính đội đang khai là &quot;chưa có&quot;. Nếu không hợp nhất trước code freeze, đội sẽ nộp một bản <code>main</code> <strong>kém hơn</strong> thứ đội thật sự đã làm.</li>
+</ol>
+<ol>
+<li><strong>Đường găng vẫn nằm ở một người.</strong> M1a + M1 (Tùng) chặn 4 evidence ID và phần lớn ô platform utilization. Nếu không mở được, bản nộp phải hạ toàn bộ claim vehicle xuống nhãn <em>Mô phỏng</em>.</li>
+</ol>
+<ol>
+<li><strong>Ba tài liệu nộp đang mô tả snapshot 04/08.</strong> Write-up, Q&amp;A và slide vẫn ghi <em>&quot;Silero VAD chưa cắm&quot;</em>, <em>&quot;SafetyGuard chưa có&quot;</em>, <em>&quot;139 test&quot;</em>, <em>&quot;MiniLM&quot;</em>. Sau khi đội sửa lỗi over-claim ngày 04/08, code đi tiếp ba ngày mà tài liệu đứng lại — giờ lệch theo chiều ngược lại. Với barem chấm <em>&quot;nhất quán với log, artifact, version và evidence map&quot;</em>, lệch chiều nào cũng mất điểm như nhau.</li>
+</ol>
+<hr>
+<h2>9. Kế hoạch 07/08 → 10/08</h2>
+<table><thead><tr>
+<th>Ngày</th>
+<th>Việc bắt buộc</th>
+<th>Người</th>
+<th>Xong nghĩa là</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>07/08 tối</strong></td>
+<td>Sửa 1 dòng test đỏ; <strong>merge nhánh Tùng</strong> (không xung đột)</td>
+<td>Long</td>
+<td><code>gradlew test</code> xanh; Property ID Luau khớp bảng M2</td>
+</tr>
+<tr>
+<td><strong>07/08 tối</strong></td>
+<td>Chấm lại v13 bằng <code>IntentAccuracyScorer</code>, viết lại manifest, chốt <code>tiny-nobias</code></td>
+<td>Long</td>
+<td>Manifest có số 65% + khối GIỚI HẠN</td>
+</tr>
+<tr>
+<td><strong>08/08 sáng</strong></td>
+<td><strong>Merge nhánh Vĩ</strong> (CI xanh) rồi <strong>nhánh Dương</strong> (media)</td>
+<td>Long + Vĩ + Dương</td>
+<td><code>:feature:media</code> có trong <code>settings.gradle.kts</code>; CI xanh trên <code>main</code></td>
+</tr>
+<tr>
+<td><strong>08/08</strong></td>
+<td>Kiểm quyền <code>CAR_SPEED</code> trên Device; M1a quyền privileged VHAL</td>
+<td>Tùng</td>
+<td>Một dòng <code>setProperty</code> thành công <strong>hoặc</strong> một <code>SecurityException</code> — im lặng thì không</td>
+</tr>
+<tr>
+<td><strong>08/08</strong></td>
+<td>Thêm <code>Stage.GUARD_DONE</code> + <code>Stage.RENDER_DONE</code></td>
+<td>Long + Dương</td>
+<td>Báo cáo harness không còn 6/12 cột trống</td>
+</tr>
+<tr>
+<td><strong>08/08</strong></td>
+<td>Chạy lại bộ 22 câu trên emulator sau khi merge</td>
+<td>Vĩ</td>
+<td>Bộ regression chưa chạy lần nào sau khi đổi embedding</td>
+</tr>
+<tr>
+<td><strong>08/08 23:59</strong></td>
+<td><strong>Code freeze</strong></td>
+<td>—</td>
+<td>Sau mốc này chỉ sửa lỗi chặn, đo đạc, tài liệu, quay video</td>
+</tr>
+<tr>
+<td><strong>09/08</strong></td>
+<td>Đồng bộ write-up + Q&amp;A + slide + 3 README theo trạng thái thật</td>
+<td>Long</td>
+<td>Không còn &quot;139 test&quot;, &quot;MiniLM&quot;, &quot;SafetyGuard chưa có&quot;</td>
+</tr>
+<tr>
+<td><strong>09/08</strong></td>
+<td>Video 3 phút không cắt ghép + video bản nộp</td>
+<td>Cả đội</td>
+<td>Đúng thời lượng, nhãn <em>Mô phỏng</em> ở đúng chỗ</td>
+</tr>
+<tr>
+<td><strong>10/08 trưa</strong></td>
+<td>Nộp 8 deliverable</td>
+<td>Long</td>
+<td>Checklist nộp bài đóng hết</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>10. Đề nghị với BGK / mentor</h2>
+<ol>
+<li><strong><code>nydus-reach</code></strong> — đội cần binary hoặc đường lấy chính thức. Không có nó thì <code>adb-exec</code>, <code>shell</code>, <code>container-exec</code> đều trả <code>502 &quot;Conduit service not configured&quot;</code>, và đội không đo được gì trên nền tảng. Đội đã loại trừ bốn nguyên nhân từ phía mình; xem <code>docs/backend-docs/carsky-api.md</code> §4b.</li>
+</ol>
+<ol>
+<li><strong>Quyền privileged trên Device</strong> — image là <code>userdebug</code>, <code>ro.debuggable=1</code>, có <code>/system/priv-app</code>, nhưng shell hiện tại không ghi được vào đó. Xin xác nhận đường được phép: <code>adb root</code>/<code>remount</code>, hay có cơ chế allowlist khác.</li>
+</ol>
+<ol>
+<li><strong>&quot;Core flow chạy trên CarSky&quot; được chấp nhận ở mức nào</strong> — Device trong Room có đủ, hay phải kèm log/trace lấy từ chính platform? Câu trả lời quyết định đội dồn ba ngày còn lại vào đâu.</li>
+</ol>
+<ol>
+<li><strong>Lịch và hình thức phiên demo trực tiếp + Q&amp;A của Vòng 2</strong> — thể lệ ghi <em>&quot;BTC thông báo riêng&quot;</em> mà đội chưa nhận được. 11 điểm (6đ demo live + 5đ trình bày) phụ thuộc câu này.</li>
+</ol>
+</body>
+</html>

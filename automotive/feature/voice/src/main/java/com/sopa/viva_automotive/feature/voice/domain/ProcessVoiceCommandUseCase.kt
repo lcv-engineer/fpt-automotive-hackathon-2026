@@ -2,12 +2,12 @@ package com.sopa.viva_automotive.feature.voice.domain
 
 import com.sopa.viva_automotive.feature.voice.data.CommandMappingRepository
 import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMatcher
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import com.sopa.viva_automotive.feature.voice.integration.AutomotiveVoiceAction
 import com.sopa.viva_automotive.feature.voice.integration.CoreIntentMapper
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntentTypes
 import com.sopa.viva_automotive.vehicleservice.api.VehicleZone
-import com.viva.voice.intent.GrammarIntentRouter
 import com.viva.voice.intent.IntentRouter
 import com.viva.voice.intent.RouteResult
 import javax.inject.Inject
@@ -33,9 +33,7 @@ class ProcessVoiceCommandUseCase @Inject constructor(
             is RouteResult.Matched -> return when (val action = CoreIntentMapper.map(coreRoute.intent)) {
                 is AutomotiveVoiceAction.VehicleControl -> action.intent
                 is AutomotiveVoiceAction.VolumeAdjust -> VehicleIntent.VolumeAdjust(action.delta)
-                is AutomotiveVoiceAction.MediaPlay -> VehicleIntent.MediaPlay(action.query)
-                AutomotiveVoiceAction.MediaPause -> VehicleIntent.MediaPause
-                AutomotiveVoiceAction.MediaNext -> VehicleIntent.MediaNext
+                is AutomotiveVoiceAction.Media -> VehicleIntent.Media(action.command)
                 is AutomotiveVoiceAction.Delivery -> VehicleIntent.Delivery(action.command)
                 null -> if (isVehicleIntent(coreRoute.intent.name)) {
                     VehicleIntent.Unknown(utterance)
@@ -98,9 +96,9 @@ class ProcessVoiceCommandUseCase @Inject constructor(
             VehicleIntentTypes.QUERY_FUEL -> VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.FUEL)
             VehicleIntentTypes.QUERY_BATTERY -> VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.BATTERY)
             VehicleIntentTypes.QUERY_TEMPERATURE -> VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.TEMPERATURE)
-            VehicleIntentTypes.MEDIA_PLAY -> VehicleIntent.MediaPlay(extractMediaQuery(text))
-            VehicleIntentTypes.MEDIA_PAUSE -> VehicleIntent.MediaPause
-            VehicleIntentTypes.MEDIA_NEXT -> VehicleIntent.MediaNext
+            VehicleIntentTypes.MEDIA_PLAY -> VehicleIntent.Media(MediaCommand.PLAY)
+            VehicleIntentTypes.MEDIA_PAUSE -> VehicleIntent.Media(MediaCommand.PAUSE)
+            VehicleIntentTypes.MEDIA_NEXT -> VehicleIntent.Media(MediaCommand.NEXT)
             VehicleIntentTypes.RADIO_TUNE -> VehicleIntent.RadioTune(extractRadioQuery(text))
             VehicleIntentTypes.RADIO_NEXT -> VehicleIntent.RadioNextStation
             VehicleIntentTypes.VOLUME_UP -> VehicleIntent.VolumeAdjust(1)
@@ -111,21 +109,6 @@ class ProcessVoiceCommandUseCase @Inject constructor(
 
     private fun isVehicleIntent(intentName: String): Boolean =
         intentName.startsWith("hvac_") || intentName == "door_lock"
-
-    private fun extractMediaQuery(text: String): String? {
-        val cleaned = text
-            .replace("play some", " ")
-            .replace("play the", " ")
-            .replace("play", " ")
-            .replace("phát nhạc", " ")
-            .replace("phát bài", " ")
-            .replace("phát", " ")
-            .replace("music", " ")
-            .replace("nhạc", " ")
-            .replace(Regex("""\s+"""), " ")
-            .trim()
-        return cleaned.takeIf { it.isNotEmpty() }
-    }
 
     private fun extractRadioQuery(text: String): String? {
         val cleaned = text
