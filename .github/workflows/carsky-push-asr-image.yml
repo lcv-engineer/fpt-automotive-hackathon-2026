@@ -7,20 +7,20 @@ name: carsky-push-asr-image
 # deploy động vào room demo. Gộp chung thì mỗi lần muốn build thử lại phải cân
 # nhắc xem có làm sập buổi duyệt không.
 #
-# ## ⚠️ Chưa chạy được — thiếu credential
+# ## ✅ Đã chạy được từ 07/08/2026
 #
-# Registry đòi credential riêng; API key CarSky KHÔNG dùng được. Đã thử
-# 06/08/2026 trên `GET /v2/viva/viva-asr/tags/list`:
+# Registry đòi credential riêng — API key CarSky KHÔNG dùng được (thử 06/08:
+# `Basic viva:<api-key>`, `Bearer <api-key>` và ẩn danh đều 401). Cặp đúng nằm
+# ở `backend/.env` (`CARSKY_REGISTRY_USER` / `CARSKY_REGISTRY_TOKEN`) và đã đặt
+# lên Settings → Secrets → Actions thành CARSKY_REGISTRY_USERNAME /
+# CARSKY_REGISTRY_PASSWORD. Chạy thật 07/08: build 3m44s, push tag `0.2.0`.
 #
-#   Basic viva:<api-key>  → 401 UNAUTHORIZED
-#   Bearer <api-key>      → 401 UNAUTHORIZED
-#   ẩn danh               → 401 UNAUTHORIZED
+# ## Push xong thì CHƯA phải deploy xong
 #
-# Image hiện tại đã nằm trên registry nên chắc chắn có người push được — theo
-# vong2/00-KE-HOACH-VONG-2.md là Vĩ. Cần đúng cặp credential đó, đặt vào
-# Settings → Secrets → Actions với tên CARSKY_REGISTRY_USERNAME và
-# CARSKY_REGISTRY_PASSWORD. Bước `kiểm secret` dưới đây dừng sớm và nói rõ
-# thiếu gì, thay vì để `docker login` fail với một dòng 401 khó hiểu.
+# `PATCH /api/v1/nodes/{nodeId}` trả **404** — không đổi được image của node
+# bằng API. Sau khi workflow này in ra digest, phải vào **web UI CarSky** đổi
+# trường image của node `VIVA ASR`, rồi mới chạy `carsky-deploy-asr` để restart
+# và xác minh. Chi tiết ở docs/backend-docs/carsky-api.md §9c.
 
 on:
   workflow_dispatch:
@@ -34,6 +34,17 @@ on:
         description: "Model gốc trên HuggingFace"
         required: true
         default: "vinai/PhoWhisper-tiny"
+        type: string
+      model_name:
+        # TÁCH KHỎI `tag` có chủ đích. Bản trước dùng `ASR_MODEL_NAME=${{ inputs.tag }}`,
+        # tức gộp "tên bản phát hành" với "nhãn model" làm một. Nó chỉ đúng khi
+        # tag tình cờ trùng tên model — và đó là lý do tag mặc định là
+        # `phowhisper-tiny-int8`. Push ngày 07/08 với `tag=0.2.0` làm lộ ra:
+        # image ra đời mang `ASR_MODEL_NAME=0.2.0`, nên `/health` và header
+        # `X-Asr-Model` khai báo một cái tên model không tồn tại.
+        description: "Nhãn model báo cáo ở /health và header X-Asr-Model"
+        required: true
+        default: "phowhisper-tiny-int8"
         type: string
 
 env:
@@ -56,6 +67,12 @@ jobs:
             exit 1
           fi
 
+      # Bắt buộc cho build arm64 trên runner x86 — thiếu nó thì stage `runtime`
+      # (có `pip install`) không chạy được dưới kiến trúc khác.
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -70,13 +87,24 @@ jobs:
         with:
           context: asr
           push: true
-          # Node chạy trên cluster x86; build đa kiến trúc chỉ làm job lâu gấp
-          # đôi mà không ai dùng tới bản arm64.
-          platforms: linux/amd64
+          # ⚠️ ĐỪNG thu về mỗi `linux/amd64`. Bản trước ghi "node chạy trên
+          # cluster x86" — đó là GIẢ ĐỊNH chưa ai kiểm, và nó đã tốn một buổi:
+          #
+          #   0.1.0 (chạy được)  : linux/amd64 + linux/arm64
+          #   0.2.0 (amd64-only) : Redeploy -> "Partial redeploy: 1 node(s) failed"
+          #
+          # Nền tảng không cho xem pod đang fail (nodes/watch giữ nguyên Running,
+          # logs chỉ trỏ về pod cũ, container-exec 502) nên không đọc được lý do
+          # trực tiếp. Nhưng bản duy nhất từng chạy được là bản đa kiến trúc, và
+          # biến DUY NHẤT khác giữa hai lần là dòng này.
+          #
+          # Giữ đúng bộ kiến trúc của 0.1.0 cho tới khi có ai đó xác minh được
+          # kiến trúc thật của node. Build lâu hơn vài phút, đổi lại không cược.
+          platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE }}:${{ inputs.tag }}
           build-args: |
             ASR_HF_MODEL=${{ inputs.hf_model }}
-            ASR_MODEL_NAME=${{ inputs.tag }}
+            ASR_MODEL_NAME=${{ inputs.model_name }}
             # Không truyền thì Dockerfile lấy mặc định `unknown` và nướng nó vào
             # ENV của image — mọi bản đẩy lên sẽ không truy ngược được về commit,
             # đúng thứ mà kỷ luật ghim-digest sinh ra để bảo vệ.
