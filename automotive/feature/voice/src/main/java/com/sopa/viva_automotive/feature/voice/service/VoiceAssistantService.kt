@@ -344,7 +344,7 @@ class VoiceAssistantService : LifecycleService() {
         is VehicleIntent.SetDoorLock -> "Đang xử lý khóa cửa"
         is VehicleIntent.QueryStatus -> "Đang kiểm tra trạng thái xe"
         is VehicleIntent.VolumeAdjust -> "Đang chỉnh âm lượng"
-        is VehicleIntent.MediaNext -> "Đang chuyển bài"
+        is VehicleIntent.Media -> intent.command.progressMessageVi
         is VehicleIntent.Delivery -> "Đang xem lộ trình giao hàng"
         is VehicleIntent.NotWired -> "Đang định tuyến lệnh"
         is VehicleIntent.Clarification -> "Đang hỏi lại"

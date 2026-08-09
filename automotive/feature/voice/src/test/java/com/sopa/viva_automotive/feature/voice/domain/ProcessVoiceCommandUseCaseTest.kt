@@ -4,6 +4,7 @@ import com.sopa.viva_automotive.feature.voice.FakeCommandMappingDao
 import com.sopa.viva_automotive.feature.voice.FakeSemanticIntentMatcher
 import com.sopa.viva_automotive.feature.voice.data.CommandMappingRepository
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntentTypes
 import com.sopa.viva_automotive.vehicleservice.api.VehicleZone
@@ -141,19 +142,16 @@ class ProcessVoiceCommandUseCaseTest {
     }
 
     @Test
-    fun `media next survives the module boundary instead of becoming unknown`() = runTest {
-        assertEquals(VehicleIntent.MediaNext, useCase("chuyển bài"))
+    fun `all three media commands survive the module boundary`() = runTest {
+        assertEquals(VehicleIntent.Media(MediaCommand.PLAY), useCase("phát nhạc"))
+        assertEquals(VehicleIntent.Media(MediaCommand.PAUSE), useCase("dừng nhạc"))
+        assertEquals(VehicleIntent.Media(MediaCommand.NEXT), useCase("chuyển bài"))
     }
 
     @Test
     fun `volume commands keep their direction`() = runTest {
         assertEquals(VehicleIntent.VolumeAdjust(1), useCase("tăng âm lượng"))
         assertEquals(VehicleIntent.VolumeAdjust(-1), useCase("giảm âm lượng"))
-    }
-
-    @Test
-    fun `grammar intents without an app adapter are labelled, not denied`() = runTest {
-        assertEquals(VehicleIntent.NotWired("media_pause"), useCase("dừng nhạc"))
     }
 
     @Test

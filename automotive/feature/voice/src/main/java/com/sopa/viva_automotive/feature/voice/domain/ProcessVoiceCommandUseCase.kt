@@ -33,7 +33,7 @@ class ProcessVoiceCommandUseCase @Inject constructor(
             is RouteResult.Matched -> return when (val action = CoreIntentMapper.map(coreRoute.intent)) {
                 is AutomotiveVoiceAction.VehicleControl -> action.intent
                 is AutomotiveVoiceAction.VolumeAdjust -> VehicleIntent.VolumeAdjust(action.delta)
-                AutomotiveVoiceAction.MediaNext -> VehicleIntent.MediaNext
+                is AutomotiveVoiceAction.Media -> VehicleIntent.Media(action.command)
                 is AutomotiveVoiceAction.Delivery -> VehicleIntent.Delivery(action.command)
                 // The mapper returns null for two different reasons, and they owe
                 // the driver two different answers: a vehicle intent it could not

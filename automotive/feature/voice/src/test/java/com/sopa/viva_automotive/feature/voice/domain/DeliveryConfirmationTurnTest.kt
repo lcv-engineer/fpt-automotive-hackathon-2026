@@ -4,6 +4,7 @@ import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliverySkill
 import com.sopa.viva_automotive.feature.voice.domain.delivery.InMemoryDeliveryRepository
 import com.sopa.viva_automotive.feature.voice.domain.delivery.OrderState
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -83,7 +84,9 @@ class DeliveryConfirmationTurnTest {
             ),
         )
         assertFalse(
-            ExecuteVehicleControlUseCase.retainsPendingConfirmation(VehicleIntent.MediaNext),
+            ExecuteVehicleControlUseCase.retainsPendingConfirmation(
+                VehicleIntent.Media(MediaCommand.NEXT),
+            ),
         )
         assertFalse(
             ExecuteVehicleControlUseCase.retainsPendingConfirmation(VehicleIntent.SetAc(true)),

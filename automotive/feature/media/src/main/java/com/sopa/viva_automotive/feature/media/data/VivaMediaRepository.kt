@@ -88,7 +88,10 @@ class VivaMediaRepository @Inject constructor(
         }
 
     fun sessionToken(): MediaSessionCompat.Token {
-        ensurePlayer()
+        val activePlayer = ensurePlayer()
+        if (activePlayer.mediaItemCount == 0) {
+            applyQueue(resetPosition = true, playWhenReady = false)
+        }
         val session = mediaSession ?: error("MediaSession not ready")
         return MediaSessionCompat.Token.fromToken(session.platformToken)
     }
