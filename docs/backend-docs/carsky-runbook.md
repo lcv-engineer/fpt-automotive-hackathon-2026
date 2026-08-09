@@ -312,7 +312,15 @@ APK phải có `lib/arm64-v8a/` — kiểm trước khi phí công:
 unzip -l app-mock-debug.apk | grep -c "lib/arm64-v8a/"   # phải > 0
 ```
 
-Đưa file lên GitHub Release của repo (repo public → URL tải thẳng, VM `curl` được):
+**Đưa file lên Device — hai đường, ưu tiên đường 1:**
+
+**① CarSky Artifacts (nên dùng).** Upload APK lên panel **Artifacts** thành một
+artifact **private** (đã làm 09/08: `viva-apk` / `0.0.1`), rồi tải xuống Device.
+Ưu điểm: file **không ra công khai**, và nằm cùng nền tảng nên không phụ thuộc
+việc VM có ra được internet hay không.
+
+**② GitHub Release.** Chỉ dùng khi repo public và chấp nhận file ra URL công
+khai. Nhanh hơn nhưng **đăng cả bản build ra ngoài** — cân nhắc trước khi làm.
 
 ```powershell
 gh release create <tag> --repo <owner/repo> --title "..." --notes "..." "<đường-dẫn-apk>"
@@ -338,6 +346,42 @@ thay vì làm lại:
 curl -L -C - -o viva.apk <URL>
 ```
 
+### ⚠️ `INSTALL_FAILED_UPDATE_INCOMPATIBLE` — chữ ký khác nhau
+
+Gặp 09/08. Nếu trên Device đã có package cùng tên nhưng **ký bằng khoá debug
+khác** (ví dụ người khác build trên máy khác, hoặc bản trước cài từ nguồn khác),
+`pm install -r` sẽ trả:
+
+```
+Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: existing package signature mismatch]
+```
+
+Không có cách ép. Phải gỡ rồi cài sạch:
+
+```sh
+pm uninstall com.sopa.viva_automotive.mock
+pm install /data/local/tmp/viva.apk
+```
+
+Gỡ **đúng package mock**; bản `real` (`com.sopa.viva_automotive`) và các package
+khác không bị ảnh hưởng vì khác `applicationId`.
+
+> Hệ quả vận hành: **thống nhất một máy build** cho mọi bản đưa lên Device, hoặc
+> chấp nhận phải gỡ-cài lại mỗi khi đổi người build. Gỡ package cũng xoá luôn
+> DataStore của app — tức mất thiết lập ngôn ngữ giọng nói, phải chọn lại.
+
+### Đối chiếu SHA-256 sau khi cài
+
+Nên làm, để chắc thứ đang chạy đúng là thứ mình build:
+
+```sh
+sha256sum /data/local/tmp/viva.apk
+pm path com.sopa.viva_automotive.mock      # → /data/app/…/base.apk
+sha256sum <đường-dẫn-base.apk>
+```
+
+Ba giá trị (local, tải xuống, đã cài) phải khớp nhau.
+
 ### Đường thay thế nếu VM không ra được internet — **CHƯA THỬ**
 
 Đóng APK vào ảnh đĩa FAT32 `.img`, upload lên panel **Artifacts**, dùng widget
@@ -357,6 +401,54 @@ trong app đổi **Ngôn ngữ giọng nói → Tiếng Việt** (bấm tay qua 
 ```sh
 cmd locale set-app-locales com.sopa.viva_automotive.mock --user 0 --locales vi-VN
 ```
+
+---
+
+### Đã chứng minh chạy trên Device — 09/08
+
+Bằng chứng đầy đủ ở `evidence/c2/carsky-runtime-20260809/`.
+
+| Môi trường | Giá trị |
+|---|---|
+| Deployment | `VIVA-demo-0808`, 22/22 Running |
+| Android target | `trout_arm64`, `arm64-v8a`, **Android 14 / SDK 34** |
+| Package | `com.sopa.viva_automotive.mock`, `versionCode=1`, `minSdk=32`, `targetSdk=36` |
+| Artifact | private `viva-apk` / `0.0.1`, 387.904.742 bytes |
+
+Ba câu bơm văn bản đi hết chuỗi **receiver debug → `VoiceAssistantService` → NLU
+→ `MediaBrowserCompat`/`MediaControllerCompat` → MediaSession/ExoPlayer**, và
+MediaSession **đổi trạng thái thật**:
+
+```
+phát nhạc   → media_play  |Allow   → state=PLAYING(3), position=0
+dừng nhạc   → media_pause |Allow   → state=PAUSED(2), position=3124
+chuyển bài  → media_next  |Allow   → activeItemId 0 → 1, rồi PLAYING
+```
+
+Đây chính là **3 trong 5 ca `known_gap` D7 MediaSession** mà benchmark trên
+emulator luôn FAIL — trên Device thật thì chạy.
+
+Lệnh bơm câu (chỉ có ở build **mock/debuggable**):
+
+```sh
+am broadcast -a com.sopa.viva_automotive.mock.UTTERANCE \
+  --es text_b64 cGjDoXQgbmjhuqFj \
+  -n com.sopa.viva_automotive.mock/com.sopa.viva_automotive.debug.SimulatedUtteranceReceiver
+```
+
+```
+cGjDoXQgbmjhuqFj       = phát nhạc
+ZOG7q25nIG5o4bqhYw==   = dừng nhạc
+Y2h1eeG7g24gYsOgaQ==   = chuyển bài
+```
+
+⚠️ **Phạm vi của bằng chứng này — đừng nói quá:** nó bỏ qua **mic, VAD, ASR**
+(dùng hook bơm text), nên `e2e_ms=0` **không phải** độ trễ giọng nói. Nó cũng
+không chứng minh VHAL/CAN/CCU, vì là flavor `mock`.
+
+**Degrade đã biết trên Device:** không có giọng TTS tiếng Việt, nên câu trả lời
+`"Đã gửi lệnh phát nhạc tới trình phát."` không phát ra tiếng. Media vẫn chạy
+đúng — nhưng **không được claim phản hồi TTS hoàn chỉnh**.
 
 ---
 
