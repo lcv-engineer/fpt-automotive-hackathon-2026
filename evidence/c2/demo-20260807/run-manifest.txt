@@ -1,0 +1,83 @@
+DEMO VIDEO — EMULATOR AAOS · 07/08/2026
+========================================
+
+Nhan: EMULATOR AAOS 14 tren may dev — KHONG phai Device CarSky.
+      Bien the APK: `mock` -> lop xe la MockVehicleRepository, KHONG co
+      CarService/VHAL that. Khong dung file nay de dong E03/E04/E09.
+
+Thoi diem  : 2026-08-07T01:13 (Asia/Saigon)
+Commit     : f93751e655786984545406978feeac05a40405f7 (nhanh main)
+APK        : automotive/app/build/outputs/apk/mock/debug/app-mock-debug.apk
+Thiet bi   : emulator-5554 · sdk_gcar_x86_64 · Car_on_x86_64_emulator
+Do phan giai: 1408x792 (wm size da xac nhan trong luot chay)
+Process    : pid 5688, khong crash/ANR/SecurityException trong luot chay
+
+CHE DO: BOM TEXT (khong qua mic)
+--------------------------------
+  Cau duoc day vao qua SimulatedUtteranceReceiver (chi co o bien the `mock`,
+  va service con chan them mot lop: bo qua neu build khong debuggable).
+
+  Do duoc  : router -> guard -> skill -> HMI -> TTS
+  KHONG do : mic, VAD, ASR, WER, do on, do tre dau-cuoi.
+             Moi luot deu KHONG co speech_start/speech_end nen `e2e_ms=0`
+             va tu dong nam ngoai moi thong ke p50/p95 cua harness.
+             Dung go rieng de "cuu" chung.
+
+SAU CAU DA CHAY VA KET QUA THAT
+--------------------------------
+  1. "Viva oi, ha dieu hoa xuong 24 do"  -> hvac_set_temp | Allow
+  2. "quat manh len"                     -> clarify       | Confirm:CLARIFY_SLOT
+  3. "quat muc 3"                        -> hvac_set_fan  | Allow
+  4. "mo cua" (xe dang chay 60 km/h)     -> door_lock     | Deny:G1_SPEED_LOCK
+  5. "dat ban an toi"                    -> unknown       | Deny:G3_UNSUPPORTED
+  6. "chuyen bai"                        -> KHONG SINH LUOT (xem muc LOI duoi)
+
+  Nguyen van: trace-summary.log
+
+DIEM DANG CHU Y NHAT CUA LUOT NAY
+----------------------------------
+  Luot 4 sinh ra dong:
+
+    VivaSafetyGuard: Deny:G1_SPEED_LOCK property=371198722 area=1
+                     value=false source=VOICE confirmed=false
+
+  `source=VOICE` la MOI. Bang chung cu (evidence/emulator/safety-speed60.log)
+  chi co `source=HMI`, tuc moi chi chung minh guard chan duong CHAM. Lan nay
+  chung minh guard chan ca duong GIONG NOI, trong cung mot lop bien
+  VehicleRepository. Toc do 60 km/h duoc dat qua VehicleDummyReceiver
+  (VSTATE speed=16.7 m/s).
+
+  Van la property cua MockVehicleRepository, KHONG phai Vehicle Property that
+  qua CarService/VHAL. Muon claim toi VHAL thi phai chay bien the `real` tren
+  Device that.
+
+LOI QUAN SAT DUOC TRONG LUOT NAY — CAN XAC NHAN LAI
+----------------------------------------------------
+  Cau thu 6 ("chuyen bai") duoc receiver nhan:
+
+    SimulatedUtterance: Bom cau: "chuyen bai"
+
+  ...nhung KHONG co dong VIVA_BENCH_INJECT va KHONG co VIVA_TRACE_SUMMARY
+  tuong ung. Nam cau truoc deu co du ca hai. Tuc luot do bi BO IM LANG:
+  no khong that bai, no bien mat.
+
+  Gia thuyet (chua kiem chung): VoiceAssistantService.startPipeline() co
+  `if (pipelineJob?.isActive == true) return` — neu luot truoc chua dong
+  (TTS con dang phat, hoac delay(RESULT_DISPLAY_MS) chua het) thi luot moi
+  bi bo ma khong log gi.
+
+  Vi sao dang lo: nguyen tac do luong cua doi la "luot loi van nam trong
+  mau". Mot luot BIEN MAT con te hon mot luot FAIL, vi harness khong dem
+  duoc no. Cac lan chay 22 cau truoc deu bao "0 MISSING" — nhung do co the
+  chi vi runner cham nhip du thua.
+
+  Viec can lam: log mot dong khi startPipeline() tu choi, va cho runner cho
+  den khi service ve Idle thay vi cho theo thoi gian co dinh.
+
+FILE TRONG THU MUC
+-------------------
+  viva-demo-07-08.mp4  video 47,8s da chen phu de tieng Viet + nhan MO PHONG
+  viva-demo-raw.mp4    ban goc 59,8s chua chen chu (de dung lai neu can)
+  trace-summary.log    VIVA_TRACE_SUMMARY + dong VivaSafetyGuard cua luot chay
+  poster.png           khung hinh dai dien (giay phut guard tu choi)
+  run-manifest.txt     file nay

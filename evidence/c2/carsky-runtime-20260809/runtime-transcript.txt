@@ -1,0 +1,50 @@
+CarSky Device runtime evidence — 2026-08-09
+
+Artifact
+  viva-apk / 0.0.1 / private
+  app-mock-debug.apk
+  bytes: 387904742
+  sha256 local/download/installed-base.apk:
+  b3ad9a4b6c83c032a09cd240987738e63eda454cc410f260fe37613468bfa0da
+
+Device/package
+  deployment: VIVA-demo-0808 (22/22 Running)
+  device: VIVA
+  device id: v37aa3knc6t1embelr5yi
+  target: trout_arm64 / arm64-v8a / Android 14 / SDK 34
+  package: com.sopa.viva_automotive.mock
+  versionCode=1 minSdk=32 targetSdk=36 versionName=1.0
+  firstInstallTime=2026-08-09 02:58:26 UTC
+  lastUpdateTime=2026-08-09 02:58:26 UTC
+
+Install
+  pm install -r /data/local/tmp/app-mock-debug.apk
+  Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: existing package signature mismatch]
+  pm uninstall com.sopa.viva_automotive.mock
+  Success
+  pm install /data/local/tmp/app-mock-debug.apk
+  Success
+
+Play
+  VIVA_TRACE_SUMMARY|3fa9c6df-7077-4696-9a00-5f22b160f897|phát nhạc|media_play|Allow|e2e_ms=0
+  state=PlaybackState {state=PLAYING(3), position=0, buffered position=4000,
+  speed=1.0, active item id=2, error=null}
+
+Pause
+  VIVA_TRACE_SUMMARY|a92f5f4c-6545-48e9-93c5-cb64cab46f13|dừng nhạc|media_pause|Allow|e2e_ms=0
+  state=PlaybackState {state=PAUSED(2), position=3124, buffered position=4000,
+  speed=0.0, active item id=2, error=null}
+
+Next (validated run)
+  VIVA_TRACE_SUMMARY|3cf25f75-75e6-4fc4-af29-e2c001ee2d60|chuyển bài|media_next|Allow|e2e_ms=0
+  before: active item id=0
+  after:  state=PLAYING(3), position=0, buffered position=4000,
+          speed=1.0, active item id=1, error=null
+
+Known degradation
+  VIVA_VOICE: TTS failed for "Đã gửi lệnh phát nhạc tới trình phát.":
+  No Vietnamese TTS voice or pre-rendered prompt for that response.
+
+Scope
+  This is NLU -> media runtime on a CarSky AAOS Device using the mock/debug text
+  injection hook. It bypasses mic/VAD/ASR and does not prove VHAL/CAN/CCU.
