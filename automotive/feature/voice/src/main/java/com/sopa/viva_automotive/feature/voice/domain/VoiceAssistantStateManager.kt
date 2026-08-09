@@ -21,12 +21,16 @@ class VoiceAssistantStateManager @Inject constructor() {
     private val _events = MutableSharedFlow<VoiceEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<VoiceEvent> = _events.asSharedFlow()
 
-    fun transitionToListening() {
-        _state.value = VoiceAssistantState.Listening()
+    fun transitionToWakeDetected() {
+        _state.value = VoiceAssistantState.WakeDetected
+    }
+
+    fun transitionToListening(fromHotword: Boolean = false) {
+        _state.value = VoiceAssistantState.Listening(fromHotword = fromHotword)
         _events.tryEmit(VoiceEvent.ListeningStarted)
     }
 
-        fun updatePartialTranscription(text: String) {
+    fun updatePartialTranscription(text: String) {
         _state.update { current ->
             if (current is VoiceAssistantState.Listening) {
                 current.copy(partialTranscription = text)

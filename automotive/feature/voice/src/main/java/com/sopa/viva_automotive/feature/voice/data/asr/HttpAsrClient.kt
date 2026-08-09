@@ -1,6 +1,7 @@
 package com.sopa.viva_automotive.feature.voice.data.asr
 
 import android.util.Log
+import com.sopa.viva_automotive.core.common.device.AndroidEmulator
 import com.viva.voice.BuildConfig
 import com.viva.voice.asr.AsrClient
 import com.viva.voice.asr.AsrResult
@@ -22,12 +23,15 @@ import org.json.JSONObject
  * HTTP [AsrClient] for the `viva-asr` container (`vong2/03-contracts.md` §2).
  *
  * Base URL comes from `voice-core` [BuildConfig.ASR_BASE_URL]
- * (default `http://127.0.0.1:8080`, use `adb reverse tcp:8080 tcp:8080` on device).
+ * (default `http://127.0.0.1:8080`). On emulator, loopback is rewritten to
+ * `10.0.2.2` so the guest can reach the host container **without**
+ * `adb reverse` on every boot. Physical devices still use 127.0.0.1 + reverse
+ * (or `-PvivaAsrBaseUrl=http://<lan-ip>:8080`).
  */
 @Singleton
 class HttpAsrClient @Inject constructor() : AsrClient {
 
-    private val baseUrl: String = BuildConfig.ASR_BASE_URL.trimEnd('/')
+    private val baseUrl: String = resolveBaseUrl(BuildConfig.ASR_BASE_URL)
 
     suspend fun warmUp() {
         runCatching {
@@ -129,5 +133,19 @@ class HttpAsrClient @Inject constructor() : AsrClient {
         const val CONNECT_TIMEOUT_MS = 3_000
         const val READ_TIMEOUT_MS = 5_000
         const val TRANSCRIBE_TIMEOUT_MS = 30_000
+        /** Emulator alias for the development machine's loopback. */
+        const val EMULATOR_HOST_LOOPBACK = "10.0.2.2"
+
+        fun resolveBaseUrl(configured: String): String {
+            val trimmed = configured.trimEnd('/')
+            if (!AndroidEmulator.isEmulator()) return trimmed
+            val rewritten = trimmed
+                .replace("://127.0.0.1", "://$EMULATOR_HOST_LOOPBACK")
+                .replace("://localhost", "://$EMULATOR_HOST_LOOPBACK")
+            if (rewritten != trimmed) {
+                Log.i(TAG, "emulator: ASR_BASE_URL $trimmed → $rewritten (no adb reverse)")
+            }
+            return rewritten
+        }
     }
 }

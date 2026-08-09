@@ -28,6 +28,20 @@ class GrammarIntentRouterTest {
     }
 
     @Test
+    fun `canonical vi-vi wake phrase is stripped before routing`() {
+        val result = router.route("Vi-Vi ơi khóa cửa") as RouteResult.Matched
+
+        assertEquals("door_lock", result.intent.name)
+    }
+
+    @Test
+    fun `vi vi spaced wake phrase is accepted`() {
+        val result = router.route("Vi Vi ơi tăng âm lượng") as RouteResult.Matched
+
+        assertEquals("volume_adjust", result.intent.name)
+    }
+
+    @Test
     fun `cold complaint asks to raise temperature instead of doing the opposite`() {
         val result = router.route("lạnh quá")
 

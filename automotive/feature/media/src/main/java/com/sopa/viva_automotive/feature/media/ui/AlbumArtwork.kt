@@ -3,11 +3,9 @@ package com.sopa.viva_automotive.feature.media.ui
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -27,24 +25,19 @@ fun AlbumArtwork(
             ?.takeIf { it.isNotEmpty() }
             ?.let { bytes -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
     }
-    val shape = RoundedCornerShape(16.dp)
     if (bitmap != null) {
         Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = stringResource(R.string.media_artwork),
             contentScale = ContentScale.Crop,
-            modifier = modifier
-                .size(size)
-                .clip(shape),
+            modifier = modifier.size(size),
         )
     } else {
         Image(
             painter = painterResource(R.drawable.album_art_default),
             contentDescription = stringResource(R.string.media_artwork),
             contentScale = ContentScale.Crop,
-            modifier = modifier
-                .size(size)
-                .clip(shape),
+            modifier = modifier.size(size),
         )
     }
 }

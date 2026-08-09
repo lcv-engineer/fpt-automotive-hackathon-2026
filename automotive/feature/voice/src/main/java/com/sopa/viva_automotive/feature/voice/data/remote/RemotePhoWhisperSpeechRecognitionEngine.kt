@@ -21,7 +21,7 @@ fun interface RemoteAsrTransport {
  * Adapter cho `viva-asr`/PhoWhisper. Engine chỉ gom chính dòng PCM mà VAD đang
  * quan sát; nó không mở microphone và không tự chạy endpointer thứ hai.
  *
- * PhoWhisper hiện là endpoint theo utterance, nên khác Vosk ở chỗ không phát
+ * PhoWhisper hiện là endpoint theo utterance, nên không phát
  * partial. Chỉ kết quả cuối mới đi xuống NLU, đúng contract 28-PIPELINE §2.4.
  */
 class RemotePhoWhisperSpeechRecognitionEngine(

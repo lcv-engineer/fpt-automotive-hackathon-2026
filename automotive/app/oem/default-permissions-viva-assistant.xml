@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Optional OEM default-permissions grant for the default VoiceInteractionService.
+  Only the default VIA should receive these pre-grants (CDD §9).
+-->
+<exceptions>
+    <exception package="com.sopa.viva_automotive">
+        <permission name="android.permission.RECORD_AUDIO" fixed="false" />
+    </exception>
+</exceptions>

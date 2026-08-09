@@ -19,8 +19,8 @@ object VoiceTurnReport {
      * Dưới mức này thì một transcript **đã được đo** là không đủ chắc để thành lệnh
      * xe; lượt đó hỏi lại thay vì thực thi (28-PIPELINE §5, hàng "ASR confidence thấp").
      *
-     * Chỉ áp dụng khi engine thật sự trả về một con số. Vosk small trả `null` và
-     * `null` **không** rơi vào luật này — xem [needsRepeatForConfidence].
+     * Chỉ áp dụng khi engine thật sự trả về một con số. `null` **không** rơi vào
+     * luật này — xem [needsRepeatForConfidence].
      */
     const val MIN_ACOUSTIC_CONFIDENCE = 0.6f
 
@@ -40,8 +40,7 @@ object VoiceTurnReport {
      * `true` khi ASR **đã đo** confidence và con số đó quá thấp.
      *
      * `null` trả về `false`: thiếu confidence là một trạng thái quan sát được, không
-     * phải bằng chứng nghe kém. Nếu coi `null` là thấp thì bản offline dùng Vosk sẽ
-     * hỏi lại mọi câu và không bao giờ chạy được lệnh nào.
+     * phải bằng chứng nghe kém.
      */
     fun needsRepeatForConfidence(acousticConfidence: Float?): Boolean =
         acousticConfidence != null && acousticConfidence < MIN_ACOUSTIC_CONFIDENCE

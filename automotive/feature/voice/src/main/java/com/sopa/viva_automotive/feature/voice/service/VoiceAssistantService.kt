@@ -10,11 +10,17 @@ import android.content.pm.ServiceInfo
 import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
 import com.sopa.viva_automotive.feature.voice.data.audio.VadUtteranceCapture
+import com.sopa.viva_automotive.feature.voice.data.audio.VoiceSessionDucker
+import com.sopa.viva_automotive.feature.voice.di.VoiceModule
 import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
+import com.sopa.viva_automotive.feature.voice.domain.model.VoiceAssistantState
+import com.sopa.viva_automotive.feature.voice.via.HotwordAckPlayer
 import com.viva.voice.agent.VoiceAgent
 import com.viva.voice.agent.VoiceTurnResult
-import com.viva.voice.agent.VoiceTurnStatus
+import com.viva.voice.audio.Trigger
+import com.viva.voice.hotword.HotwordGate
 import com.viva.voice.trace.Stage
 import com.viva.voice.trace.startSilentTrace
 import com.viva.voice.trace.startVoiceTrace
@@ -23,6 +29,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -32,14 +39,25 @@ class VoiceAssistantService : LifecycleService() {
     @Inject lateinit var stateManager: VoiceAssistantStateManager
     @Inject lateinit var voiceAgent: VoiceAgent
     @Inject lateinit var vadCapture: VadUtteranceCapture
+    @Inject lateinit var sessionDucker: VoiceSessionDucker
+    @Inject lateinit var hotwordAckPlayer: HotwordAckPlayer
+    @Inject lateinit var settingsDataStore: SettingsDataStore
 
     private var pipelineJob: Job? = null
     private val pendingTextCommands = ArrayDeque<String>()
+    private var activeTrigger: Trigger = Trigger.PUSH_TO_TALK
+    private var activeShowSource: String = "tap_to_talk"
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
             ACTION_START_LISTENING -> {
+                activeTrigger = intent.getStringExtra(EXTRA_TRIGGER)
+                    ?.let { runCatching { Trigger.valueOf(it) }.getOrNull() }
+                    ?: Trigger.PUSH_TO_TALK
+                activeShowSource = intent.getStringExtra(EXTRA_SHOW_SOURCE) ?: "tap_to_talk"
+                Log.i(VOICE_TAG, "START_LISTENING trigger=$activeTrigger source=$activeShowSource")
+                HotwordGate.pause("voice_session")
                 startForegroundWithNotification()
                 startPipeline()
             }
@@ -51,6 +69,8 @@ class VoiceAssistantService : LifecycleService() {
             ACTION_STOP -> {
                 pipelineJob?.cancel()
                 pendingTextCommands.clear()
+                sessionDucker.end("voice_stop")
+                HotwordGate.resume("voice_stop")
                 stateManager.transitionToIdle()
                 stopSelf()
             }
@@ -79,6 +99,7 @@ class VoiceAssistantService : LifecycleService() {
             try {
                 turn()
             } finally {
+                HotwordGate.resume("voice_session")
                 stopSelf()
             }
         }
@@ -89,6 +110,7 @@ class VoiceAssistantService : LifecycleService() {
             pendingTextCommands.addLast(text)
             return
         }
+        HotwordGate.pause("voice_text")
         pipelineJob = lifecycleScope.launch {
             try {
                 var next: String? = text
@@ -103,52 +125,69 @@ class VoiceAssistantService : LifecycleService() {
                     next = pendingTextCommands.removeFirstOrNull()
                 }
             } finally {
+                HotwordGate.resume("voice_text")
                 stopSelf()
             }
         }
     }
 
     private suspend fun runInteraction() {
-        stateManager.transitionToListening()
-
-        val captured = runCatching {
-            withContext(Dispatchers.IO) {
-                Log.i(VOICE_TAG, "Starting Silero VAD capture")
-                val utterance = vadCapture.capture(maxWaitForSpeechMs = LISTENING_TIMEOUT_MS)
-                Log.i(VOICE_TAG, "Silero VAD capture finished samples=${utterance.pcm.size}")
-                utterance
+        // Duck media for the whole turn (listen → ASR → TTS), like Windows
+        // Communications ducking — lower volume, don't pause the track.
+        sessionDucker.begin("voice_turn")
+        try {
+            val fromHotword = activeTrigger == Trigger.WAKE_WORD
+            if (fromHotword) {
+                stateManager.transitionToWakeDetected()
+                // Gate already paused for this session — play cue, then open mic.
+                if (settingsDataStore.settings.first().playAudioCues) {
+                    Log.i(VOICE_TAG, "Waiting for wake ack before listen")
+                    hotwordAckPlayer.playAndAwait()
+                }
             }
-        }.getOrElse { error ->
-            Log.e(VOICE_TAG, "Mic capture failed", error)
-            stateManager.transitionToError(error.message ?: "Microphone is unavailable")
-            delay(RESULT_DISPLAY_MS)
-            stateManager.transitionToIdle()
-            return
+            stateManager.transitionToListening(fromHotword = fromHotword)
+
+            val captured = runCatching {
+                withContext(Dispatchers.IO) {
+                    Log.i(VOICE_TAG, "Starting Silero VAD capture")
+                    val utterance = vadCapture.capture(maxWaitForSpeechMs = LISTENING_TIMEOUT_MS)
+                    Log.i(VOICE_TAG, "Silero VAD capture finished samples=${utterance.pcm.size}")
+                    utterance
+                }
+            }.getOrElse { error ->
+                Log.e(VOICE_TAG, "Mic capture failed", error)
+                stateManager.transitionToError(error.message ?: "Microphone is unavailable")
+                delay(RESULT_DISPLAY_MS)
+                stateManager.transitionToIdle()
+                return
+            }
+
+            Log.i(
+                VOICE_TAG,
+                "Captured utterance samples=${captured.pcm.size} rate=${captured.sampleRate} " +
+                    "usable=${captured.isUsable} tooShort=${captured.tooShort}",
+            )
+
+            if (!captured.isUsable) {
+                stateManager.transitionToError("I didn't hear anything")
+                delay(RESULT_DISPLAY_MS)
+                stateManager.transitionToIdle()
+                return
+            }
+
+            val trace = startVoiceTrace(captured.startNanos)
+            trace.markAt(Stage.SPEECH_END, captured.endNanos)
+            stateManager.transitionToProcessing("…")
+            val result = voiceAgent.handleAudio(captured.pcm, captured.sampleRate, trace)
+            Log.i(
+                VOICE_TAG,
+                "VoiceAgent status=${result.status} transcript=\"${result.transcript}\" " +
+                    "spoken=\"${result.spokenVi}\"",
+            )
+            applyAgentResult(result, displayTranscript = result.transcript.ifBlank { "…" })
+        } finally {
+            sessionDucker.end("voice_turn")
         }
-
-        Log.i(
-            VOICE_TAG,
-            "Captured utterance samples=${captured.pcm.size} rate=${captured.sampleRate} " +
-                "usable=${captured.isUsable} tooShort=${captured.tooShort}",
-        )
-
-        if (!captured.isUsable) {
-            stateManager.transitionToError("I didn't hear anything")
-            delay(RESULT_DISPLAY_MS)
-            stateManager.transitionToIdle()
-            return
-        }
-
-        val trace = startVoiceTrace(captured.startNanos)
-        trace.markAt(Stage.SPEECH_END, captured.endNanos)
-        stateManager.transitionToProcessing("…")
-        val result = voiceAgent.handleAudio(captured.pcm, captured.sampleRate, trace)
-        Log.i(
-            VOICE_TAG,
-            "VoiceAgent status=${result.status} transcript=\"${result.transcript}\" " +
-                "spoken=\"${result.spokenVi}\"",
-        )
-        applyAgentResult(result, displayTranscript = result.transcript.ifBlank { "…" })
     }
 
     private suspend fun runInjectedUtterance(utterance: String) {
@@ -164,18 +203,10 @@ class VoiceAssistantService : LifecycleService() {
         result: VoiceTurnResult,
         displayTranscript: String,
     ) {
-        if (displayTranscript.isNotBlank() && displayTranscript != "…") {
-            stateManager.transitionToProcessing(displayTranscript)
-        }
-        when (result.status) {
-            VoiceTurnStatus.APPLIED -> stateManager.transitionToSuccess(result.spokenVi)
-            VoiceTurnStatus.NEEDS_CLARIFICATION,
-            VoiceTurnStatus.NEEDS_CONFIRMATION,
-            -> stateManager.transitionToClarification(result.spokenVi)
-            VoiceTurnStatus.DENIED,
-            VoiceTurnStatus.UNSUPPORTED,
-            VoiceTurnStatus.FAILED,
-            -> stateManager.transitionToError(result.spokenVi)
+        // onResultReady already published UI before TTS. Only re-publish if we are
+        // still on Processing (callback missing / failed before state change).
+        if (stateManager.state.value is VoiceAssistantState.Processing) {
+            VoiceModule.publishTurnUi(stateManager, result, displayTranscript)
         }
         delay(RESULT_DISPLAY_MS)
         stateManager.transitionToIdle()
@@ -193,7 +224,7 @@ class VoiceAssistantService : LifecycleService() {
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle("Viva voice assistant")
-            .setContentText("Listening for a command")
+            .setContentText("Voice session active")
             .setOngoing(true)
             .build()
         startForeground(
@@ -217,11 +248,20 @@ class VoiceAssistantService : LifecycleService() {
         const val ACTION_SIMULATE_UTTERANCE =
             "com.sopa.viva_automotive.action.SIMULATE_UTTERANCE"
         const val EXTRA_UTTERANCE = "utterance"
+        const val EXTRA_TRIGGER = "viva_trigger"
+        const val EXTRA_SHOW_SOURCE = "viva_show_source"
         const val BENCH_TAG = "VIVA_BENCH_INJECT"
 
-        fun startListening(context: Context) {
+        fun startListening(
+            context: Context,
+            trigger: Trigger = Trigger.PUSH_TO_TALK,
+            showSource: String = "tap_to_talk",
+        ) {
             context.startForegroundService(
-                Intent(context, VoiceAssistantService::class.java).setAction(ACTION_START_LISTENING),
+                Intent(context, VoiceAssistantService::class.java)
+                    .setAction(ACTION_START_LISTENING)
+                    .putExtra(EXTRA_TRIGGER, trigger.name)
+                    .putExtra(EXTRA_SHOW_SOURCE, showSource),
             )
         }
 

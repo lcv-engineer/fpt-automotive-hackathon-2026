@@ -257,6 +257,38 @@ class VoiceAgentTest {
         assertEquals(24f, result.hmiPatch["climate.temperatureC"])
     }
 
+    @Test
+    fun `result is published before TTS so HMI can show spoken text with audio`() = runImmediate {
+        val order = mutableListOf<String>()
+        val tts = object : TtsSpeaker {
+            override suspend fun speak(text: String, trace: LatencyTrace) {
+                order += "tts:$text"
+                trace.mark(Stage.TTS_START)
+            }
+        }
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(
+                AsrResult("mở cửa", acousticConfidence = 0.2f, serverMs = 12),
+            ),
+            router = GrammarIntentRouter(),
+            gateway = FakeGateway(CommandResult.Applied("must not execute")),
+            tts = tts,
+            onResultReady = { result ->
+                order += "ui:${result.status}:${result.spokenVi}"
+            },
+        )
+
+        agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(
+            listOf(
+                "ui:NEEDS_CLARIFICATION:Mình chưa nghe rõ. Bạn nói lại giúp mình nhé.",
+                "tts:Mình chưa nghe rõ. Bạn nói lại giúp mình nhé.",
+            ),
+            order,
+        )
+    }
+
     private fun <T> runImmediate(block: suspend () -> T): T {
         var outcome: Result<T>? = null
         block.startCoroutine(object : Continuation<T> {

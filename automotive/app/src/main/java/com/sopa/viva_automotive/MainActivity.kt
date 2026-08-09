@@ -20,9 +20,14 @@ import com.sopa.viva_automotive.core.ui.theme.VivaTheme
 import com.sopa.viva_automotive.locale.LocaleController
 import com.sopa.viva_automotive.locale.LocalizedContent
 import com.sopa.viva_automotive.navigation.VivaApp
+import com.sopa.viva_automotive.feature.media.domain.MediaRepository
 import com.sopa.viva_automotive.feature.voice.service.VoiceAssistantService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -30,8 +35,17 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var settingsDataStore: SettingsDataStore
 
-    private val requestRecordAudio =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {  }
+    @Inject
+    lateinit var mediaRepository: MediaRepository
+
+    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    private val requestPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+            if (grants[Manifest.permission.READ_MEDIA_AUDIO] == true) {
+                activityScope.launch { mediaRepository.refreshLibrary() }
+            }
+        }
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences(LOCALE_PREFS, MODE_PRIVATE)
@@ -42,10 +56,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestRecordAudio.launch(Manifest.permission.RECORD_AUDIO)
+        val missing = listOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.READ_MEDIA_AUDIO,
+        ).filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            requestPermissions.launch(missing.toTypedArray())
         }
 
         setContent {

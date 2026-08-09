@@ -5,4 +5,26 @@
     <string name="voice_idle_prompt">Tap the mic and speak a command</string>
     <string name="voice_listening">Listening…</string>
     <string name="voice_processing">Understanding…</string>
+    <string name="voice_assistant_label">VIVA Voice Assistant</string>
+    <string name="voice_assistant_settings_title">VIVA voice settings</string>
+    <string name="hotword_enroll_title">Enroll “Vi-Vi ơi”</string>
+    <string name="hotword_settings_enable">Hotword “Vi-Vi ơi”</string>
+    <string name="hotword_settings_enable_hint">Hands-free wake. Prefers DSP SoundTrigger when the OEM model is enrolled; otherwise uses on-device software KWS.</string>
+    <string name="hotword_settings_enroll">Enroll / re-enroll wake phrase</string>
+    <string name="hotword_settings_status">Hotword status: %1$s</string>
+    <string name="hotword_enroll_prompt">Say “Vi-Vi ơi” clearly, then tap Stop.</string>
+    <string name="hotword_enroll_start">Start recording</string>
+    <string name="hotword_enroll_stop">Stop and save</string>
+    <string name="hotword_enroll_saved">Wake template saved</string>
+    <string name="voice_hotword_armed">Hotword armed — say “Vi-Vi ơi”</string>
+    <string name="voice_modal_wake_title">Vi-Vi</string>
+    <string name="voice_modal_wake_body">Wake phrase heard. Listening for your command…</string>
+    <string name="voice_modal_wake_listening_title">Vi-Vi is listening</string>
+    <string name="voice_modal_listening_title">Listening</string>
+    <string name="voice_modal_listening_body">Speak your command</string>
+    <string name="voice_modal_processing_title">Working on it</string>
+    <string name="voice_modal_clarify_title">Need a bit more</string>
+    <string name="voice_modal_success_title">Done</string>
+    <string name="voice_modal_error_title">Something went wrong</string>
+    <string name="voice_modal_dismiss">Close</string>
 </resources>

@@ -7,9 +7,9 @@
 
         Vì sao cần: emulator AAOS không có mic thật. Đo trên máy ngày 05/08 cho
         `peak=2/32767` suốt 15 giây — mic ảo đẩy im lặng, nên không có cách nào
-        biết Vosk `vn-0.4` nghe tiếng Việt tốt tới đâu, cũng không quay được
-        video demo có giọng người. Điện thoại có mic thật và thường có sẵn giọng
-        TTS vi-VN, nên nó mở được cả hai thứ đó trong một buổi tối.
+        biết ASR nghe tiếng Việt tốt tới đâu, cũng không quay được video demo có
+        giọng người. Điện thoại có mic thật và thường có sẵn giọng TTS vi-VN,
+        nên nó mở được cả hai thứ đó trong một buổi tối.
 
         An toàn: `mock` chạy trên `MockVehicleRepository`, không đụng một API
         `android.car` nào — xem `app/src/mock/.../VehicleServiceModule.kt`. Biến

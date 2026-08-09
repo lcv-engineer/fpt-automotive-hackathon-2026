@@ -10,7 +10,9 @@
     <string name="media_volume">Âm lượng</string>
     <string name="media_volume_up">Tăng âm lượng</string>
     <string name="media_volume_down">Giảm âm lượng</string>
-    <string name="media_playlist">Danh sách demo</string>
+    <string name="media_playlist">Danh sách bài</string>
+    <string name="media_playlist_empty">Chưa có bài trên máy — sẽ dùng tone demo cho đến khi cấp quyền audio hoặc copy MP3.</string>
+    <string name="media_refresh_library">Làm mới</string>
     <string name="media_track_format">%1$d / %2$d</string>
     <string name="media_source_library">Thư viện</string>
     <string name="media_source_radio">Radio</string>

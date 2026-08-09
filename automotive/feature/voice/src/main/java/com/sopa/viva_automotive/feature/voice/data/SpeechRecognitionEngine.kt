@@ -13,7 +13,7 @@ sealed interface TranscriptionEvent {
     data class Final(
         val text: String,
         /**
-         * ASR nghe âm thanh chắc đến đâu. `null` khi engine không cung cấp — Vosk
+         * ASR nghe âm thanh chắc đến đâu. `null` khi engine không cung cấp —
          * small không có (28-PIPELINE §2.4).
          *
          * Không được thay bằng 1.0: đó là biến "chưa đo được" thành "chắc chắn", và
@@ -49,7 +49,7 @@ sealed interface TranscriptionEvent {
  * on-device và ASR remote cùng đọc một nguồn duy nhất thay vì tranh mic của nhau.
  */
 interface SpeechRecognitionEngine {
-    /** `true` với Vosk streaming; `false` với endpoint chỉ nhận cả utterance. */
+    /** `true` nếu engine stream partial; `false` nếu chỉ nhận cả utterance. */
     val sendsAudioWhileCapturing: Boolean get() = true
 
     suspend fun initialize(): Result<Unit>

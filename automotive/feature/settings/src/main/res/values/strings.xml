@@ -2,10 +2,12 @@
     <string name="settings_title">Settings</string>
     <string name="settings_voice">Voice assistant</string>
     <string name="settings_voice_enabled">Voice assistant enabled</string>
+    <string name="settings_hotword_enabled">Hotword “Vi-Vi ơi”</string>
+    <string name="settings_hotword_hint">Hands-free wake. Off by default until false-accept / false-reject targets are met. Prefer OEM DSP; software KWS is the fallback. Enroll from voice assistant settings.</string>
     <string name="settings_show_transcription">Show live transcription</string>
     <string name="settings_audio_cues">Play audio cues</string>
     <string name="settings_voice_language">Voice language</string>
-    <string name="settings_voice_language_hint">Mic audio goes to viva-asr (HTTP), then voice-core grammar + TTS. Cabin commands are Vietnamese. Run asr/ at ASR_BASE_URL with adb reverse tcp:8080.</string>
+    <string name="settings_voice_language_hint">Mic audio goes to viva-asr (HTTP), then voice-core grammar + TTS. Cabin commands are Vietnamese. Run asr/ at ASR_BASE_URL (emulator rewrites to 10.0.2.2 automatically).</string>
     <string name="settings_display">Display</string>
     <string name="settings_theme_auto">Auto</string>
     <string name="settings_theme_light">Light</string>

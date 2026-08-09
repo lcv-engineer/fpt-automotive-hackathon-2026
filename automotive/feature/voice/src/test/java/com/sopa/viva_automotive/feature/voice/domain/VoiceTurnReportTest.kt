@@ -17,7 +17,7 @@ class VoiceTurnReportTest {
 
     @Test
     fun `an engine that reports no confidence does not trigger the repeat rule`() {
-        // Vosk small trả null. Nếu null bị coi là "nghe kém" thì bản offline hỏi lại
+        // Missing confidence must not force clarify. If null counted as "low"
         // mọi câu và không bao giờ chạy được một lệnh nào.
         assertFalse(VoiceTurnReport.needsRepeatForConfidence(null))
     }

@@ -30,6 +30,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsDataStore.setVoiceEnabled(enabled) }
     }
 
+    fun setHotwordEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setHotwordEnabled(enabled) }
+    }
+
     fun setUseFahrenheit(enabled: Boolean) {
         viewModelScope.launch { settingsDataStore.setUseFahrenheit(enabled) }
     }

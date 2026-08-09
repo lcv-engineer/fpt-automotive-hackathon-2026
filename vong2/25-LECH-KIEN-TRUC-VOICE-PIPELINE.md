@@ -91,7 +91,7 @@ phải phản ánh đúng trong tài liệu và roadmap.
 | **R4** | Truyền và hiệu chỉnh confidence | R3, F4, F5 | Boundary có confidence → guard tồn tại → đo correctness → chọn threshold theo rủi ro |
 | **R5** | A/B raw `VOICE_RECOGNITION` / platform AEC-NS / enhancement bổ sung | R3 | Chọn theo WER và intent accuracy, không theo cảm giác “nghe sạch” |
 | **R6** | Contextual bias cho miền 10 intent; so beam nhỏ với greedy | R3 | Chấm cả WER và intent accuracy |
-| **R7** | Wake-word detector | R3 | Chỉ làm sau khi đo false accepts/hour và false rejects; PTT giữ làm mặc định |
+| **R7** | Wake-word detector | R3 | Skeleton AOSP VIA + DSP bridge + software KWS “Vi-Vi ơi” đã vào mã; hotword vẫn **tắt mặc định** đến khi đo FA/hour + FRR; PTT/TTT giữ làm đường chính |
 
 Metric tách theo tầng:
 

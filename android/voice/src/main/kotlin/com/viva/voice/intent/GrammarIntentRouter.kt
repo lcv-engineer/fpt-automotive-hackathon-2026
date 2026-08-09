@@ -23,7 +23,7 @@ class GrammarIntentRouter(
         val normalized = normalize(text)
         if (UNSUPPORTED_WAKE.containsMatchIn(normalized)) {
             return RouteResult.Unsupported(
-                "Từ gọi của trợ lý là “Viva ơi” hoặc “Vivi ơi”. Bạn thử lại nhé.",
+                "Từ gọi của trợ lý là “Vi-Vi ơi” (cũng nhận Vivi/Viva ơi). Bạn thử lại nhé.",
                 canFallback = false,
             )
         }
@@ -192,7 +192,9 @@ class GrammarIntentRouter(
         private val PUNCTUATION = Regex("""[,.!?;:]""")
         private val WHITESPACE = Regex("""\s+""")
         private val DIACRITICS = Regex("""\p{M}+""")
-        private val SUPPORTED_WAKE = Regex("""^(?:viva|vivi)\s+oi(?:\s+|$)""")
+        // Canonical product wake: “Vi-Vi ơi”; keep Vivi/Viva aliases for PTT/ASR.
+        private val SUPPORTED_WAKE =
+            Regex("""^(?:viva|vivi|vi[\s-]?vi)\s+oi(?:\s+|$)""")
         private val UNSUPPORTED_WAKE = Regex("""^(?:siri|alexa|hey google)\s+oi?(?:\s+|$)""")
         private val ORDER_ID = Regex("""\b([a-z])\s*((?:\d\s*){1,6})\b""")
         private val DELIVERY_STATUS_CUES = listOf("the nao", "trang thai", "den dau")

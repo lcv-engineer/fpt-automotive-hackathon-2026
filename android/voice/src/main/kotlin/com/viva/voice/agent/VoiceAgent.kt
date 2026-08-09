@@ -51,6 +51,8 @@ class VoiceAgent(
     private val router: IntentRouter,
     private val gateway: CommandGateway,
     private val tts: TtsSpeaker,
+    /** Invoked after the turn is decided and before TTS, so HMI can show spoken copy with audio. */
+    private val onResultReady: suspend (VoiceTurnResult) -> Unit = {},
 ) {
 
     suspend fun handleAudio(
@@ -60,7 +62,10 @@ class VoiceAgent(
     ): VoiceTurnResult {
         val recognised = try {
             asr.transcribe(pcm16, sampleRate, trace)
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            // Keep spoken copy user-facing; log the real ASR failure (e.g. viva-asr down /
+            // missing `adb reverse tcp:8080 tcp:8080`) so logcat is not just "unknown".
+            System.out.println("VIVA_VOICE|asr_exception|${error.javaClass.simpleName}|${error.message}")
             return finish(
                 VoiceTurnResult(
                     transcript = "",
@@ -207,6 +212,7 @@ class VoiceAgent(
         trace: LatencyTrace,
     ): VoiceTurnResult {
         return try {
+            onResultReady(result)
             tts.speak(result.spokenVi, trace)
             trace.summary(result.transcript, result.intent?.name ?: "unknown", verdict)
             result

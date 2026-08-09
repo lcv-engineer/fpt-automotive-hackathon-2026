@@ -11,8 +11,11 @@ import com.sopa.viva_automotive.feature.voice.domain.delivery.InMemoryDeliveryRe
 import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMatcher
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.integration.AppCommandGateway
+import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
 import com.viva.voice.agent.CommandGateway
 import com.viva.voice.agent.VoiceAgent
+import com.viva.voice.agent.VoiceTurnResult
+import com.viva.voice.agent.VoiceTurnStatus
 import com.viva.voice.asr.AsrClient
 import com.viva.voice.intent.GrammarIntentRouter
 import com.viva.voice.intent.IntentRouter
@@ -88,11 +91,36 @@ abstract class VoiceModule {
             gateway: CommandGateway,
             router: IntentRouter,
             tts: TtsSpeaker,
+            stateManager: VoiceAssistantStateManager,
         ): VoiceAgent = VoiceAgent(
             asr = asr,
             router = router,
             gateway = gateway,
             tts = tts,
+            onResultReady = { result ->
+                publishTurnUi(stateManager, result)
+            },
         )
+
+        /** Shows spoken copy on the voice bar before TTS starts. */
+        fun publishTurnUi(
+            stateManager: VoiceAssistantStateManager,
+            result: VoiceTurnResult,
+            displayTranscript: String = result.transcript.ifBlank { "…" },
+        ) {
+            if (displayTranscript.isNotBlank() && displayTranscript != "…") {
+                stateManager.transitionToProcessing(displayTranscript)
+            }
+            when (result.status) {
+                VoiceTurnStatus.APPLIED -> stateManager.transitionToSuccess(result.spokenVi)
+                VoiceTurnStatus.NEEDS_CLARIFICATION,
+                VoiceTurnStatus.NEEDS_CONFIRMATION,
+                -> stateManager.transitionToClarification(result.spokenVi)
+                VoiceTurnStatus.DENIED,
+                VoiceTurnStatus.UNSUPPORTED,
+                VoiceTurnStatus.FAILED,
+                -> stateManager.transitionToError(result.spokenVi)
+            }
+        }
     }
 }

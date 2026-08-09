@@ -54,27 +54,29 @@ class MediaViewModel @Inject constructor(
         mediaRepository.selectStation(stationId)
     }
 
+    fun selectTrack(trackId: String) = launchMedia {
+        mediaRepository.selectTrack(trackId)
+    }
+
+    fun refreshLibrary() = launchMedia {
+        mediaRepository.refreshLibrary()
+    }
+
     fun playRadio() = launchMedia { mediaRepository.tuneRadio() }
 
     private fun launchMedia(block: suspend () -> Result<String>) {
         viewModelScope.launch {
-            block().fold(
-                onSuccess = { _messages.emit(it) },
-                onFailure = { error ->
-                    _messages.emit(error.message ?: "Media command failed")
-                },
-            )
+            block().onFailure { error ->
+                _messages.emit(error.message ?: "Media command failed")
+            }
         }
     }
 
     private fun emitResult(result: Result<String>) {
         viewModelScope.launch {
-            result.fold(
-                onSuccess = { _messages.emit(it) },
-                onFailure = { error ->
-                    _messages.emit(error.message ?: "Volume command failed")
-                },
-            )
+            result.onFailure { error ->
+                _messages.emit(error.message ?: "Volume command failed")
+            }
         }
     }
 }

@@ -1,3 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@raw/tts_*,@raw/viva_notification_ping" />
+    tools:keep="@raw/tts_*,@raw/viva_notification_ping,@raw/hotword_ack_vivi_day" />

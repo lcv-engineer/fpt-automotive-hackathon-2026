@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.map
 
 data class VoiceSettings(
     val voiceEnabled: Boolean = true,
+    /** Hands-free “Vi-Vi ơi”. Off by default until FA/FR gate is met (R7). */
+    val hotwordEnabled: Boolean = false,
     val useFahrenheit: Boolean = false,
     val showPartialTranscription: Boolean = true,
     val playAudioCues: Boolean = true,
@@ -33,6 +35,7 @@ class SettingsDataStore @Inject constructor(
 ) {
     private object Keys {
         val VOICE_ENABLED = booleanPreferencesKey("voice_enabled")
+        val HOTWORD_ENABLED = booleanPreferencesKey("hotword_enabled")
         val USE_FAHRENHEIT = booleanPreferencesKey("use_fahrenheit")
         val SHOW_PARTIAL = booleanPreferencesKey("show_partial_transcription")
         val AUDIO_CUES = booleanPreferencesKey("play_audio_cues")
@@ -44,6 +47,7 @@ class SettingsDataStore @Inject constructor(
     val settings: Flow<VoiceSettings> = context.settingsDataStore.data.map { prefs ->
         VoiceSettings(
             voiceEnabled = prefs[Keys.VOICE_ENABLED] ?: true,
+            hotwordEnabled = prefs[Keys.HOTWORD_ENABLED] ?: false,
             useFahrenheit = prefs[Keys.USE_FAHRENHEIT] ?: false,
             showPartialTranscription = prefs[Keys.SHOW_PARTIAL] ?: true,
             playAudioCues = prefs[Keys.AUDIO_CUES] ?: true,
@@ -55,6 +59,10 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setVoiceEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.VOICE_ENABLED] = enabled }
+    }
+
+    suspend fun setHotwordEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.HOTWORD_ENABLED] = enabled }
     }
 
     suspend fun setUseFahrenheit(enabled: Boolean) {

@@ -64,6 +64,17 @@ fun SettingsScreen(
                 icon = Icons.Default.Mic,
             )
             VivaToggleRow(
+                label = stringResource(R.string.settings_hotword_enabled),
+                checked = settings.hotwordEnabled,
+                onCheckedChange = viewModel::setHotwordEnabled,
+                icon = Icons.Default.Mic,
+            )
+            Text(
+                text = stringResource(R.string.settings_hotword_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            VivaToggleRow(
                 label = stringResource(R.string.settings_show_transcription),
                 checked = settings.showPartialTranscription,
                 onCheckedChange = viewModel::setShowPartialTranscription,

@@ -96,7 +96,7 @@ ACTION_START_LISTENING / nút mic
 | Push-to-talk hold | `PushToTalkRecorder` | Chưa dùng: HMI hiện là **chạm để nói**, chưa có cử chỉ giữ nút. Nhả nút chưa phải tín hiệu endpoint |
 | Voice orchestration | `VoiceAgent`, `CommandGateway`, `CommandResult` | **Vẫn chưa nằm trên đường chạy** — xem §8 P0.4 |
 | Adapter `AsrClient` thật | `AsrClient`, `FakeAsrClient` | Chưa có adapter thật; app đi qua `SpeechRecognitionEngine` |
-| Wake-word | Chưa có detector/model/benchmark | Chưa triển khai |
+| Wake-word | VIA + AlwaysOnHotwordDetector (DSP, reflection) + software KWS fallback “Vi-Vi ơi”; mặc định tắt đến khi FA/FR đạt ngưỡng | Đã có skeleton/code; OEM sound model + ROLE_ASSISTANT vẫn cần image privileged |
 | Remote PhoWhisper | `RemotePhoWhisperSpeechRecognitionEngine`, `HttpRemoteAsrTransport` | **Đã nối ở source, opt-in** bằng `-PvivaAsrEngine=remote`; unit test xanh, chưa có emulator/Device evidence |
 | `VivaCarService` | Chưa có | App vẫn gọi repository nội bộ |
 

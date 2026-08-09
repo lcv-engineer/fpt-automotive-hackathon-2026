@@ -129,7 +129,7 @@ class ProcessVoiceCommandUseCaseTest {
     fun `another assistant wake phrase cannot fall through to vehicle execution`() = runTest {
         assertEquals(
             VehicleIntent.Clarification(
-                "Từ gọi của trợ lý là “Viva ơi” hoặc “Vivi ơi”. Bạn thử lại nhé.",
+                "Từ gọi của trợ lý là “Vi-Vi ơi” (cũng nhận Vivi/Viva ơi). Bạn thử lại nhé.",
             ),
             useCase("Siri ơi hạ điều hòa xuống 24 độ"),
         )
