@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sopa.viva_automotive.core.common.buildinfo.BuildInfo
 import com.sopa.viva_automotive.core.common.buildinfo.BuildInfoProvider
+import com.sopa.viva_automotive.core.database.settings.AsrEngine
 import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
 import com.sopa.viva_automotive.core.database.settings.VoiceSettings
 import com.sopa.viva_automotive.core.ui.locale.AppLanguage
@@ -44,6 +45,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setPlayAudioCues(enabled: Boolean) {
         viewModelScope.launch { settingsDataStore.setPlayAudioCues(enabled) }
+    }
+
+    fun setAsrEngine(engine: AsrEngine) {
+        viewModelScope.launch { settingsDataStore.setAsrEngine(engine) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

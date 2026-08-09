@@ -57,6 +57,21 @@ class VoiceAssistantStateManagerTest {
     }
 
     @Test
+    fun `clarification keeps the heard transcript for the voice bar`() {
+        stateManager.transitionToClarification(
+            promptVi = "Bạn muốn đặt bao nhiêu độ?",
+            heardTranscript = "hạ điều hòa",
+        )
+        assertEquals(
+            VoiceAssistantState.Clarification(
+                promptVi = "Bạn muốn đặt bao nhiêu độ?",
+                heardTranscript = "hạ điều hòa",
+            ),
+            stateManager.state.value,
+        )
+    }
+
+    @Test
     fun `clarification is a first class state and event, not a command failure`() =
         runTest(UnconfinedTestDispatcher()) {
             val received = mutableListOf<VoiceEvent>()

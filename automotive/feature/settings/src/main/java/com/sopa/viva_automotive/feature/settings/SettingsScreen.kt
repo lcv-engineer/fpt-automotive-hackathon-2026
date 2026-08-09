@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sopa.viva_automotive.core.common.buildinfo.BuildInfo
+import com.sopa.viva_automotive.core.database.settings.AsrEngine
 import com.sopa.viva_automotive.core.ui.components.SectionCard
 import com.sopa.viva_automotive.core.ui.components.VivaToggleRow
 import com.sopa.viva_automotive.core.ui.locale.AppLanguage
@@ -87,7 +88,35 @@ fun SettingsScreen(
                 icon = Icons.Default.MusicNote,
             )
             Text(
-                text = stringResource(R.string.settings_voice_language_hint),
+                text = stringResource(R.string.settings_asr_engine),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            val currentAsr = AsrEngine.fromStorageKey(settings.asrEngine)
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(VivaDimens.ButtonHeight),
+            ) {
+                AsrEngine.entries.forEachIndexed { index, engine ->
+                    SegmentedButton(
+                        selected = currentAsr == engine,
+                        onClick = { viewModel.setAsrEngine(engine) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = AsrEngine.entries.size,
+                        ),
+                        label = {
+                            Text(
+                                text = asrEngineLabel(engine),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        },
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.settings_asr_engine_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -188,6 +217,14 @@ fun SettingsScreen(
         }
     }
 }
+
+@Composable
+private fun asrEngineLabel(engine: AsrEngine): String = stringResource(
+    when (engine) {
+        AsrEngine.VIVA -> R.string.settings_asr_viva
+        AsrEngine.GOOGLE -> R.string.settings_asr_google
+    },
+)
 
 @Composable
 private fun themeModeLabel(mode: ThemeMode): String = stringResource(

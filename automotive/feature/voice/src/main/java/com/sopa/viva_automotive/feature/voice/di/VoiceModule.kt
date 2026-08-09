@@ -2,7 +2,7 @@ package com.sopa.viva_automotive.feature.voice.di
 
 import android.content.Context
 import com.sopa.viva_automotive.feature.voice.data.audio.AndroidVolumeController
-import com.sopa.viva_automotive.feature.voice.data.asr.HttpAsrClient
+import com.sopa.viva_automotive.feature.voice.data.asr.RoutingAsrClient
 import com.sopa.viva_automotive.feature.voice.data.embedding.OnnxEmbeddingIntentMatcher
 import com.sopa.viva_automotive.feature.voice.data.media.AndroidMediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
@@ -48,7 +48,7 @@ abstract class VoiceModule {
     @Binds
     @Singleton
     abstract fun bindAsrClient(
-        impl: HttpAsrClient,
+        impl: RoutingAsrClient,
     ): AsrClient
 
     @Binds
@@ -108,18 +108,23 @@ abstract class VoiceModule {
             result: VoiceTurnResult,
             displayTranscript: String = result.transcript.ifBlank { "…" },
         ) {
-            if (displayTranscript.isNotBlank() && displayTranscript != "…") {
-                stateManager.transitionToProcessing(displayTranscript)
+            val heard = displayTranscript.takeIf { it.isNotBlank() && it != "…" }.orEmpty()
+            if (heard.isNotEmpty()) {
+                stateManager.transitionToProcessing(heard)
             }
             when (result.status) {
-                VoiceTurnStatus.APPLIED -> stateManager.transitionToSuccess(result.spokenVi)
+                VoiceTurnStatus.APPLIED ->
+                    stateManager.transitionToSuccess(result.spokenVi, heardTranscript = heard)
                 VoiceTurnStatus.NEEDS_CLARIFICATION,
                 VoiceTurnStatus.NEEDS_CONFIRMATION,
-                -> stateManager.transitionToClarification(result.spokenVi)
+                -> stateManager.transitionToClarification(
+                    result.spokenVi,
+                    heardTranscript = heard,
+                )
                 VoiceTurnStatus.DENIED,
                 VoiceTurnStatus.UNSUPPORTED,
                 VoiceTurnStatus.FAILED,
-                -> stateManager.transitionToError(result.spokenVi)
+                -> stateManager.transitionToError(result.spokenVi, heardTranscript = heard)
             }
         }
     }

@@ -194,8 +194,29 @@ private fun modalBody(state: VoiceAssistantState): String = when (state) {
             stringResource(R.string.voice_processing)
         }
     is VoiceAssistantState.Executing -> state.description
-    is VoiceAssistantState.Clarification -> state.promptVi
-    is VoiceAssistantState.Success -> state.message
-    is VoiceAssistantState.Error -> state.message
+    is VoiceAssistantState.Clarification -> {
+        val heard = state.heardTranscript.takeIf { it.isNotBlank() }
+        if (heard != null) {
+            "${state.promptVi}\n${stringResource(R.string.voice_heard_transcript, heard)}"
+        } else {
+            state.promptVi
+        }
+    }
+    is VoiceAssistantState.Success -> {
+        val heard = state.heardTranscript.takeIf { it.isNotBlank() }
+        if (heard != null) {
+            "${state.message}\n${stringResource(R.string.voice_heard_transcript, heard)}"
+        } else {
+            state.message
+        }
+    }
+    is VoiceAssistantState.Error -> {
+        val heard = state.heardTranscript.takeIf { it.isNotBlank() }
+        if (heard != null) {
+            "${state.message}\n${stringResource(R.string.voice_heard_transcript, heard)}"
+        } else {
+            state.message
+        }
+    }
     else -> ""
 }

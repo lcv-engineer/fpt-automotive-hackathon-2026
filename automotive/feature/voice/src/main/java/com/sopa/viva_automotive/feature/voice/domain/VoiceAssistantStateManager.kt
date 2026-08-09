@@ -48,18 +48,27 @@ class VoiceAssistantStateManager @Inject constructor() {
         _state.value = VoiceAssistantState.Executing(description)
     }
 
-    fun transitionToClarification(promptVi: String) {
-        _state.value = VoiceAssistantState.Clarification(promptVi)
+    fun transitionToClarification(promptVi: String, heardTranscript: String = "") {
+        _state.value = VoiceAssistantState.Clarification(
+            promptVi = promptVi,
+            heardTranscript = heardTranscript,
+        )
         _events.tryEmit(VoiceEvent.ClarificationRequested(promptVi))
     }
 
-    fun transitionToSuccess(message: String) {
-        _state.value = VoiceAssistantState.Success(message)
+    fun transitionToSuccess(message: String, heardTranscript: String = "") {
+        _state.value = VoiceAssistantState.Success(
+            message = message,
+            heardTranscript = heardTranscript,
+        )
         _events.tryEmit(VoiceEvent.CommandExecuted(message))
     }
 
-    fun transitionToError(message: String) {
-        _state.value = VoiceAssistantState.Error(message)
+    fun transitionToError(message: String, heardTranscript: String = "") {
+        _state.value = VoiceAssistantState.Error(
+            message = message,
+            heardTranscript = heardTranscript,
+        )
         _events.tryEmit(VoiceEvent.CommandFailed(message))
     }
 

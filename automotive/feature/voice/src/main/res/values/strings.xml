@@ -26,5 +26,6 @@
     <string name="voice_modal_clarify_title">Need a bit more</string>
     <string name="voice_modal_success_title">Done</string>
     <string name="voice_modal_error_title">Something went wrong</string>
+    <string name="voice_heard_transcript">You said: “%1$s”</string>
     <string name="voice_modal_dismiss">Close</string>
 </resources>

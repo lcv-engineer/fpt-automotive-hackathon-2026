@@ -20,3 +20,7 @@ feature/voice/src/main/assets/embeddings/.source
 
 # Kotlin incremental-compile scratch dir (Gradle 8+ / KGP)
 .kotlin/
+
+# Local Google Speech credentials (mock assets / drop-ins)
+**/secrets/
+fintrack-*.json

@@ -171,7 +171,11 @@ private fun primaryStatus(
             stringResource(R.string.voice_listening)
         }
     state is VoiceAssistantState.Processing ->
-        state.utterance.ifBlank { stringResource(R.string.voice_processing) }
+        if (state.utterance.isNotBlank() && state.utterance != "…") {
+            state.utterance
+        } else {
+            stringResource(R.string.voice_processing)
+        }
     state is VoiceAssistantState.Executing -> state.description
     state is VoiceAssistantState.Clarification -> state.promptVi
     state is VoiceAssistantState.Success -> state.message
@@ -189,9 +193,26 @@ private fun secondaryStatus(state: VoiceAssistantState): String? = when (state) 
         } else {
             stringResource(R.string.voice_modal_listening_body)
         }
-    is VoiceAssistantState.Processing -> stringResource(R.string.voice_processing)
+    is VoiceAssistantState.Processing ->
+        if (state.utterance.isNotBlank() && state.utterance != "…") {
+            stringResource(R.string.voice_processing)
+        } else {
+            null
+        }
     is VoiceAssistantState.Executing -> stringResource(R.string.voice_modal_processing_title)
-    is VoiceAssistantState.Clarification -> stringResource(R.string.voice_modal_clarify_title)
-    is VoiceAssistantState.Success -> stringResource(R.string.voice_modal_success_title)
-    is VoiceAssistantState.Error -> stringResource(R.string.voice_modal_error_title)
+    is VoiceAssistantState.Clarification ->
+        heardSecondary(state.heardTranscript)
+            ?: stringResource(R.string.voice_modal_clarify_title)
+    is VoiceAssistantState.Success ->
+        heardSecondary(state.heardTranscript)
+            ?: stringResource(R.string.voice_modal_success_title)
+    is VoiceAssistantState.Error ->
+        heardSecondary(state.heardTranscript)
+            ?: stringResource(R.string.voice_modal_error_title)
 }
+
+@Composable
+private fun heardSecondary(heardTranscript: String): String? =
+    heardTranscript.takeIf { it.isNotBlank() }?.let {
+        stringResource(R.string.voice_heard_transcript, it)
+    }

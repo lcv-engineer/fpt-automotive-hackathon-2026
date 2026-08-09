@@ -26,5 +26,6 @@
     <string name="voice_modal_clarify_title">Cần làm rõ thêm</string>
     <string name="voice_modal_success_title">Xong</string>
     <string name="voice_modal_error_title">Có lỗi xảy ra</string>
+    <string name="voice_heard_transcript">Bạn nói: “%1$s”</string>
     <string name="voice_modal_dismiss">Đóng</string>
 </resources>

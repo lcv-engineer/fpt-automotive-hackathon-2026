@@ -65,7 +65,8 @@ android {
 
     defaultConfig {
         minSdk = 32
-        // Kept for any leftover references; ASR is always viva-asr via HttpAsrClient.
+        // Kept for leftover references; runtime engine is Settings-selected
+        // (viva-asr HTTP or Google Cloud Speech).
         buildConfigField(
             "String",
             "ASR_BASE_URL",
@@ -117,4 +118,6 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // org.json ships on-device but not on the JVM unit-test classpath.
+    testImplementation("org.json:json:20250517")
 }

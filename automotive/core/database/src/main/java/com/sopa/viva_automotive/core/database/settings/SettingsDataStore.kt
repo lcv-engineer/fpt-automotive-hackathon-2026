@@ -23,6 +23,8 @@ data class VoiceSettings(
     val themeMode: String = "system",
     val language: String = "system",
     val voiceLanguage: String = "vi",
+    /** `viva` (default) or `google` — see [AsrEngine]. */
+    val asrEngine: String = AsrEngine.VIVA.storageKey,
 )
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -42,6 +44,7 @@ class SettingsDataStore @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val LANGUAGE = stringPreferencesKey("language")
         val VOICE_LANGUAGE = stringPreferencesKey("voice_language")
+        val ASR_ENGINE = stringPreferencesKey("asr_engine")
     }
 
     val settings: Flow<VoiceSettings> = context.settingsDataStore.data.map { prefs ->
@@ -54,6 +57,7 @@ class SettingsDataStore @Inject constructor(
             themeMode = prefs[Keys.THEME_MODE] ?: "system",
             language = prefs[Keys.LANGUAGE] ?: "system",
             voiceLanguage = prefs[Keys.VOICE_LANGUAGE] ?: "vi",
+            asrEngine = prefs[Keys.ASR_ENGINE] ?: AsrEngine.VIVA.storageKey,
         )
     }
 
@@ -87,5 +91,9 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setVoiceLanguage(language: String) {
         context.settingsDataStore.edit { it[Keys.VOICE_LANGUAGE] = language }
+    }
+
+    suspend fun setAsrEngine(engine: AsrEngine) {
+        context.settingsDataStore.edit { it[Keys.ASR_ENGINE] = engine.storageKey }
     }
 }
