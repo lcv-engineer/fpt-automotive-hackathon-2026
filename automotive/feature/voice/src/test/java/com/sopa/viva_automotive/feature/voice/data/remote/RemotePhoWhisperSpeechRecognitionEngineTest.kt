@@ -5,6 +5,7 @@ import com.viva.voice.audio.PcmFrame
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -12,6 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class RemotePhoWhisperSpeechRecognitionEngineTest {
 
     @Test
@@ -24,7 +26,7 @@ class RemotePhoWhisperSpeechRecognitionEngineTest {
             ),
         )
         lateinit var engine: RemotePhoWhisperSpeechRecognitionEngine
-        engine = RemotePhoWhisperSpeechRecognitionEngine(transport)
+        engine = RemotePhoWhisperSpeechRecognitionEngine(transport, UnconfinedTestDispatcher(testScheduler))
         val frames = flow {
             emit(frame(shortArrayOf(1, -2), startSample = 0))
             engine.requestEndOfUtterance()
@@ -51,6 +53,7 @@ class RemotePhoWhisperSpeechRecognitionEngineTest {
     fun `blank remote transcript is reported as no speech`() = runTest {
         val engine = RemotePhoWhisperSpeechRecognitionEngine(
             RecordingTransport(RemoteAsrResponse("  ", 0f, 11)),
+            UnconfinedTestDispatcher(testScheduler),
         )
 
         val event = engine.transcribe(flow { emit(frame(shortArrayOf(7, 8), 0)) }).toList().last()
@@ -73,6 +76,7 @@ class RemotePhoWhisperSpeechRecognitionEngineTest {
     fun `invalid confidence from remote is rejected instead of entering safety policy`() = runTest {
         val engine = RemotePhoWhisperSpeechRecognitionEngine(
             RecordingTransport(RemoteAsrResponse("mở cửa", 1.4f, 10)),
+            UnconfinedTestDispatcher(testScheduler),
         )
 
         val event = engine.transcribe(flow { emit(frame(shortArrayOf(1), 0)) }).toList().last()
@@ -99,6 +103,7 @@ class RemotePhoWhisperSpeechRecognitionEngineTest {
                     "service loading",
                 )
             },
+            UnconfinedTestDispatcher(testScheduler),
         )
 
         val event = engine.transcribe(flow { emit(frame(shortArrayOf(1), 0)) }).toList().last()
@@ -113,7 +118,7 @@ class RemotePhoWhisperSpeechRecognitionEngineTest {
     @Test
     fun `wrong sample rate is rejected before audio crosses the network boundary`() = runTest {
         val transport = RecordingTransport(RemoteAsrResponse("khóa cửa", 0.9f, 10))
-        val engine = RemotePhoWhisperSpeechRecognitionEngine(transport)
+        val engine = RemotePhoWhisperSpeechRecognitionEngine(transport, UnconfinedTestDispatcher(testScheduler))
 
         val event = engine.transcribe(
             flow {
