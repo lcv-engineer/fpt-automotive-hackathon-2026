@@ -119,6 +119,15 @@
 - [x] `evidence/c2/carsky-runtime-20260809/README.md`
 - [x] `evidence/c2/carsky-runtime-20260809/runtime-transcript.txt`
 
+**Gate G1 — chưa đóng (phát hiện 09/08 khi sinh lại E02):**
+
+- [ ] APK đã cài trên Device (`b3ad9a4b...`, 387.904.742 B) là bản build ở máy
+      dev, **không phải** APK trong manifest CI (`74ad3b39...`, 384.627.599 B).
+      Runbook §8 đòi "APK hash khớp manifest" nên G1 vẫn đỏ.
+- [ ] Cách đóng: `gh run download 31294593980 -n viva-aaos-apks-bfd2db4fa...`,
+      cài đúng file đó lên Device, chụp lại `pm path` + sha256 `base.apk`.
+      Chỉ khi đó E01+E02+E05 mới thuộc cùng một lần cài.
+
 **Runtime follow-ups:**
 
 - [ ] Add/align Vietnamese TTS or pre-rendered prompts for media dispatch

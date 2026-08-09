@@ -44,7 +44,7 @@ Các đường dẫn dưới đây là **tên bắt buộc cần tạo từ lầ
 | Evidence ID | Tệp phải nộp | Nội dung tối thiểu | Chủ trì |
 |---|---|---|---|
 | **E01** | `evidence/c2/device-info.txt` | `adb devices -l`, build fingerprint, user, thời gian, CarSky room/node nếu có | Dương + Vĩ |
-| **E02** | `evidence/c2/artifact-identity.txt` | commit, branch, APK filename, SHA-256, flavor/config và thời gian cài | Dương |
+| **E02** | `evidence/c2/artifact-identity-ci.txt` | ✅ **Đã có, sinh lại 09/08 từ `push` trên main sau merge PR #33** — `commit=bfd2db4f...` (= HEAD thật của main), run `31294593980`, JDK 21.0.11, SHA-256 hai APK, 258 test / 0 fail đếm từ artifact XML. ⚠️ APK này **khác** bản đã cài trên Device 09/08 (`74ad3b39...` vs `b3ad9a4b...`), nên **chưa đóng được G1** | Dương |
 | **E03** | `evidence/c2/viva-trace-device.log` | logcat thật có `VIVA_TRACE`/summary; không chỉnh tay | Vĩ |
 | **E04** | `evidence/c2/harness-report.csv` | p50/p95 từ E03, gồm failure/timeout | Vĩ |
 | **E05** | `evidence/c2/install-launch-crash.log` | install/launch result và crash scan sau demo | Dương |
@@ -63,6 +63,7 @@ Các đường dẫn dưới đây là **tên bắt buộc cần tạo từ lầ
 | Gate | Pass khi | Nếu fail tối 02/08 |
 |---|---|---|
 | **G1 Artifact** | E01, E02, E05 cùng một lần cài | Không nói “đã chạy trên CarSky” |
+| **G1 — trạng thái 09/08** | ❌ **Chưa pass.** E02 đã có và đúng quy trình, Device đã cài thật, nhưng **hai bên là hai file khác nhau**: APK CI `74ad3b39...` (384.627.599 B) vs APK trên Device `b3ad9a4b...` (387.904.742 B, build ở máy dev rồi đẩy lên artifact `viva-apk`). Để đóng: tải `viva-aaos-apks-bfd2db4fa...` từ run `31294593980`, cài đúng file đó, chụp lại `pm path` + sha256 của `base.apk` | — |
 | **G2 Service framework** | Service/AIDL/SafetyGuard tồn tại trong `automotive/`, build từ snapshot được chấm | Hạ C-HVAC/C-DOOR còn source/JVM; không claim kiến trúc mentor yêu cầu |
 | **G3 Device core flow** | HVAC temp + fan + door có trace và readback thật | Demo mock phải dán nhãn **MÔ PHỎNG**; C-PLATFORM đỏ |
 | **G4 Benchmark** | E03 có ≥20 lượt và E04 có p50/p95 tái lập | C2 chỉ báo “harness sẵn sàng”, không công bố KPI đạt |
