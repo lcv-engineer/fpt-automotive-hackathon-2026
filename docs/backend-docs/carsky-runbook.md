@@ -710,3 +710,106 @@ spec máy sinh.
   với trên trước khi tin.
 - `docs/backend-docs/carsky-api.md` — nhật ký khám phá theo thời gian, có bối
   cảnh vì sao từng kết luận được rút ra.
+
+---
+
+# Phụ lục A — `MIN_ACOUSTIC_CONFIDENCE` gắn với MODEL, không phải với hệ thống
+
+> **Không thuộc CarSky**, nhưng cùng nhóm "bẫy làm mất nửa buổi và triệu chứng
+> giống hệt thứ khác". Đo trên emulator AAOS ngày 09/08/2026, nhánh
+> `feature/automotive`.
+
+## Triệu chứng
+
+Nói vào mic, ASR phiên âm **chính xác tuyệt đối**, mà hệ thống vẫn từ chối:
+
+```
+transcript = "phát nhạc"          ← đúng 100%, đúng ca B13 của suite
+kết quả    = unknown | Confirm:G3_LOW_CONFIDENCE
+spoken     = "Mình chưa nghe rõ. Bạn nói lại giúp mình nhé."
+```
+
+Nhìn từ ngoài, nó **không phân biệt được** với: mic hỏng, VAD cắt sai, NLU dốt,
+hay model quá yếu. Bốn nguyên nhân khác nhau, cùng một biểu hiện.
+
+## Nguyên nhân
+
+`VoiceTurnReport.kt`:
+
+```kotlin
+const val MIN_ACOUSTIC_CONFIDENCE = 0.6f
+
+fun needsRepeatForConfidence(acousticConfidence: Float?): Boolean =
+    acousticConfidence != null && acousticConfidence < MIN_ACOUSTIC_CONFIDENCE
+```
+
+Và phía ASR (`asr/app/model.py`):
+
+```python
+confidence = segments_to_confidence(...)   # exp(avg_logprob), weighted theo thời lượng
+```
+
+`avg_logprob` là **xác suất token trung bình của chính model đó**. Model càng
+được huấn luyện kém cho ngôn ngữ đang nói thì con số càng thấp — **kể cả khi
+phiên âm ra đúng**.
+
+Ngưỡng `0.6` được đội chọn từ corpus giọng thật chạy trên **PhoWhisper**. Đó là
+con số đúng **cho model đó**. Nhưng nó đang nằm trong code như một hằng số của
+**hệ thống**, trong khi thực chất nó là hằng số của **một model cụ thể**.
+
+Chạy thử với `Systran/faster-whisper-tiny` (Whisper tiny chuẩn, không phải
+PhoWhisper): **8/8 lượt bị chặn**, gồm cả lượt phiên âm hoàn hảo.
+
+## Vì sao đây là lỗi thiết kế, không chỉ là số sai
+
+Cổng confidence chạy **trước** NLU — bằng chứng là `intent=unknown`, tức router
+chưa từng được gọi. Nên khi transcript khớp **trùng khít** một lệnh trong
+grammar, thông tin đó bị vứt đi trước khi ai kịp dùng.
+
+Nghịch lý: `avg_logprob` là **phỏng đoán của model về chính nó**, còn *"chuỗi
+này khớp đúng một trong ~20 lệnh đã biết"* là **bằng chứng độc lập và mạnh
+hơn**. Hệ thống đang tin cái yếu và bỏ cái mạnh.
+
+## Bốn hướng sửa, xếp theo tỉ lệ lợi/công
+
+**① Kết hợp hai bằng chứng thay vì chỉ một** — sửa đúng gốc.
+
+Chạy NLU trước, chỉ áp ngưỡng âm học khi NLU **không** khớp chắc chắn:
+
+```
+khớp trùng khít lệnh trong grammar  → cho qua, bỏ qua confidence
+khớp mờ / không khớp                → mới xét MIN_ACOUSTIC_CONFIDENCE
+```
+
+Rủi ro false accept nhỏ: xác suất ASR ảo giác ra **chính xác** một chuỗi lệnh là
+thấp, và `SafetyGuard` (G1/G2) vẫn đứng sau chặn mọi lệnh nguy hiểm.
+
+**② Ngưỡng gắn theo model.** `/health` và header `X-Asr-Model` **đã trả về tên
+model** — hạ tầng có sẵn, chưa ai dùng. Tra bảng theo model, mặc định thận trọng
+khi gặp model lạ.
+
+**③ Chuẩn hoá phía server.** ASR biết nó chạy model nào; hiệu chỉnh `confidence`
+để `0.6` mang cùng ý nghĩa qua mọi model. App không cần biết gì. Đắt hơn vì phải
+hiệu chuẩn từng model.
+
+**④ Override lúc chạy** — rẻ nhất để dò ngưỡng mà không build lại, đúng khuôn
+mẫu đội từng dùng cho `viva_asr_grammar`:
+
+```sh
+adb shell settings put global viva_min_conf 40    # = 0.40
+```
+
+## Lỗ hổng chẩn đoán nên vá kèm
+
+Trace chỉ ghi `Confirm:G3_LOW_CONFIDENCE`, **không ghi con số**. Không phân biệt
+được `0.59` (suýt qua, chỉnh ngưỡng là xong) với `0.12` (rác thật, model sai).
+Thêm giá trị vào `VIVA_TRACE_SUMMARY` là một dòng code, tiết kiệm được nửa buổi.
+
+## Điều tốt cần giữ
+
+Trong 8 lượt đầu vào tệ nhất có thể — gồm cả ảo giác lặp token kiểu
+`"Quý, quý, quý, quý"` và `"Phuyv, phuyv, phuyv"` — **không một lệnh sai nào
+lọt xuống xe**. Không mở cửa, không đổi nhiệt độ, không phát nhạc.
+
+Cổng này **đang làm đúng việc của nó**. Vấn đề chỉ là nó quá chặt với model yếu,
+và nó quyết định mà không thèm hỏi NLU. Đừng gỡ nó — hãy cho nó thêm thông tin.
