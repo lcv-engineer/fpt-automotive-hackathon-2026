@@ -46,3 +46,83 @@
 **Dependencies:** Tasks 1-2
 
 **Estimated scope:** Small (0-1 file)
+
+---
+
+# Voice-to-media completion checklist (09/08/2026)
+
+## Task 4: Route all mentor-requested media intents
+
+**Acceptance criteria:**
+- [x] `media_play`, `media_pause`, and `media_next` map to typed executable intents.
+- [x] Existing malformed-slot and unsupported-command behavior is unchanged.
+
+**Verification:**
+- [x] Focused `CoreIntentMapperTest` and `ProcessVoiceCommandUseCaseTest` fail before implementation.
+- [x] The same focused tests pass after implementation.
+
+**Dependencies:** Existing voice-core grammar rules
+
+**Estimated scope:** Medium (3-5 files)
+
+## Task 5: Execute media through the AAOS media-session boundary
+
+**Acceptance criteria:**
+- [x] Voice code connects with `MediaBrowserCompat` and controls playback with `MediaControllerCompat.TransportControls`.
+- [x] The media session exposes a non-empty prepared demo queue.
+- [x] Connection failure/timeout returns failure instead of hanging or claiming success.
+
+**Verification:**
+- [x] `:feature:voice:testDebugUnitTest`
+- [x] `:feature:voice:compileDebugKotlin`
+- [x] Hilt/app compilation for both mock and real variants
+
+**Dependencies:** Task 4
+
+**Estimated scope:** Medium (4-5 files)
+
+## Task 6: Submission-quality gate
+
+**Acceptance criteria:**
+- [x] Full JVM suite, lint, and both APK assemblies pass.
+- [x] Final diff has no unrelated edits, secrets, generated build output, or unsupported claims.
+- [x] Documentation distinguishes build proof from emulator/CarSky runtime proof.
+
+**Verification:**
+- [x] `automotive/gradlew test`
+- [x] `automotive/gradlew lintMockDebug lintRealDebug`
+- [x] `automotive/gradlew :app:assembleMockDebug :app:assembleRealDebug`
+
+**Dependencies:** Tasks 4-5
+
+**Estimated scope:** Medium (verification plus evidence-safe docs)
+
+**Remaining production hardening:**
+
+- [ ] Restrict `VivaMediaBrowserService.onGetRoot` to trusted callers (same UID
+      now; signed CarSky/host allowlist if the media service is split later).
+- [ ] Capture the real CarSky host package/UID before changing the exported
+      service contract; do not guess an allowlist that could break platform
+      browsing.
+
+## Task 7: CarSky Device runtime evidence
+
+**Acceptance criteria:**
+- [x] The installed `base.apk` SHA-256 matches the local mock APK.
+- [x] `media_play`, `media_pause`, and `media_next` each produce an `Allow`
+      summary from the product pipeline after ASR.
+- [x] MediaSession proves `PLAYING`, `PAUSED`, and an active-item transition.
+- [x] Evidence states that text injection bypasses mic/VAD/ASR and does not
+      prove VHAL/CAN.
+
+**Verification:**
+- [x] `evidence/c2/carsky-runtime-20260809/README.md`
+- [x] `evidence/c2/carsky-runtime-20260809/runtime-transcript.txt`
+
+**Runtime follow-ups:**
+
+- [ ] Add/align Vietnamese TTS or pre-rendered prompts for media dispatch
+      responses; Device logged a missing-voice/prompt degradation.
+- [ ] Capture one real mic → VAD → ASR → NLU → media turn on Device.
+- [ ] Capture audible TTS duck/release and HMI in E11 video before claiming the
+      complete compound C-MEDIA statement.

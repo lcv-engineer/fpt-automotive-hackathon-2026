@@ -20,8 +20,9 @@
 
 **Offering:** một gói phần mềm tích hợp AAOS gồm:
 
-- VIVA Agent: mic/VAD/ASR tiếng Việt, intent router, `SafetyGuard`, TTS và HMI;
-- `VivaCarService`: service do đội sở hữu, dịch intent đã được phép thành `(PropertyID, areaId, value)`, giữ kết nối `CarPropertyManager` và fan-out callback;
+- VIVA Agent: một nguồn PCM, Silero VAD, Vosk tiếng Việt, intent router, TTS và HMI;
+- `GuardedVehicleRepository`: boundary do đội sở hữu, cưỡng chế `SafetyGuard` cho cả voice lẫn thao tác HMI trước khi ghi property;
+- media boundary chuẩn AAOS: voice Agent dùng `MediaBrowserCompat`/`MediaControllerCompat` điều khiển `VivaMediaBrowserService`/MediaSession;
 - contract M2 và bộ test/trace để OEM/Tier-1 thêm intent mới mà không đưa intent xuống VHAL.
 
 **Quan hệ tiếp nhận:** **B2B2C** — đội cung cấp module và integration kit cho OEM/Tier-1; OEM/Tier-1 tích hợp, platform-sign, kiểm thử và phát hành tới tài xế. Với pilot giao vận, fleet là process owner/co-design partner, không thay thế vai trò phê duyệt kỹ thuật của OEM/Tier-1.
@@ -44,27 +45,28 @@ Các con số trên là **mục tiêu/giả thuyết**, chưa phải kết quả
 - **MÔ PHỎNG:** thay thế có chủ đích để phát triển hoặc demo; không được dùng làm bằng chứng tích hợp thật.
 - **KẾ HOẠCH:** contract hoặc hướng triển khai đã chốt nhưng runtime integration chưa hoàn tất.
 
-| Dependency / điểm nối | Trạng thái 02/08 | Bằng chứng hoặc giới hạn |
+| Dependency / điểm nối | Trạng thái 09/08 | Bằng chứng hoặc giới hạn |
 |---|---|---|
-| VIVA Agent + `voice-core` trong app AAOS | **THẬT — source/build, chưa Device-verified** | Bridge `CoreIntentMapper` đã tích hợp; 139 unit test và hai APK variant build xanh bằng JDK 21, kiểm lại ngày 02/08 |
+| VIVA Agent + `voice-core` trong app AAOS | **THẬT — source/build, chưa Device-verified** | Bridge `CoreIntentMapper` đã tích hợp; **258 test JVM** *(99 voice-core + 159 automotive)*, 0 fail/error/skip; lint và hai APK variant xanh bằng JDK 21, kiểm lại 09/08 |
 | ASR on-device (Vosk EN/VI) + intent routing | **THẬT — source, chưa đo trên Device** | Model/task Gradle và pipeline tồn tại trong `automotive/feature/voice`; chưa claim accuracy/latency thực tế |
-| `SafetyGuard` trước vehicle execution | **KẾ HOẠCH — contract/trace đã chốt** | Voice/LLM chỉ sinh intent; guard quyết định allow/deny/confirm, nhưng implementation của Tùng chưa có trong repo |
+| `SafetyGuard` trước vehicle execution | **THẬT — source/emulator, chưa Device-verified** | `DefaultSafetyGuard` được cưỡng chế tại `GuardedVehicleRepository`; A1: bỏ guard làm 6/9 lệnh nguy hiểm ghi được xuống repository. Đầu kia vẫn là mock, không phải VHAL |
 | `MockVehicleRepository` | **MÔ PHỎNG** | Dùng cho emulator/unit test; không chứng minh core flow chạy trên CarSky |
 | `VivaCarService` riêng + AIDL | **KẾ HOẠCH (M1)** | Contract M2 đã chốt; Tùng/Vĩ triển khai service và quyền privileged |
 | VHAL/`CarPropertyManager` trên CarSky | **KẾ HOẠCH — real flavor có source** | Cần platform signing/privapp allowlist và xác nhận `setProperty` trả `Applied` trên Device |
 | VHAL ↔ KUKSA/VSS ↔ CAN qua Script Node | **KẾ HOẠCH — contract verified** | M2 đã đối chiếu PropertyID, VSS và DBC; chưa có runtime trace CarSky/CAN |
 | CCU nhận/gửi CAN | **MÔ PHỎNG** | Mentor cho phép mô phỏng; phải giữ đúng nhãn trong demo/write-up |
-| `MediaSession` / `CarAudioManager` | **KẾ HOẠCH kiểm chứng tích hợp** | Media/volume không đi qua VHAL; cần smoke test riêng trên Device |
+| Voice → MediaBrowser → MediaSession/ExoPlayer | **THẬT — CarSky Device, từ NLU đến media (mock/debug)** | Bản mock đúng SHA-256 đã cài trên Device `VIVA` 09/08. Ba câu text-injection qua đúng `VoiceAssistantService`/NLU tạo `media_play`/`media_pause`/`media_next|Allow`; MediaSession đổi `PLAYING → PAUSED` và active item `0 → 1`. Không tính mic/VAD/ASR; TTS/audio-focus còn thiếu. `evidence/c2/carsky-runtime-20260809/` |
+| `CarAudioManager` / volume | **KẾ HOẠCH kiểm chứng Device** | Volume không đi qua VHAL; emulator báo volume fixed, cần quyền privileged để điều khiển group volume thật |
 
 **Không phụ thuộc cloud cho core flow.** Network chỉ là dependency của bước tải model/build ban đầu, không phải dependency khi tài xế ra lệnh.
 
 ## 5. Bước kiểm chứng tiếp theo và rào cản lớn nhất
 
-**Rào cản lớn nhất:** quyền privileged VHAL và khả năng cài APK/service lên đúng Device CarSky. Nếu không ghi được property thật, core flow không đủ bằng chứng platform L2 dù UI và mock chạy đúng.
+**Rào cản lớn nhất:** quyền privileged VHAL và khả năng cài **real flavor/service framework** lên đúng Device CarSky. Mock APK đã cài và NLU → media đã chạy trên Device 09/08, nhưng điều đó không chứng minh property thật. Nếu không ghi được property thật, core flow không đủ bằng chứng platform L2.
 
 **Validation gate kế tiếp — Device Integration Gate:**
 
-1. ✅ Dùng JDK 21 build `mockDebug` và `realDebug`; 139 unit test xanh *(65 voice-core + 74 automotive)*, 0 failure/error/skipped (kiểm lại 02/08).
+1. ✅ Dùng JDK 21 build `mockDebug` và `realDebug`; **258 test JVM xanh** *(99 voice-core + 159 automotive)*, 0 failure/error/skipped; lint mock/real xanh (kiểm lại 09/08).
 2. Cài bản `realDebug`/`VivaCarService` theo allowlist OEM trên Device CarSky.
 3. Chạy 3 intent vehicle-control M2: đặt nhiệt độ 24°C, đặt fan mức 5, khóa cửa tài xế.
 4. Với từng lệnh, chỉ tính thành công khi service trả `Applied`; lưu cùng `traceId`: intent → policy → PropertyID/area/value → VHAL callback → VSS/CAN evidence.
@@ -77,7 +79,7 @@ Các con số trên là **mục tiêu/giả thuyết**, chưa phải kết quả
 Gate trên trả lời *“lệnh có xuống được xe không”*. Gate này trả lời *“câu nói có lên đúng
 intent trong nhiễu không”* — hiện chưa có dữ liệu nào trả lời:
 
-1. Một micro, một dòng PCM, fan-out cho Vosk và container `viva-asr`; hiện Vosk tự mở mic.
+1. ✅ Một micro, một dòng PCM qua Silero VAD rồi Vosk; container `viva-asr` vẫn chưa nhận cùng dòng PCM đó.
 2. Bộ audio 5 người × 22 câu × 3 điều kiện, cộng 20–30 phút audio không có lệnh. Với
    Cuttlefish, đây là audio thu ngoài rồi phát lại/inject, không phải cabin thật.
 3. Truyền và hiệu chỉnh confidence trên bộ audio đó rồi mới chọn ngưỡng `SafetyGuard`;
