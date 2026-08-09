@@ -191,6 +191,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.media)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.hilt.android)

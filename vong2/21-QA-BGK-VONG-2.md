@@ -1,18 +1,17 @@
 # Q&A Vòng 2 — trả lời ngắn, đúng evidence
 
 Tài liệu này dùng cho N7 live rehearsal. Mỗi câu trả lời có ba phần: **trả lời trực tiếp**, **evidence để mở** và
-**ranh giới không được vượt**. Snapshot hiện tại chỉ cho phép claim source/JVM theo E12; cập nhật trạng thái ngay khi
-Claim–Evidence Map có evidence Device mới.
+**ranh giới không được vượt**. Snapshot 09/08 cho phép claim source/build/emulator đúng evidence; mọi câu “trên
+CarSky/VHAL thật” vẫn chỉ được mở khi Claim–Evidence Map có capture đúng Device và đúng artifact.
 
 ## 1. “AI nằm ở đâu nếu core dùng grammar?”
 
-**Trả lời:** AI trên đường chạy APK hiện nằm ở Vosk on-device, chuyển audio thành text; grammar là policy có chủ đích
-cho tập lệnh xe hữu hạn. Silero VAD là module team-owned có mã và unit test nhưng **chưa được cắm vào APK**; hiện Vosk
-tự mở `AudioRecord` và tự quyết điểm cuối câu. Chúng tôi không dùng LLM để tạo cảm giác “AI hơn” khi nó làm execution
-khó kiểm soát hơn.
+**Trả lời:** AI trên đường chạy APK gồm Silero VAD xác định biên tiếng nói và Vosk on-device chuyển cùng dòng PCM
+thành text; grammar là policy có chủ đích cho tập lệnh xe hữu hạn. `AndroidPcmSource` là nơi duy nhất mở
+`AudioRecord`, sau đó cùng frame đi qua VAD rồi Vosk. Chúng tôi không dùng LLM để tạo cảm giác “AI hơn” khi nó làm
+execution khó kiểm soát hơn.
 
-**Evidence:** `VoiceAssistantService.kt:93`, `VoskSpeechRecognitionEngine.kt:105`, test
-`GrammarIntentRouterTest`, `VadEndpointerTest`.
+**Evidence:** `VoiceAssistantService.runInteraction`, `VadStreamDriverTest`, `GrammarIntentRouterTest`.
 
 **Không nói:** “LLM đang chạy trong core flow” hoặc “AI tự quyết định actuator”.
 
@@ -28,10 +27,10 @@ không bằng cách mở quyền thực thi cho mô hình.
 
 ## 3. “Phần nào thật sự do đội tự xây?”
 
-**Trả lời:** Voice orchestration, recorder/WAV, Silero VAD integration, ASR boundary, grammar router 10 intent,
-latency trace/verdict, TTS fallback 36 câu, audio focus và contract intent-to-execution là team-owned. Trong số đó,
-recorder/WAV, Silero VAD và `AsrClient` mới ở mức module/test, chưa nằm trên đường chạy APK. AAOS, Car APIs,
-AudioRecord, Android TTS và các thư viện model là baseline/platform.
+**Trả lời:** Voice orchestration, một nguồn PCM, Silero VAD integration, ASR boundary, grammar router 10 intent,
+latency trace/verdict, TTS fallback 36 câu, audio focus, SafetyGuard ở biên repository và media-session adapter là
+team-owned. Capture/VAD/Vosk đã nằm trên đường chạy APK; `AsrClient` container vẫn chỉ ở mức module/test. AAOS,
+Car APIs, `AudioRecord`, Android TTS và các thư viện model là baseline/platform.
 
 **Evidence:** `vong2/20-WRITE-UP-AI-VONG-2.md` §6, source và E12.
 
@@ -68,17 +67,19 @@ offline nhưng bị giới hạn tài nguyên.
 
 ## 7. “SafetyGuard đã chặn mở cửa khi xe chạy chưa?”
 
-**Trả lời hiện tại:** Contract và expected verdict `Deny:G1_SPEED_LOCK` đã chốt, nhưng C-SAFETY chưa mở vì thiếu
-SafetyGuard + snapshot trạng thái xe + trace Device. Demo hiện chỉ được nói đây là Kế hoạch/Mô phỏng.
+**Trả lời hiện tại:** Có, ở mức mô phỏng/emulator: `DefaultSafetyGuard` được cưỡng chế trong
+`GuardedVehicleRepository`, trả `Deny:G1_SPEED_LOCK` trước setter; A1 cho thấy bỏ guard thì 6/9 lệnh nguy hiểm ghi
+được xuống repository, gồm cả đường chạm HMI. Chưa được nói đã chặn trên VHAL CarSky vì chưa có trace Device.
 
-**Evidence:** `vong2/03-contracts.md` §4, `vong2/13-M7A-TINH-HUONG-PHUC-TAP.md`, chờ E06.
+**Evidence:** `evidence/ablation/a1-run-manifest.txt`, emulator B10; chờ E06 Device.
 
-**Không nói:** “An toàn đã tích hợp” chỉ vì có class/log format hoặc slide thiết kế.
+**Không nói:** “An toàn đã chạy trên CarSky/VHAL thật” từ unit test, emulator hoặc ablation repository.
 
 ## 8. “Có phải cả 10 intent đều đi xuống CAN?”
 
-**Trả lời:** Không. Chỉ HVAC và door thuộc đường Vehicle Property; media đi qua MediaSession, volume qua audio adapter,
-delivery là in-app skill. Boundary theo domain là chủ ý kiến trúc, không phải thiếu tích hợp.
+**Trả lời:** Không. Chỉ HVAC và door thuộc đường Vehicle Property; media đi qua
+`MediaBrowserCompat`/`MediaControllerCompat` tới MediaSession/ExoPlayer, volume qua audio adapter, delivery là in-app
+skill. Ba media intent đã chạy qua NLU → MediaSession trên Device CarSky bằng mock/debug text-injection: play/pause đổi trạng thái và next đổi active item. Test này bỏ qua mic/VAD/ASR; TTS/audio-focus vẫn cần capture riêng.
 
 **Evidence:** `vong2/03-contracts.md` §0.2/§5, README kiến trúc.
 
@@ -143,7 +144,7 @@ cho cockpit AAOS. Giả thuyết cần kiểm chứng là giảm thao tác chạ
 ## 16. “Nếu demo lỗi giữa chừng thì sao?”
 
 **Trả lời:** Sau 3 giây, người demo gọi đúng lỗi/stage, không lặp quá một lần và tiếp tục bằng trạng thái trước đó. Nếu
-Device/VHAL lỗi, chuyển sang mock có nhãn; không giả vờ full-stack. Nếu media adapter chưa sẵn, bỏ claim C-MEDIA.
+Device/VHAL lỗi, chuyển sang mock có nhãn; không giả vờ full-stack. Với media được phép nói “NLU → MediaSession đã đổi trạng thái trên Device CarSky bằng mock/debug text-injection”; không nói “giọng nói end-to-end” hoặc “TTS duck/release” khi chưa có capture mic/audio-focus.
 
 **Evidence:** `vong2/14-KICH-BAN-DEMO-3-PHUT.md`, `vong2/19-TONG-DUYET-C2-10-PHUT.md`.
 

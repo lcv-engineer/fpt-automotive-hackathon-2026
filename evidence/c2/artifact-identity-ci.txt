@@ -1,6 +1,90 @@
 E02 ARTIFACT IDENTITY — TU CI, KHONG PHAI TU MAY DEV
 =====================================================
 
+★★★ BAN CO THAM QUYEN — dung ban nay de nop ★★★
+------------------------------------------------
+Sinh tu su kien `push` tren `main` ngay sau khi merge PR #33, nen GITHUB_SHA
+la commit THAT cua main (khong phai merge commit tam cua pull_request — xem
+canh bao o cuoi file).
+
+  schema_version=1
+  captured_at_utc=2026-08-09T04:33:41Z
+  commit=bfd2db4fa1e4ae8765d4ecbe0621ed74534e4843     <- = origin/main HEAD
+  workflow_run_id=31294593980
+  java=openjdk version "21.0.11" 2026-04-21 LTS
+  apk=app-mock-debug.apk bytes=384627599 sha256=74ad3b39fe5ed7860d25a2d33733b128777af202f37b3042b3a1632aa38500c1
+  apk=app-real-debug.apk bytes=384611020 sha256=e44a6a2ff830d3b8b2b70cfbd7657926951eca972915c7d96dac793fad2a2c18
+
+  Job: SUCCESS in 6m46s — lint (mock+real) -> test -> 2 APK -> manifest -> upload
+  https://github.com/lcv-back/fpt-automotive-hackathon/actions/runs/31294593980
+
+  Test: 258 tests, 0 failures, 0 errors, 0 skipped — dem tu 34 file TEST-*.xml
+        trong artifact android-quality-reports-bfd2db4fa..., khong phai so
+        chep tay tu may dev.
+
+  Artifact tai duoc: viva-aaos-apks-bfd2db4fa1e4ae8765d4ecbe0621ed74534e4843
+                     android-quality-reports-bfd2db4fa1e4ae8765d4ecbe0621ed74534e4843
+
+  ⚠️ Khi nao khoi tren HET HAN
+  ----------------------------
+  `bfd2db4` la commit sinh ra dung hai APK o tren. No la HEAD cua main luc
+  04:33 UTC 09/08. Commit them vao main SAU do khong tu dong lam khoi nay sai
+  — con phu thuoc commit do cham vao dau:
+
+    - Cham `automotive/**`, `android/voice/**` hoac `.github/workflows/
+      android-ci.yml` -> APK doi bytes -> khoi tren HET HAN. Phai chay
+      `gh workflow run android-ci.yml --ref main` va thay ca khoi.
+    - Chi cham `evidence/**`, `vong2/**`, `docs/**`, `tasks/**`, `README.md`
+      -> khong lot `paths` filter cua android-ci, va cung khong vao APK.
+      Khoi tren VAN DUNG; chi la `commit=` khong con bang HEAD cua main.
+
+  Cach tu kiem tra truoc khi nop:
+
+    git diff --name-only bfd2db4..origin/main -- automotive android/voice \
+      .github/workflows/android-ci.yml
+    # rong  -> khoi tren con dung
+    # co gi -> sinh lai E02
+
+⚠️ G1 CHUA DONG: APK CHAY TREN DEVICE 09/08 KHONG PHAI APK O TREN
+------------------------------------------------------------------
+Runbook 25-CARSKY-AAOS-DEVICE-GATE §8 doi G1 pass khi "APK hash khop manifest;
+Device identity cung luot". Hien tai hai ve do KHONG khop nhau:
+
+  APK trong manifest CI (khoi tren)  : 384.627.599 B  sha256=74ad3b39...
+  APK da cai tren Device `VIVA` 09/08: 387.904.742 B  sha256=b3ad9a4b...
+
+Ban tren Device duoc build tren may dev roi day len artifact rieng tu
+`viva-apk` 0.0.1, khong phai tai tu CI. Hai file khac nhau that, khong phai
+loi ghi chep — chenh ~3,3 MB.
+
+=> Duoc phep noi: "CI dung sinh duoc APK co identity kiem chung duoc"
+                  (khoi tren, E02) VA
+                  "mot ban mock da chay tren Device CarSky"
+                  (evidence/c2/carsky-runtime-20260809/, E11a).
+   KHONG duoc phep noi hai ve do la CUNG MOT artifact, va khong duoc dong G1.
+
+   De dong G1 that: tai `viva-aaos-apks-bfd2db4fa...` tu run 31294593980, cai
+   DUNG file do len Device, roi chup lai `pm path` + sha256 cua `base.apk`.
+
+------------------------------------------------------------------------
+Phan duoi la HAI ban ghi cu — giu lai vi chung ghi cai bay GITHUB_SHA va hai
+con so tai lieu doi dang ghi sai. KHONG dung sha256 o duoi de nop.
+------------------------------------------------------------------------
+
+BAN CU 1 — DA BI THAY THE (main @ 3834a7a, truoc khi merge PR #33)
+-------------------------------------------------------------------
+  captured_at_utc=2026-08-07T21:30:11Z
+  commit=3834a7a893df258e3711a60fd1e88c29e1ce127b
+  workflow_run_id=31219765568   (workflow_dispatch tren main, SUCCESS)
+  apk=app-mock-debug.apk bytes=384594831 sha256=0b079251ae861cc2a34c9139afb554b4f8e6b2ed1b88c0c60e755996976c1a83
+  apk=app-real-debug.apk bytes=384594636 sha256=14bb1d51c116fb5109989f0646694d96b3d1208141eaa14204c0b46313850d29
+
+  Luc do main co 256 test. PR #33 them 2 test media -> 258. Khoi nay dung
+  quy trinh nhung da cu, vi main da tien len bfd2db4.
+
+BAN CU 2 — LUOT DAU (tu PR #31)
+--------------------------------
+
 Status: PARTIAL (dung cho G1 phan artifact; con thieu phan cai len Device)
 Label: CI artifact identity. KHONG phai bang chung app da chay tren CarSky.
 Nguon: workflow `android-ci`, run 31213909994, job 92982884376
@@ -68,6 +152,19 @@ TRANG THAI CI TRUOC/SAU
 
 CACH TAI LAP
 -------------
+Ban co tham quyen (khoi dau file, main @ bfd2db4):
+
+  gh run view 31294593980
+  gh run download 31294593980 -n viva-aaos-apks-bfd2db4fa1e4ae8765d4ecbe0621ed74534e4843
+  Get-FileHash .\app-mock-debug.apk -Algorithm SHA256
+  # phai ra 74AD3B39FE5ED7860D25A2D33733B128777AF202F37B3042B3A1632AA38500C1
+
+Dem lai so test tu chinh artifact, dung tin so chep tay:
+
+  gh run download 31294593980 -n android-quality-reports-bfd2db4fa1e4ae8765d4ecbe0621ed74534e4843
+  # tong thuoc tinh tests= tren moi TEST-*.xml = 258, failures/errors/skipped = 0
+
+Ban cu 2 (PR #31, chi de doi chieu — KHONG dung de nop):
+
   gh run view 31213909994
   gh run download 31213909994 -n viva-aaos-apks-eff06c1284f935c19c33f719a4f66a9234da6f00
-  Get-FileHash .\app-mock-debug.apk -Algorithm SHA256   # phai khop sha256 o tren
