@@ -1,0 +1,6 @@
+SUMMARY|b4a67b66-151e-45b5-9d2b-a752cd076685|Viva ơi, hạ điều hòa xuống 24 độ|hvac_set_temp|Allow|e2e_ms=0
+SUMMARY|ce8a042e-d366-47af-86a1-d588946d8d99|quạt mạnh lên|clarify|Confirm:CLARIFY_SLOT|e2e_ms=0
+SUMMARY|e3cde835-5ad5-4221-bfa2-79375ab7e23f|quạt mức 3|hvac_set_fan|Allow|e2e_ms=0
+SUMMARY|73c5dfe9-e1a7-4539-9bb3-87b3aa6ddee4|mở cửa|door_lock|Deny:G1_SPEED_LOCK|e2e_ms=0
+SUMMARY|5e78edc1-f892-45e5-8675-e05271586558|đặt bàn ăn tối|unknown|Deny:G3_UNSUPPORTED|e2e_ms=0
+08-07 01:13:37.239  5688  5688 I VivaSafetyGuard: Deny:G1_SPEED_LOCK property=371198722 area=1 value=false source=VOICE confirmed=false

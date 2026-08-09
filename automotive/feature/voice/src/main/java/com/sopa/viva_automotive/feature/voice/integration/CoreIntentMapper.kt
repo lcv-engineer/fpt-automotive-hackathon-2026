@@ -2,6 +2,7 @@ package com.sopa.viva_automotive.feature.voice.integration
 
 import com.sopa.viva_automotive.core.common.units.TemperatureUnits
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.FanSpeed
 import com.viva.voice.intent.Intent
@@ -10,7 +11,7 @@ import com.viva.voice.intent.Intent
 sealed interface AutomotiveVoiceAction {
     data class VehicleControl(val intent: VehicleIntent) : AutomotiveVoiceAction
     data class VolumeAdjust(val delta: Int) : AutomotiveVoiceAction
-    data object MediaNext : AutomotiveVoiceAction
+    data class Media(val command: MediaCommand) : AutomotiveVoiceAction
 
     /** `delivery_*` — handled in-app, never reaches VHAL (03-contracts.md §0.1). */
     data class Delivery(val command: DeliveryCommand) : AutomotiveVoiceAction
@@ -54,7 +55,11 @@ object CoreIntentMapper {
             AutomotiveVoiceAction.VolumeAdjust(delta.toInt())
         }
 
-        "media_next" -> AutomotiveVoiceAction.MediaNext
+        "media_play" -> AutomotiveVoiceAction.Media(MediaCommand.PLAY)
+
+        "media_pause" -> AutomotiveVoiceAction.Media(MediaCommand.PAUSE)
+
+        "media_next" -> AutomotiveVoiceAction.Media(MediaCommand.NEXT)
 
         // The order id slot is optional by design: "xác nhận giao thành công"
         // without an id means the stop the driver is currently on, and the

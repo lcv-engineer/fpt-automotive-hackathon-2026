@@ -5,6 +5,7 @@ import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliverySkill
 import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.FanSpeed
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
@@ -36,6 +37,7 @@ class ExecuteVehicleControlUseCase @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val deliverySkill: DeliverySkill,
     private val volumeController: VolumeController,
+    private val mediaCommandExecutor: MediaCommandExecutor,
 ) {
 
     /**
@@ -127,12 +129,7 @@ class ExecuteVehicleControlUseCase @Inject constructor(
 
         is VehicleIntent.VolumeAdjust -> volumeController.adjust(intent.delta)
 
-        is VehicleIntent.MediaNext ->
-            Result.failure(
-                CommandNotWiredException(
-                    "Mình nghe rõ lệnh chuyển bài, nhưng bản demo này chưa nối trình phát nhạc.",
-                ),
-            )
+        is VehicleIntent.Media -> mediaCommandExecutor.execute(intent.command)
 
         is VehicleIntent.NotWired ->
             Result.failure(

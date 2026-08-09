@@ -117,7 +117,7 @@ class GrammarAblationTest {
         is VehicleIntent.SetDoorLock -> "SetDoorLock($locked)"
         is VehicleIntent.QueryStatus -> "QueryStatus($kind)"
         is VehicleIntent.VolumeAdjust -> "VolumeAdjust($delta)"
-        VehicleIntent.MediaNext -> "MediaNext"
+        is VehicleIntent.Media -> "Media(${command.intentName})"
         is VehicleIntent.Delivery -> "Delivery(${command.intentName})"
         is VehicleIntent.NotWired -> "NotWired($intentName)"
         is VehicleIntent.Clarification -> "Clarification"

@@ -1,6 +1,7 @@
 package com.sopa.viva_automotive.feature.voice.integration
 
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.viva.voice.intent.Intent
 import org.junit.Assert.assertEquals
@@ -19,7 +20,7 @@ class CoreIntentMapperTest {
     }
 
     @Test
-    fun `all five backbone commands cross the module boundary`() {
+    fun `vehicle volume and all three media commands cross the module boundary`() {
         val cases = mapOf(
             intent("hvac_set_temp", "value" to 24f) to AutomotiveVoiceAction.VehicleControl(
                 VehicleIntent.SetTemperature(24.0),
@@ -31,7 +32,9 @@ class CoreIntentMapperTest {
                 VehicleIntent.SetDoorLock(true),
             ),
             intent("volume_adjust", "delta" to -1) to AutomotiveVoiceAction.VolumeAdjust(-1),
-            intent("media_next") to AutomotiveVoiceAction.MediaNext,
+            intent("media_play") to AutomotiveVoiceAction.Media(MediaCommand.PLAY),
+            intent("media_pause") to AutomotiveVoiceAction.Media(MediaCommand.PAUSE),
+            intent("media_next") to AutomotiveVoiceAction.Media(MediaCommand.NEXT),
         )
 
         cases.forEach { (input, expected) ->

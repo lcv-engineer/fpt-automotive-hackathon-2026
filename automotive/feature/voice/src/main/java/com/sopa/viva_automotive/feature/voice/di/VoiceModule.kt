@@ -6,6 +6,7 @@ import com.sopa.viva_automotive.feature.voice.BuildConfig
 import com.sopa.viva_automotive.feature.voice.data.SpeechRecognitionEngine
 import com.sopa.viva_automotive.feature.voice.data.audio.AndroidVolumeController
 import com.sopa.viva_automotive.feature.voice.data.embedding.OnnxEmbeddingIntentMatcher
+import com.sopa.viva_automotive.feature.voice.data.media.AndroidMediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.data.vosk.VoskSpeechRecognitionEngine
 import com.sopa.viva_automotive.feature.voice.data.remote.HttpRemoteAsrTransport
 import com.sopa.viva_automotive.feature.voice.data.remote.RemoteAsrTransport
@@ -14,6 +15,7 @@ import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryRepository
 import com.sopa.viva_automotive.feature.voice.domain.delivery.InMemoryDeliveryRepository
 import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
 import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMatcher
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.viva.voice.audio.AndroidPcmSource
 import com.viva.voice.audio.AudioCapture
 import com.viva.voice.audio.PcmSourceAudioCapture
@@ -46,6 +48,12 @@ abstract class VoiceModule {
     abstract fun bindVolumeController(
         impl: AndroidVolumeController,
     ): VolumeController
+
+    @Binds
+    @Singleton
+    abstract fun bindMediaCommandExecutor(
+        impl: AndroidMediaCommandExecutor,
+    ): MediaCommandExecutor
 
     /**
      * Singleton because the route is mutable state: the stop the driver just

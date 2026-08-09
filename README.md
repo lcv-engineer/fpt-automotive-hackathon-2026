@@ -9,11 +9,13 @@ VIVA là prototype buồng lái số cho Android Automotive OS (AAOS), tập tru
 | Hạng mục | Trạng thái | Bằng chứng / giới hạn |
 |---|---|---|
 | App AAOS, UI HVAC/vehicle status, mock repository | **Đã tích hợp** | Hai flavor `mock` và `real` build được; mock dùng simulator trong bộ nhớ |
-| Voice core: trace, thu âm, VAD, grammar 10 intent, TTS | **Đã tích hợp ở mức code/build** | Unit test và APK build xanh; nghe/thu trong cabin vẫn là Device Integration Gate |
+| Voice core: trace, một nguồn PCM, Silero VAD, grammar 10 intent, TTS | **Đã tích hợp ở mức code/build** | 258 test JVM, lint và hai APK build xanh 09/08; nghe/thu trong cabin vẫn là Device Integration Gate |
 | Audio focus cho TTS | **Đã tích hợp ở mức code/build** | Xin transient focus trước khi nói, trả focus sau success/failure; kiểm chứng ducking với media thật trên Device còn chờ |
-| Vosk/MiniLM assets và pipeline hiện hữu của app | **Đã tích hợp** | Chạy offline; đường nối cuối từ pipeline service tới grammar core đang được hoàn thiện theo từng adapter |
+| Vosk/DistilUSE assets và pipeline hiện hữu của app | **Đã tích hợp ở mức code/build** | `AndroidPcmSource` là nơi duy nhất mở mic; cùng PCM qua `VadStreamDriver` rồi Vosk; mic thật/Device còn chờ |
 | `FakeAsrClient`, dữ liệu TTS/noise synthetic, mock vehicle | **Mô phỏng** | Dùng cho test tái lập, không được xem là bằng chứng cabin/xe thật |
-| `DeliverySkill` — 3 intent giao hàng | **Mô phỏng** | Lộ trình in-memory do đội tạo; unit test JVM. ⚠️ Chưa biên dịch trên máy có Android SDK |
+| `DeliverySkill` — 3 intent giao hàng | **Mô phỏng** | Lộ trình in-memory do đội tạo; unit test, Hilt và APK build xanh; dữ liệu không phải dispatch thật |
+| `SafetyGuard` ở biên `VehicleRepository` | **Mô phỏng** | Chặn cả voice và HMI trên mock/emulator; A1: bỏ guard làm 6/9 lệnh nguy hiểm ghi được xuống repository. VHAL Device pending |
+| Voice → MediaBrowser → MediaSession/ExoPlayer | **Đã kiểm chứng trên CarSky Device — từ NLU đến media, mock/debug** | APK đúng SHA-256 đã cài trên Device `VIVA`; text-injection qua đúng pipeline tạo `media_play`/`media_pause`/`media_next|Allow`, MediaSession đổi `PLAYING → PAUSED` và active item `0 → 1`. Chưa kiểm mic/VAD/ASR, TTS/audio-focus; xem `evidence/c2/carsky-runtime-20260809/` |
 | Benchmark harness + bộ 22 câu + runner PASS/FAIL | **Đã tích hợp** *(công cụ)* | `go test ./...` xanh; chạy ra CSV thật trên fixture. Số đo **trên Device** thì chưa có |
 | `VivaCarService` → VHAL → gateway → CAN/CCU | **Kế hoạch / tích hợp đội** | Contract đã chốt; quyền privileged và luồng Device phải được chứng minh riêng |
 | ASR container `viva-asr` | **Đã tích hợp ở mức container/platform** | Image đã được CarSky pull theo digest, node `VIVA ASR` và 22/22 node `Running`; APK hiện vẫn dùng Vosk on-device, chưa có client gọi container nên chưa được claim app→container |
@@ -23,14 +25,14 @@ Không claim toàn bộ 10 intent đi tới CAN. Chỉ `hvac_*` và `door_lock` 
 ## Kiến trúc
 
 ```text
-Microphone / push-to-talk
-  → VAD / endpoint
-  → ASR (audio → text)
-  → normalize + grammar router
-  → CommandGateway + SafetyGuard
-      ├─ HVAC / door → VivaCarService → PropertyID → VHAL → gateway → CAN/CCU
-      ├─ media       → MediaSession
-      ├─ volume      → Android car audio adapter
+AndroidPcmSource (AudioRecord duy nhất)
+  → VadStreamDriver (Silero VAD, pre-roll 500 ms)
+  → VoskSpeechRecognitionEngine (cùng dòng PCM)
+  → ProcessVoiceCommandUseCase (grammar → keyword → DistilUSE)
+  → ExecuteVehicleControlUseCase
+      ├─ HVAC / door → GuardedVehicleRepository → SafetyGuard → Mock/RealVehicleRepository
+      ├─ media       → MediaBrowser/MediaController → VivaMediaBrowserService → MediaSession/ExoPlayer
+      ├─ volume      → Android audio adapter
       └─ delivery    → in-app skill
   → Applied / Denied / ConfirmationRequired / Failed
   → HMI + TTS (audio focus)

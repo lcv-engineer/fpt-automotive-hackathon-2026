@@ -27,6 +27,17 @@ Nguồn hiện trạng:
 - `evidence/c2/device-info.txt`
 - `docs/backend-docs/carsky-api.md`
 
+### Cập nhật thực thi 09/08/2026
+
+- Đã tạo artifact riêng tư `viva-apk` `0.0.1`, tải và cài `app-mock-debug.apk` lên Device `VIVA` qua web ADB shell.
+- SHA-256 local, file tải xuống và `base.apk` đã cài cùng bằng
+  `b3ad9a4b6c83c032a09cd240987738e63eda454cc410f260fe37613468bfa0da`.
+- Package `com.sopa.viva_automotive.mock` cài lúc `2026-08-09 02:58:26 UTC` trên `trout_arm64`, Android 14 / SDK 34.
+- Text-injection đã chứng minh phần sau ASR: `media_play`, `media_pause`, `media_next` đều `Allow`; MediaSession đổi `PLAYING → PAUSED` và active item `0 → 1`.
+- Gate **chỉ mở cho NLU → media trên mock/debug**. Mic/VAD/ASR, TTS/audio-focus và real VHAL/CAN vẫn đóng.
+
+Evidence: `evidence/c2/carsky-runtime-20260809/`.
+
 ## 1. Stop rules
 
 Dừng lượt chạy, không “thử tiếp cho may”, khi gặp một trong các điều sau:

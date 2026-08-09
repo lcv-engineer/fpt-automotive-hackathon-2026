@@ -530,6 +530,26 @@ Pipeline chỉ được gọi là “hoàn chỉnh” khi có đủ. Trạng th�
       Không write trước và có revalidate; **chưa có token/expiry** — hiện là cờ hai lượt.
 - [ ] `Applied` có readback/callback; error không nói “Đã…”.
 - [x] HMI và TTS dùng cùng outcome; TTS có audio focus và fallback.
-- [x] Trace đủ chín stage hoặc có `Error:<stage>`; lượt lỗi không bị lọc khỏi benchmark.
+- [~] Trace đủ chín stage hoặc có `Error:<stage>`; lượt lỗi không bị lọc khỏi benchmark.
+      **Ô này tick sai, sửa 08/08.** `Stage.GUARD_DONE` và `Stage.RENDER_DONE` có
+      trong enum (`Trace.kt:23,25`) và **được harness Go parse** (`trace.go:15,17`),
+      nhưng `grep -rn "Stage.GUARD_DONE"` toàn repo không ra một lời gọi `mark()`
+      nào trong mã sản phẩm. Hệ quả trong `report.go`: bốn đoạn `safety_guard`,
+      `skill_exec`, `hmi_render`, `tts_kickoff` cộng `screen_latency` **không bao
+      giờ có mẫu** — 5/12 chỉ số của mọi báo cáo harness luôn trống.
+      `e2e_computed` (`speech_end → tts_start`) thì vẫn tính được.
+
+      **Vì sao chưa vá:** guard chạy bên trong `GuardedVehicleRepository`, mà
+      module `vehicle-service` không phụ thuộc `:voice-core` nên không thấy
+      `LatencyTrace`. Ba đường đã cân:
+      (a) mark `guard_done` ngay trước `exec_done` ở `VoiceAssistantService` →
+          `skill_exec` sẽ luôn bằng 0 ms, tức **bịa một con số**;
+      (b) nhét lambda vào `VehicleWriteContext` → nó là `data class` dùng trong
+          so sánh bằng ở test, thêm lambda là phá `equals`;
+      (c) plumb `LatencyTrace` xuống `vehicle-service` → đúng nhất, nhưng là đổi
+          ranh giới module, không nên làm hai ngày trước freeze.
+      Theo đúng nguyên tắc của chính đội ở `DefaultSafetyGuard` — *"một phép kiểm
+      chạy trên hai đồng hồ khác gốc sẽ luôn cho kết quả sai, và sai kiểu đó tệ
+      hơn là không kiểm"* — chọn **để trống và khai rõ**, thay vì (a).
 - [ ] Có test JVM + emulator + ít nhất một evidence end-to-end trên đúng Device được claim.
       Test JVM: có. Emulator và Device với đường mới: **chưa chạy lần nào**.

@@ -1,6 +1,32 @@
 E02 ARTIFACT IDENTITY — TU CI, KHONG PHAI TU MAY DEV
 =====================================================
 
+★★★ BAN CO THAM QUYEN — dung ban nay de nop ★★★
+------------------------------------------------
+Sinh tu workflow_dispatch tren `main` sau khi merge PR #31 + #32, nen
+GITHUB_SHA la commit THAT cua main (khong phai merge commit tam cua
+pull_request — xem canh bao o duoi).
+
+  schema_version=1
+  captured_at_utc=2026-08-07T21:30:11Z
+  commit=3834a7a893df258e3711a60fd1e88c29e1ce127b     <- = origin/main HEAD
+  workflow_run_id=31219765568
+  java=openjdk version "21.0.11" 2026-04-21 LTS
+  apk=app-mock-debug.apk bytes=384594831 sha256=0b079251ae861cc2a34c9139afb554b4f8e6b2ed1b88c0c60e755996976c1a83
+  apk=app-real-debug.apk bytes=384594636 sha256=14bb1d51c116fb5109989f0646694d96b3d1208141eaa14204c0b46313850d29
+
+  Job: SUCCESS — lint (mock+real) -> 256 unit test -> 2 APK -> manifest -> upload
+  https://github.com/lcv-back/fpt-automotive-hackathon/actions/runs/31219765568
+
+  ⚠️ Neu con commit them vao main truoc khi nop thi PHAI chay lai
+     `gh workflow run android-ci.yml --ref main` va thay khoi tren.
+
+------------------------------------------------------------------------
+Phan duoi la ban ghi cua LUOT DAU (tu PR #31) — giu lai vi no ghi lai cai
+bay GITHUB_SHA va hai con so tai lieu doi dang ghi sai. KHONG dung sha256
+o duoi de nop.
+------------------------------------------------------------------------
+
 Status: PARTIAL (dung cho G1 phan artifact; con thieu phan cai len Device)
 Label: CI artifact identity. KHONG phai bang chung app da chay tren CarSky.
 Nguon: workflow `android-ci`, run 31213909994, job 92982884376

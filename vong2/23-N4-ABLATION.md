@@ -8,50 +8,34 @@
 > bạn làm thì sao". Câu trả lời có sức nặng nhất là hai lần chạy cùng một bộ
 > câu, khác đúng một thành phần, và một bảng before/after.
 
-## Công cụ — đã có, không phải viết thêm
+## Công cụ — A1 đã đóng ở tầng JVM/source
 
 ```powershell
-cd backend
-
-# 1. Chạy baseline (hệ đầy đủ) và biến thể, mỗi lần một artifact set
-.\scripts\run_benchmark.ps1 -Variant full     -Adb
-.\scripts\run_benchmark.ps1 -Variant no-guard -Adb   # ⚠️ xem cảnh báo ngay dưới
-
-# 2. Lập bảng before/after
-go run ./cmd/viva-tools harness compare `
-  --baseline runs\<stamp>-full\capture.log `
-  --candidate runs\<stamp>-no-guard\capture.log `
-  --baseline-label full --candidate-label no_guard `
-  --out ablation_a1.csv --verdicts-out ablation_a1_verdicts.csv
+cd automotive
+.\gradlew :vehicle-service:impl:testDebugUnitTest --tests "*SafetyGuardAblationTest*"
 ```
 
-`--verdicts-out` là cột sống của A1: nó đếm `Deny:G1_SPEED_LOCK` ở hai lần chạy.
-Điều đó chỉ hoạt động vì `verdict` mang theo mã luật (`03-contracts.md` §1.2).
+Test tạo hai graph thật: wiring production có decorator và wiring bỏ đúng decorator. CSV kết quả được giữ tại
+`evidence/ablation/a1-safety-guard-ablation.csv`; manifest ghi commit, JDK, cách tắt và giới hạn claim.
 
-> 🔴 **`-Variant` mới chỉ là cái nhãn — nó KHÔNG tắt guard.** Kiểm 05/08:
+> ⚠️ **Cảnh báo cũ về `backend/scripts/run_benchmark.ps1 -Variant no-guard` vẫn đúng.**
 > `run_benchmark.ps1` chỉ dùng `$Variant` để đặt tên thư mục artifact (dòng 56) và đóng
-> dấu vào `run_manifest.txt` rồi truyền cho harness (dòng 73, 80). Nó không đổi APK đang
-> chạy. Trong app cũng chưa có đường tắt nào: `app/src/{mock,real}/.../VehicleServiceModule.kt:30`
-> đều bind thẳng `DefaultSafetyGuard`, không có build flag hay binding no-op.
->
-> **Hệ quả:** chạy đúng hai dòng trên hôm nay sẽ ra **hai lần chạy giống hệt nhau** với hai
-> nhãn khác nhau, và bảng before/after sẽ cho thấy guard "không thay đổi gì" — đó là số
-> sai đội nhà tự tạo ra, tệ hơn hẳn việc để trống *chưa đo*. **Đừng chạy cột `no_guard`
-> cho tới khi có cơ chế tắt thật**, và nếu không kịp thì cột đó giữ *chưa đo* — cột `full`
-> vẫn chạy và vẫn có giá trị riêng.
+> dấu vào manifest; nó không đổi APK. Không dùng hai run gắn nhãn đó để thay cho A1 vừa đo.
 
 ---
 
 ## A1 — Tắt `SafetyGuard` (N4b, Tùng)
 
-> ✅ **Tiền đề đã thoả một nửa (cập nhật 05/08).** `SafetyGuard` **đã có trong mã sản
+> ✅ **Đã đo đủ hai cấu hình (cập nhật 08/08).** `SafetyGuard` **đã có trong mã sản
 > phẩm** từ PR #20: `vehicle-service/api/SafetyGuard.kt`, `impl/DefaultSafetyGuard.kt`,
 > `impl/GuardedVehicleRepository.kt`, cắm vào cả hai biến thể app. PR #23 nối tiếp phán
 > quyết ra dòng trace, nên B09 sinh được `Confirm:G2_CONFIRM_DOOR` và B10 sinh được
 > `Deny:G1_SPEED_LOCK`.
 >
-> 🔴 **Thứ còn thiếu là cơ chế tắt** cho cột `no_guard` — xem cảnh báo ở mục *Công cụ*.
-> Không có nó thì A1 chỉ đo được cột `full`.
+> Cơ chế tắt không phải một cờ giả lập riêng: `full` dùng đúng wiring production
+> `GuardedVehicleRepository(MockVehicleRepository, DefaultSafetyGuard)`; `no_guard` bind thẳng
+> `MockVehicleRepository`, tức production trừ đúng decorator team-owned. Kết quả và giới hạn nằm
+> trong `evidence/ablation/a1-run-manifest.txt`.
 >
 > ✅ **B20 đã đóng (PR #24).** `G3_UNSUPPORTED` được hiện thực đúng chỗ hợp đồng §4 mô tả:
 > ở nơi điều phối intent, **không** ở `GuardedVehicleRepository` — câu ngoài phạm vi không
@@ -69,19 +53,19 @@ go run ./cmd/viva-tools harness compare `
 
 | Cách tắt | Kết quả mong đợi | Câu thử |
 |---|---|---|
-| Bypass `SafetyGuard.evaluate` (build flag / DI thay bằng no-op) | `Deny:G1_SPEED_LOCK` biến mất, property `DOOR_LOCK` bị ghi thật | B09, B10 trong `suites/benchmark_v1.csv` |
+| Bỏ decorator `GuardedVehicleRepository`, dùng repository gốc | Deny/Confirm của guard biến mất; setter nhận lệnh nguy hiểm | 9 ca trong `SafetyGuardAblationTest` |
 
 | Chỉ số | full | no_guard | Ghi chú |
 |---|---|---|---|
-| `Deny:G1_SPEED_LOCK` (số lượt) | **1** (B10) | *chưa đo* | Cột `full` đo 05/08 trên emulator AAOS, `session-20260805-165301`. Cột `no_guard` chưa có cơ chế tắt |
-| `Allow` trên `door_lock` khi đang chạy | **0** | *chưa đo* | Đúng kỳ vọng: guard chặn, cửa vẫn `Locked` |
-| `Confirm:G2_CONFIRM_DOOR` (số lượt) | **1** (B09) | *chưa đo* | Xe đứng yên thì hỏi xác nhận thay vì từ chối |
+| Lệnh nguy hiểm chạm setter | **0/6** | **6/6** | Gồm voice, chạm HMI, stale speed và nhiệt độ ngoài dải |
+| Ca hợp lệ vẫn được phép | **3/3** | **3/3** | Đối chứng: guard không chặn mọi thứ |
+| Tổng delta | guard chặn đúng 6 ca | **6/9 `UNSAFE_WRITE_LANDS`** | CSV: `evidence/ablation/a1-safety-guard-ablation.csv` |
 | p95 `e2e_computed` | *chưa đo* | *chưa đo* | ⚠️ Phiên đó bơm câu bằng text nên **không có** `speech_end` → mọi `e2e_ms=0` và các lượt tự nằm ngoài thống kê. Muốn số này phải có người nói thật |
 | `safety_guard` (chặng) | *chưa đo* | *chưa đo* | App chưa mark chặng riêng cho guard |
 
-> **Cột `full` đã có số, và đó là số thật** — nhưng đọc kèm hai giới hạn: chạy trên
-> **emulator AAOS**, không phải Device CarSky; và property là `MockVehicleRepository`,
-> không phải VHAL. Xem `evidence/emulator/README.md`.
+> **A1 đã có số thật ở tầng JVM/source**, nhưng đầu kia là `MockVehicleRepository`, không phải
+> VHAL. Bảng chứng minh decorator ngăn setter nhận lệnh và chứng minh vị trí boundary chặn cả
+> voice lẫn HMI; nó không chứng minh Device CarSky.
 
 > ⚠️ Chạy A1 **trên Road Simulator, xe mô phỏng đang chạy**, không phải xe đứng yên —
 > nếu tốc độ bằng 0 thì luật không kích hoạt và bảng này vô nghĩa ở cả hai cột.
