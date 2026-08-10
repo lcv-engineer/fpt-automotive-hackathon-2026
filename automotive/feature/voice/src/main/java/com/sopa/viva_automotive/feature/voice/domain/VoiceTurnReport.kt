@@ -30,8 +30,53 @@ object VoiceTurnReport {
      *
      * Chỉ áp dụng khi engine thật sự trả về một con số. Vosk small trả `null` và
      * `null` **không** rơi vào luật này — xem [needsRepeatForConfidence].
+     *
+     * ⚠️ **Con số này gắn với MỘT MODEL, không phải với hệ thống.** Nó được chọn từ
+     * corpus giọng thật chạy trên PhoWhisper. `confidence` mà tầng ASR trả về là
+     * `exp(avg_logprob)` — tức *phỏng đoán của chính model về chính nó* — nên model
+     * nào được huấn luyện kém hơn cho tiếng Việt sẽ cho số thấp hơn **kể cả khi
+     * phiên âm ra đúng**.
+     *
+     * Đo 09/08 trên emulator với `Systran/faster-whisper-tiny`: **8/8 lượt bị chặn**,
+     * gồm một lượt phiên âm chính xác tuyệt đối (`"phát nhạc"`, đúng ca B13). Đổi
+     * model mà giữ nguyên ngưỡng thì hệ thống từ chối sạch, và triệu chứng nhìn y
+     * hệt mic hỏng hay NLU dốt.
+     *
+     * Vì vậy có [SETTING_MIN_CONFIDENCE] để dò ngưỡng trên máy thật mà không phải
+     * build lại. Mặc định giữ nguyên `0.6f`, nên đường demo không đổi hành vi.
      */
     const val MIN_ACOUSTIC_CONFIDENCE = 0.6f
+
+    /**
+     * Khoá `Settings.Global` để **tạm** ghi đè [MIN_ACOUSTIC_CONFIDENCE] lúc chạy.
+     *
+     * ```
+     * adb shell settings put global viva_min_conf 40   # = 0.40
+     * adb shell settings delete global viva_min_conf   # về mặc định 0.6
+     * ```
+     *
+     * Đơn vị là **phần trăm nguyên 0..100** chứ không phải float: `Settings.Global`
+     * chỉ có getter cho `Int`/`String`, và một chuỗi float phải tự parse thì sai
+     * locale là hỏng ("0,4" vs "0.4").
+     *
+     * Cùng khuôn mẫu với công tắc `viva_asr_grammar` — chính công tắc đó cho phép
+     * đo A/B trên **cùng một giọng nói** và ra con số WER 0,841 → 0,566. Không có
+     * nó thì mỗi lần đổi ngưỡng phải build lại 14 phút và giọng nói đã khác đi.
+     */
+    const val SETTING_MIN_CONFIDENCE = "viva_min_conf"
+
+    /**
+     * Diễn giải giá trị thô đọc từ [SETTING_MIN_CONFIDENCE] thành ngưỡng thật.
+     *
+     * Thuần khiết có chủ đích: `Settings.Global` cần `Context` mà object này phải
+     * test được trên JVM, nên nơi gọi đọc số rồi truyền vào đây.
+     *
+     * Ngoài dải `0..100` — gồm cả `-1` nghĩa là "chưa đặt" — đều rơi về mặc định.
+     * Giá trị rác **không** được phép nới lỏng cổng an toàn một cách âm thầm.
+     */
+    fun minAcousticConfidence(rawPercent: Int?): Float =
+        if (rawPercent != null && rawPercent in 0..100) rawPercent / 100f
+        else MIN_ACOUSTIC_CONFIDENCE
 
     /**
      * Câu tiếng Việt cho HMI/TTS ứng với mã lỗi của tầng ASR.
@@ -53,7 +98,14 @@ object VoiceTurnReport {
      * hỏi lại mọi câu và không bao giờ chạy được lệnh nào.
      */
     fun needsRepeatForConfidence(acousticConfidence: Float?): Boolean =
-        acousticConfidence != null && acousticConfidence < MIN_ACOUSTIC_CONFIDENCE
+        needsRepeatForConfidence(acousticConfidence, MIN_ACOUSTIC_CONFIDENCE)
+
+    /**
+     * Như trên nhưng nhận ngưỡng từ ngoài — dùng khi nơi gọi đã đọc
+     * [SETTING_MIN_CONFIDENCE] qua [minAcousticConfidence].
+     */
+    fun needsRepeatForConfidence(acousticConfidence: Float?, minConfidence: Float): Boolean =
+        acousticConfidence != null && acousticConfidence < minConfidence
 
     /**
      * Intent name for the summary line, using the §3 vocabulary where the app
