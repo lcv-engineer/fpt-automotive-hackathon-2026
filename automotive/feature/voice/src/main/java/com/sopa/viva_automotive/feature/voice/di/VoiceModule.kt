@@ -85,10 +85,11 @@ abstract class VoiceModule {
         fun provideSpeechRecognitionEngine(
             vosk: VoskSpeechRecognitionEngine,
             remoteTransport: RemoteAsrTransport,
+            @IoDispatcher ioDispatcher: CoroutineDispatcher,
         ): SpeechRecognitionEngine = when (BuildConfig.ASR_ENGINE.lowercase()) {
             "vosk" -> vosk
             "remote", "phowhisper" ->
-                RemotePhoWhisperSpeechRecognitionEngine(remoteTransport)
+                RemotePhoWhisperSpeechRecognitionEngine(remoteTransport, ioDispatcher)
             else -> error(
                 "Unsupported vivaAsrEngine=${BuildConfig.ASR_ENGINE}; expected vosk or remote",
             )
