@@ -450,6 +450,96 @@ không chứng minh VHAL/CAN/CCU, vì là flavor `mock`.
 `"Đã gửi lệnh phát nhạc tới trình phát."` không phát ra tiếng. Media vẫn chạy
 đúng — nhưng **không được claim phản hồi TTS hoàn chỉnh**.
 
+### Giọng nói end-to-end THẬT — 10/08
+
+Bằng chứng: `evidence/c2/carsky-voice-e2e-20260810/`.
+
+Khác hẳn bộ 09/08 ở trên: chuỗi đầy đủ **mic → Silero VAD → `viva-asr` qua mạng
+room → NLU → SafetyGuard → thực thi**, không có hook bơm text. 25 lượt: 13 đi tới
+`Allow` với intent đúng (6 nhóm chức năng), 2 bị `G1_SPEED_LOCK` chặn đúng luật,
+10 không nhận ra.
+
+```
+Do tre THAT:  min=1230  p50=1336  p95=1664  max=2091 ms
+```
+
+🚫 **p95 = 1664 ms VƯỢT ngân sách 1500 ms** của `03-contracts.md` §1.3. Đừng khai
+đạt claim latency dựa trên bộ này.
+
+**Cụm từ đã chứng minh chạy được** (dùng đúng chúng khi demo, biến thể khác là rủi
+ro chưa đo):
+
+```
+phát nhạc lên · phát nhạc đi          -> media_play
+chuyển bài tiếp theo · bài tiếp theo  -> media_next
+tăng|giảm nhiệt độ ... <số> độ        -> hvac_set_temp
+tăng|giảm quạt ... mức <số>           -> hvac_set_fan
+cho tôi biết tốc độ hiện tại          -> vehicle_status_speed
+cho tôi biết nhiên liệu hiện tại      -> vehicle_status_fuel
+```
+
+Ba cách nói **luôn trượt**, đã đo nhiều lần: `phát nhạc` trơn (quá ngắn),
+`chuyển bài` trơn (ASR nghe thành `chuyến bay`), `tốc độ ...` mở đầu câu (thành
+`tóc độ` — cụm `cho tôi biết` phía trước là thứ cứu nó). Quy luật chung: **âm tiết
+đầu câu hay bị nuốt, và câu càng dài càng đúng.**
+
+### ⚠️ Build APK cho Device — hai cờ và HAI cổng cleartext
+
+Sai bất kỳ chỗ nào trong bốn chỗ dưới đây thì triệu chứng đều là *"nói mà không ra
+gì"*, và log **không chỉ thẳng vào nguyên nhân**.
+
+```
+automotive/gradlew :app:assembleMockDebug \
+  -PvivaAsrEngine=remote \
+  -PvivaAsrBaseUrl=http://10.99.0.3:8080
+```
+
+1. **`assembleMockDebug` trần = bản Vosk.** `BuildConfig.ASR_ENGINE` mặc định
+   `vosk`; không có `-PvivaAsrEngine=remote` thì APK chạy ASR trên máy và **không
+   bao giờ gọi `viva-asr`**. Dấu hiệu duy nhất: dòng `D/VoskEngine:` trong logcat,
+   và `docker logs viva-asr | grep -c "POST /asr"` = 0.
+
+2. **`-PvivaAsrBaseUrl` phải là địa chỉ node ASR trong room** (`10.99.0.3:8080`).
+   Trên máy dev thì để mặc định `127.0.0.1:8080` + `adb reverse tcp:8080 tcp:8080`.
+
+3. **Cổng cleartext của app** — `HttpRemoteAsrTransport.validatedEndpoint` chỉ cho
+   HTTP với loopback và dải private RFC 1918. Sai thì app ném
+   `IllegalArgumentException` **trong `Application.onCreate`** → chết trước khi vẽ,
+   **crash buffer RỖNG**, nhìn từ ngoài y hệt "app không mở được".
+
+4. **Cổng cleartext của Android** — `app/src/main/res/xml/network_security_config.xml`.
+   Đây là cổng **riêng biệt**, chính sách của hệ điều hành (chặn cleartext mặc định
+   từ API 28). Qua được cổng 3 mà quên cổng 4 thì lỗi hiện ra ở tầng nền tảng:
+
+   ```
+   W VIVA_VOICE: ASR loi asr_model_unavailable: cannot reach viva-asr at
+                 http://10.99.0.3:8080/asr:
+                 Cleartext HTTP traffic to 10.99.0.3 not permitted
+   ```
+
+   Rất dễ truy nhầm sang mạng room hoặc container — trong khi `curl` từ chính VM đó
+   vẫn trả `200`. Config **không nhận dải CIDR**, phải liệt kê từng địa chỉ; thêm
+   node mới vào room là phải thêm vào file đó.
+
+### ⚠️ Hai cái bẫy của terminal ADB khi tải APK
+
+**`curl -C -` tin vào file rác đã có sẵn.** Nếu lần trước để lại một file dở (kể cả
+một trang lỗi 404 vài KB), `-C -` sẽ tải tiếp **từ vị trí đó** thay vì từ đầu. Kết
+quả: file ra **đúng kích thước** nhưng sai nội dung, và `sha256sum` không khớp mà
+không có dấu hiệu nào khác. Chỉ dùng `-C -` khi chắc chắn phần đã tải là dữ liệu
+thật; nghi ngờ thì `rm` rồi tải lại từ đầu.
+
+**Phiên ADB tự kết nối lại và reset thư mục về `/`**, mà `/` là read-only:
+
+```
+Failed to open the file viva.apk: Read-only file system
+```
+
+Dùng **đường dẫn tuyệt đối cho mọi lệnh** (`-o /data/local/tmp/viva.apk`,
+`rm -f /data/local/tmp/viva.apk`, `pm install -r /data/local/tmp/viva.apk`) thay vì
+dựa vào `cd`. Đặc biệt lưu ý: `rm -f viva.apk` sau khi phiên reset sẽ xoá
+`/viva.apk` — **không đụng tới file trong `/data/local/tmp`**.
+
 ---
 
 ## 8. 🟢 Mic — nằm trong widget Screen, không phải widget riêng
@@ -695,6 +785,10 @@ spec máy sinh.
 | Vì sao `Redeploy` không áp được image | Không rõ cơ chế — chỉ biết hiện tượng. Câu hỏi cho BTC |
 | Conduit (`adb-exec`, `container-exec`, `vms/*`) | 502 từ 02/08, chưa được bật. Câu hỏi cho BTC |
 | Hai blueprint trùng tên `VIVA-deploy-clone-0803` | Nên đổi tên bản `7175eb09-…` để không ai sửa nhầm |
+| **Độ trễ p95 = 1664 ms, vượt ngân sách 1500 ms** | Đo 10/08 trên Device, mẫu 25 lượt. Chưa tách theo chặng nên **chưa biết chặng nào tốn nhất** — cần đo lại có phân tách trước khi tối ưu |
+| **Giọng TTS tiếng Việt trên Device** | Vẫn thiếu. Lệnh chạy đúng nhưng câu trả lời không phát ra tiếng. Cần dựng sẵn clip cho các câu còn thiếu |
+| **URL tải artifact qua REST** | **KHÔNG TÌM ĐƯỢC.** `GET/POST /artifacts`, `/artifacts/{id}`, `/artifacts/{id}/versions` đều có, nhưng 5 đường tải thử (`/download`, `/files/…`, `?path=`) đều 404. Hiện phải copy link từ UI. Câu hỏi cho BTC |
+| Tự động hoá bước cài APK | Vẫn phải bấm tay qua widget `IVI ADB` — không có adb host thật nên `adb install`/`adb push` đều không dùng được |
 
 ---
 
