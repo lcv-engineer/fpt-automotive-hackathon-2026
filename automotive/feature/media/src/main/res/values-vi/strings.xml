@@ -7,9 +7,6 @@
     <string name="media_pause">Tạm dừng</string>
     <string name="media_next">Bài tiếp</string>
     <string name="media_previous">Bài trước</string>
-    <string name="media_volume">Âm lượng</string>
-    <string name="media_volume_up">Tăng âm lượng</string>
-    <string name="media_volume_down">Giảm âm lượng</string>
     <string name="media_playlist">Danh sách bài</string>
     <string name="media_playlist_empty">Chưa có bài trên máy — sẽ dùng tone demo cho đến khi cấp quyền audio hoặc copy MP3.</string>
     <string name="media_refresh_library">Làm mới</string>
@@ -33,4 +30,18 @@
     <string name="media_artwork">Ảnh bìa</string>
     <string name="media_duration_label">Thời lượng</string>
     <string name="media_artist_label">Nghệ sĩ</string>
+    <string name="media_favorites_filter">Bài hát yêu thích</string>
+    <string name="media_favorites_empty">Chưa có bài yêu thích — dùng nút thêm playlist trên bài đang phát.</string>
+    <string name="media_repeat">Lặp</string>
+    <string name="media_repeat_off">Tắt lặp</string>
+    <string name="media_repeat_one">Lặp một bài</string>
+    <string name="media_repeat_all">Lặp danh sách</string>
+    <string name="media_speed">Tốc độ %1$s</string>
+    <string name="media_quality_hi_res">Hi-Res</string>
+    <string name="media_quality_normal">Normal</string>
+    <string name="media_add_playlist">Thêm vào playlist</string>
+    <string name="media_remove_playlist">Bỏ khỏi playlist</string>
+    <string name="media_rewind">Tua ngược 10 giây</string>
+    <string name="media_fast_forward">Tua nhanh 10 giây</string>
+    <string name="media_seek">Tua</string>
 </resources>

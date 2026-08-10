@@ -110,6 +110,19 @@ class GrammarIntentRouterTest {
     }
 
     @Test
+    fun `cabin lights and favorite are recognized`() {
+        val lightsOn = router.route("bật đèn cabin") as RouteResult.Matched
+        val lightsOff = router.route("tắt đèn") as RouteResult.Matched
+        val favorite = router.route("thích bài này") as RouteResult.Matched
+
+        assertEquals("cabin_lights", lightsOn.intent.name)
+        assertEquals(true, lightsOn.intent.slots["on"])
+        assertEquals("cabin_lights", lightsOff.intent.name)
+        assertEquals(false, lightsOff.intent.slots["on"])
+        assertEquals("media_favorite", favorite.intent.name)
+    }
+
+    @Test
     fun `delivery commands keep a canonical order id when spoken`() {
         val status = router.route("đơn a12 thế nào") as RouteResult.Matched
         val confirmation = router.route("xác nhận giao đơn b07 thành công") as RouteResult.Matched
@@ -176,7 +189,7 @@ class GrammarIntentRouterTest {
         removedCommands.forEach { command ->
             val result = router.route(command) as RouteResult.Unsupported
             assertEquals("Unexpected fallback for '$command'", false, result.canFallback)
-            assertTrue(result.promptVi.contains("chưa hỗ trợ"))
+            assertTrue(result.promptVi.contains("chưa có trong bản demo"))
         }
     }
 

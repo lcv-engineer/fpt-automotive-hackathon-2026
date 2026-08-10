@@ -10,7 +10,10 @@ import com.viva.voice.intent.Intent
 sealed interface AutomotiveVoiceAction {
     data class VehicleControl(val intent: VehicleIntent) : AutomotiveVoiceAction
     data class VolumeAdjust(val delta: Int) : AutomotiveVoiceAction
-    data class Media(val command: MediaCommand) : AutomotiveVoiceAction
+    data class Media(
+        val command: MediaCommand,
+        val query: String? = null,
+    ) : AutomotiveVoiceAction
 
     /** `delivery_*` — handled in-app, never reaches VHAL (03-contracts.md §0.1). */
     data class Delivery(val command: DeliveryCommand) : AutomotiveVoiceAction
@@ -44,15 +47,24 @@ object CoreIntentMapper {
             AutomotiveVoiceAction.VehicleControl(VehicleIntent.SetDoorLock(locked))
         }
 
+        "cabin_lights" -> (intent.slots["on"] as? Boolean)?.let { on ->
+            AutomotiveVoiceAction.VehicleControl(VehicleIntent.SetCabinLights(on))
+        }
+
         "volume_adjust" -> intent.number("delta")?.let { delta ->
             AutomotiveVoiceAction.VolumeAdjust(delta.toInt())
         }
 
-        "media_play" -> AutomotiveVoiceAction.Media(MediaCommand.PLAY)
+        "media_play" -> AutomotiveVoiceAction.Media(
+            command = MediaCommand.PLAY,
+            query = intent.text("query"),
+        )
 
         "media_pause" -> AutomotiveVoiceAction.Media(MediaCommand.PAUSE)
 
         "media_next" -> AutomotiveVoiceAction.Media(MediaCommand.NEXT)
+
+        "media_favorite" -> AutomotiveVoiceAction.Media(MediaCommand.FAVORITE)
 
         // The order id slot is optional by design: "xác nhận giao thành công"
         // without an id means the stop the driver is currently on, and the

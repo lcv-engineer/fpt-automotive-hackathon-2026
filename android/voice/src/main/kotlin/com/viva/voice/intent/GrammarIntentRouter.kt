@@ -29,11 +29,13 @@ class GrammarIntentRouter(
         }
         val command = normalized.replaceFirst(SUPPORTED_WAKE, "").trim()
         if (command.isEmpty()) {
-            return RouteResult.NeedsClarification("Bạn muốn mình thực hiện việc gì?")
+            return RouteResult.NeedsClarification(
+                "Mình đang nghe. Bạn muốn điều hòa, cửa, đèn, nhạc hay âm lượng?",
+            )
         }
         if (isRemovedCommand(command)) {
             return RouteResult.Unsupported(
-                promptVi = "Lệnh này chưa hỗ trợ trong bản demo. Bạn thử một lệnh điều hòa, cửa, âm thanh hoặc giao hàng nhé.",
+                promptVi = "Lệnh này chưa có trong bản demo. Bạn thử: đặt điều hòa, mở cửa, bật đèn, phát nhạc, hoặc thích bài này.",
                 canFallback = false,
             )
         }
@@ -61,6 +63,12 @@ class GrammarIntentRouter(
         if (command.contains("khoa cua")) {
             return matched("door_lock", mapOf("lock" to true))
         }
+        if (isCabinLightsOn(command)) {
+            return matched("cabin_lights", mapOf("on" to true))
+        }
+        if (isCabinLightsOff(command)) {
+            return matched("cabin_lights", mapOf("on" to false))
+        }
         if (command.contains("tang am luong")) {
             return matched("volume_adjust", mapOf("delta" to 1))
         }
@@ -73,13 +81,19 @@ class GrammarIntentRouter(
         if (command.contains("chuyen bai") || command.contains("bai tiep theo")) {
             return matched("media_next")
         }
-        if (command.startsWith("phat nhac") || command.startsWith("phat playlist")) {
+        if (isFavoriteCommand(command)) {
+            return matched("media_favorite")
+        }
+        if (command.startsWith("phat nhac") || command.startsWith("phat playlist") ||
+            command.startsWith("phat bai")
+        ) {
             // Slot `query` is what the player searches for — strip verb + kind words.
             val query = command
                 .removePrefix("phat ")
                 .removePrefix("playlist ")
                 .removePrefix("nhac ")
-                .takeUnless { it == "nhac" || it == "playlist" }
+                .removePrefix("bai ")
+                .takeUnless { it == "nhac" || it == "playlist" || it == "bai" || it.isBlank() }
             return matched("media_play", query?.let { mapOf("query" to it) }.orEmpty())
         }
         if (command.contains("chang tiep theo") || command.contains("diem dung tiep theo")) {
@@ -96,6 +110,23 @@ class GrammarIntentRouter(
         }
         return RouteResult.Unsupported()
     }
+
+    private fun isCabinLightsOn(command: String): Boolean =
+        command.contains("bat den") ||
+            command.contains("mo den") ||
+            command.contains("bat den cabin") ||
+            command.contains("bat den noi that")
+
+    private fun isCabinLightsOff(command: String): Boolean =
+        command.contains("tat den") ||
+            command.contains("tat den cabin") ||
+            command.contains("tat den noi that")
+
+    private fun isFavoriteCommand(command: String): Boolean =
+        command.contains("thich bai") ||
+            command.contains("yeu thich bai") ||
+            command.contains("them vao yeu thich") ||
+            command.contains("luu bai nay")
 
     private fun isRemovedCommand(command: String): Boolean =
         REMOVED_COMMANDS.any { pattern -> pattern.containsMatchIn(command) }

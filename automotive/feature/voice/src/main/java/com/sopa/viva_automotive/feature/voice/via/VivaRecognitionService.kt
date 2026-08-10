@@ -1,39 +1,36 @@
 package com.sopa.viva_automotive.feature.voice.via
 
 import android.content.Intent
-import android.os.RemoteException
 import android.speech.RecognitionService
-import android.speech.SpeechRecognizer
 import android.util.Log
 import com.viva.voice.audio.Trigger
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 /**
- * Required VIA companion. Speech recognition for cabin commands is owned by
- * VoiceAgent/VAD; this service forwards start-listening into that pipeline.
+ * VIA companion [RecognitionService]. Cabin ASR still runs in
+ * [com.sopa.viva_automotive.feature.voice.service.VoiceAssistantService]; this
+ * service forwards listen requests and relays the final transcript to the
+ * Android SpeechRecognizer callback so client apps are not left hanging.
  */
 @AndroidEntryPoint
 class VivaRecognitionService : RecognitionService() {
 
     @Inject lateinit var sessionBridge: VoiceSessionBridge
+    @Inject lateinit var recognitionResultHub: RecognitionResultHub
 
     override fun onStartListening(recognizerIntent: Intent, listener: Callback) {
-        Log.i(TAG, "RecognitionService onStartListening — hand off to in-app pipeline")
-        try {
-            // Do not call readyForSpeech: that is what keeps the AAOS System UI
-            // "Listening…" chip alive. Cabin UX is VoiceSessionModal instead.
-            sessionBridge.startListening(
-                trigger = Trigger.PUSH_TO_TALK,
-                showSource = VoiceSessionBridge.SHOW_SOURCE_TTT,
-            )
-            listener.error(SpeechRecognizer.ERROR_CLIENT)
-        } catch (error: RemoteException) {
-            Log.w(TAG, "Recognition callback failed", error)
-        }
+        Log.i(TAG, "RecognitionService onStartListening — cabin pipeline + callback bridge")
+        recognitionResultHub.beginSession(listener)
+        recognitionResultHub.signalListening()
+        sessionBridge.startListening(
+            trigger = Trigger.PUSH_TO_TALK,
+            showSource = VoiceSessionBridge.SHOW_SOURCE_TTT,
+        )
     }
 
     override fun onCancel(listener: Callback) {
+        recognitionResultHub.cancel()
         sessionBridge.stop()
     }
 

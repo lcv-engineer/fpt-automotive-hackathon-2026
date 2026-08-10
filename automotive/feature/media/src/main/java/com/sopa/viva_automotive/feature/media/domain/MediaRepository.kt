@@ -24,4 +24,16 @@ interface MediaRepository {
     suspend fun selectStation(stationId: String): Result<String>
     suspend fun selectTrack(trackId: String): Result<String>
     suspend fun refreshLibrary(): Result<String>
+
+    fun cycleRepeatMode(): Result<String>
+    fun cyclePlaybackSpeed(): Result<String>
+    fun cycleAudioQuality(): Result<String>
+    suspend fun toggleFavoriteCurrent(): Result<String>
+    fun setFavoritesFilter(enabled: Boolean): Result<String>
+
+    /** Absolute seek (ms). */
+    fun seekTo(positionMs: Long): Result<String>
+
+    /** Relative seek — positive = fast-forward, negative = rewind. */
+    fun seekBy(deltaMs: Long): Result<String>
 }

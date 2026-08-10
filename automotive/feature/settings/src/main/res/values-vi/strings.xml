@@ -1,11 +1,11 @@
 <resources>
     <string name="settings_title">Cài đặt</string>
     <string name="settings_voice">Trợ lý giọng nói</string>
-    <string name="settings_voice_enabled">Bật trợ lý giọng nói</string>
-    <string name="settings_hotword_enabled">Từ gọi “Vi-Vi ơi”</string>
+    <string name="settings_voice_enabled">Nghe lệnh bằng giọng nói</string>
+    <string name="settings_hotword_enabled">Gọi “Vi-Vi ơi”</string>
     <string name="settings_hotword_hint">Gọi hands-free. Tắt mặc định đến khi đạt ngưỡng FA/FR. Ưu tiên DSP OEM; KWS phần mềm là dự phòng. Đăng ký trong cài đặt trợ lý giọng nói.</string>
-    <string name="settings_show_transcription">Hiện nhận dạng trực tiếp</string>
-    <string name="settings_audio_cues">Phát tín hiệu âm thanh</string>
+    <string name="settings_show_transcription">Hiện chữ đang nghe</string>
+    <string name="settings_audio_cues">Phát tiếng xác nhận</string>
     <string name="settings_asr_engine">Engine nhận dạng giọng nói</string>
     <string name="settings_asr_viva">VIVA ASR</string>
     <string name="settings_asr_google">Google STT</string>

@@ -35,6 +35,7 @@ import kotlin.math.roundToInt
 @Composable
 fun VehicleStatusScreen(
     modifier: Modifier = Modifier,
+    showTitle: Boolean = true,
     viewModel: VehicleStatusViewModel = hiltViewModel(),
 ) {
     val status by viewModel.status.collectAsStateWithLifecycle()
@@ -55,13 +56,15 @@ fun VehicleStatusScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Text(
-            text = stringResource(R.string.status_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (showTitle) {
+            Text(
+                text = stringResource(R.string.status_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         safetyMessage?.let { message ->
             SectionCard(title = stringResource(R.string.status_safety_blocked)) {

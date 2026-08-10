@@ -4,7 +4,6 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,24 +13,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeDown
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAddCheck
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -39,7 +41,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,34 +49,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sopa.viva_automotive.core.ui.components.SectionCard
 import com.sopa.viva_automotive.core.ui.theme.VivaDimens
+import com.sopa.viva_automotive.core.ui.theme.VivaTheme
+import com.sopa.viva_automotive.feature.media.domain.AudioQuality
 import com.sopa.viva_automotive.feature.media.domain.MediaSource
 import com.sopa.viva_automotive.feature.media.domain.MediaTrack
 import com.sopa.viva_automotive.feature.media.domain.PlaybackUiState
 import com.sopa.viva_automotive.feature.media.domain.RadioStation
+import com.sopa.viva_automotive.feature.media.domain.RepeatMode
 import com.sopa.viva_automotive.feature.media.ui.AlbumArtwork
 import com.sopa.viva_automotive.feature.media.ui.formatDurationMs
 
 /**
- * Cabin media layout (Library or Radio screen — source comes from nav):
- *  (1) Title
- *  (2) One row — Now playing : Tracks/Presets : Volume = 5 : 4 : 1
+ * Cabin media layout:
+ * Now playing : Tracks/Presets : Controls = 5 : 4 : 1
  */
 @Composable
 fun MediaScreen(
@@ -130,6 +126,9 @@ fun MediaScreen(
                         onPrevious = viewModel::previous,
                         onTogglePlayPause = viewModel::togglePlayPause,
                         onNext = viewModel::next,
+                        onRewind = viewModel::rewind,
+                        onFastForward = viewModel::fastForward,
+                        onSeek = viewModel::seekTo,
                     )
                 }
 
@@ -157,6 +156,7 @@ fun MediaScreen(
                         isRadio = isRadio,
                         onSelectTrack = viewModel::selectTrack,
                         onSelectStation = viewModel::selectStation,
+                        onFavoritesFilterChange = viewModel::setFavoritesFilter,
                     )
                 }
 
@@ -164,13 +164,15 @@ fun MediaScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    // Edge-to-edge XL vertical slider; card radius = track radius (XL 28dp).
-                    contentPadding = PaddingValues(0.dp),
-                    shape = RoundedCornerShape(VolumeSliderXlCorner),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
                 ) {
-                    VolumePane(
-                        volume = playback.mediaVolume,
-                        onVolumeChange = viewModel::setMediaVolume,
+                    PlaybackControlsColumn(
+                        playback = playback,
+                        isRadio = isRadio,
+                        onCycleRepeat = viewModel::cycleRepeatMode,
+                        onCycleSpeed = viewModel::cyclePlaybackSpeed,
+                        onCycleQuality = viewModel::cycleAudioQuality,
+                        onToggleFavorite = viewModel::toggleFavoriteCurrent,
                     )
                 }
             }
@@ -192,6 +194,9 @@ private fun NowPlayingPane(
     onPrevious: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
+    onRewind: () -> Unit,
+    onFastForward: () -> Unit,
+    onSeek: (Long) -> Unit,
 ) {
     val track = playback.track
     val display = playback.display
@@ -210,7 +215,6 @@ private fun NowPlayingPane(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // (2) Album art | track metadata
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -271,37 +275,18 @@ private fun NowPlayingPane(
             }
         }
 
-        // (3) M3 linear progress — flat when paused, wavy when playing
-        // https://m3.material.io/components/progress-indicators/specs
-        Column(
+        SeekBar(
+            positionMs = playback.positionMs,
+            durationMs = playback.durationMs,
+            positionLabel = positionText,
+            durationLabel = durationText,
+            onSeek = onSeek,
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            NowPlayingProgress(
-                progress = playback.progress,
-                isPlaying = playback.isPlaying,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = positionText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = durationText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
@@ -314,6 +299,16 @@ private fun NowPlayingPane(
                         if (isRadio) R.string.media_radio_seek_previous else R.string.media_previous,
                     ),
                     modifier = Modifier.size(36.dp),
+                )
+            }
+            IconButton(
+                onClick = onRewind,
+                modifier = Modifier.size(VivaDimens.TouchTarget),
+            ) {
+                Icon(
+                    Icons.Default.FastRewind,
+                    contentDescription = stringResource(R.string.media_rewind),
+                    modifier = Modifier.size(32.dp),
                 )
             }
             FilledIconButton(
@@ -332,6 +327,16 @@ private fun NowPlayingPane(
                 )
             }
             IconButton(
+                onClick = onFastForward,
+                modifier = Modifier.size(VivaDimens.TouchTarget),
+            ) {
+                Icon(
+                    Icons.Default.FastForward,
+                    contentDescription = stringResource(R.string.media_fast_forward),
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+            IconButton(
                 onClick = onNext,
                 modifier = Modifier.size(VivaDimens.TouchTarget),
             ) {
@@ -347,24 +352,174 @@ private fun NowPlayingPane(
     }
 }
 
-/**
- * M3 linear progress — Shape Flat when paused, Wavy when playing
- * (https://m3.material.io/components/progress-indicators/specs).
- * Amplitude 0 = flat; 1 = full-height wave.
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NowPlayingProgress(
-    progress: Float,
-    isPlaying: Boolean,
+private fun SeekBar(
+    positionMs: Long,
+    durationMs: Long,
+    positionLabel: String,
+    durationLabel: String,
+    onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val amplitude = if (isPlaying) 1f else 0f
-    LinearWavyProgressIndicator(
-        progress = { progress.coerceIn(0f, 1f) },
-        modifier = modifier.height(14.dp),
-        amplitude = { _ -> amplitude },
-        wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength,
-    )
+    val duration = durationMs.coerceAtLeast(0L)
+    var sliderValue by remember(duration) { mutableFloatStateOf(0f) }
+    var dragging by remember { mutableFloatStateOf(Float.NaN) }
+    val interactionSource = remember { MutableInteractionSource() }
+
+    LaunchedEffect(positionMs, duration, dragging) {
+        if (dragging.isNaN() && duration > 0L) {
+            sliderValue = (positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+        }
+    }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Slider(
+            value = if (!dragging.isNaN()) dragging else sliderValue,
+            onValueChange = { value ->
+                dragging = value
+            },
+            onValueChangeFinished = {
+                val fraction = if (!dragging.isNaN()) dragging else sliderValue
+                if (duration > 0L) {
+                    onSeek((fraction * duration).toLong())
+                }
+                dragging = Float.NaN
+            },
+            enabled = duration > 0L,
+            valueRange = 0f..1f,
+            interactionSource = interactionSource,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = positionLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = durationLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlaybackControlsColumn(
+    playback: PlaybackUiState,
+    isRadio: Boolean,
+    onCycleRepeat: () -> Unit,
+    onCycleSpeed: () -> Unit,
+    onCycleQuality: () -> Unit,
+    onToggleFavorite: () -> Unit,
+) {
+    val repeatIcon: ImageVector
+    val repeatDesc: String
+    when (playback.repeatMode) {
+        RepeatMode.OFF -> {
+            repeatIcon = Icons.Default.Repeat
+            repeatDesc = stringResource(R.string.media_repeat_off)
+        }
+        RepeatMode.ONE -> {
+            repeatIcon = Icons.Default.RepeatOne
+            repeatDesc = stringResource(R.string.media_repeat_one)
+        }
+        RepeatMode.ALL -> {
+            repeatIcon = Icons.Default.Repeat
+            repeatDesc = stringResource(R.string.media_repeat_all)
+        }
+    }
+    val qualityLabel = when (playback.audioQuality) {
+        AudioQuality.HI_RES -> stringResource(R.string.media_quality_hi_res)
+        AudioQuality.NORMAL -> stringResource(R.string.media_quality_normal)
+    }
+    val favoriteDesc = if (playback.isCurrentFavorite) {
+        stringResource(R.string.media_remove_playlist)
+    } else {
+        stringResource(R.string.media_add_playlist)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        ControlIconButton(
+            onClick = onCycleRepeat,
+            enabled = !isRadio,
+            selected = playback.repeatMode != RepeatMode.OFF,
+            imageVector = repeatIcon,
+            contentDescription = repeatDesc,
+        )
+        ControlIconButton(
+            onClick = onCycleSpeed,
+            selected = playback.playbackSpeed.multiplier != 1f,
+            imageVector = Icons.Default.Speed,
+            contentDescription = stringResource(
+                R.string.media_speed,
+                playback.playbackSpeed.label,
+            ),
+        )
+        ControlIconButton(
+            onClick = onCycleQuality,
+            selected = playback.audioQuality == AudioQuality.HI_RES,
+            imageVector = Icons.Default.HighQuality,
+            contentDescription = qualityLabel,
+        )
+        ControlIconButton(
+            onClick = onToggleFavorite,
+            enabled = !isRadio && playback.track != null,
+            selected = playback.isCurrentFavorite,
+            imageVector = if (playback.isCurrentFavorite) {
+                Icons.Filled.PlaylistAddCheck
+            } else {
+                Icons.AutoMirrored.Filled.PlaylistAdd
+            },
+            contentDescription = favoriteDesc,
+        )
+    }
+}
+
+@Composable
+private fun ControlIconButton(
+    onClick: () -> Unit,
+    imageVector: ImageVector,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    selected: Boolean = false,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.size(VivaDimens.TouchTarget),
+        colors = IconButtonDefaults.iconButtonColors(
+            contentColor = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+        ),
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(40.dp),
+        )
+    }
 }
 
 @Composable
@@ -373,11 +528,23 @@ private fun TracksPane(
     isRadio: Boolean,
     onSelectTrack: (String) -> Unit,
     onSelectStation: (String) -> Unit,
+    onFavoritesFilterChange: (Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (!isRadio) {
+            FilterChip(
+                selected = playback.favoritesFilterEnabled,
+                onClick = {
+                    onFavoritesFilterChange(!playback.favoritesFilterEnabled)
+                },
+                label = {
+                    Text(stringResource(R.string.media_favorites_filter))
+                },
+            )
+        }
         if (isRadio) {
             LazyColumn(
                 modifier = Modifier
@@ -407,159 +574,83 @@ private fun TracksPane(
                     )
                 }
             }
-        } else if (playback.libraryTracks.isEmpty()) {
-            Text(
-                text = stringResource(R.string.media_playlist_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
         } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 8.dp),
-            ) {
-                items(playback.libraryTracks, key = MediaTrack::id) { track ->
-                    FilterChip(
-                        selected = playback.track?.id == track.id,
-                        onClick = { onSelectTrack(track.id) },
-                        label = {
-                            Text(
-                                text = "${track.title} — ${track.artist}",
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
+            val tracks = playback.visibleLibraryTracks
+            when {
+                playback.libraryTracks.isEmpty() -> {
+                    Text(
+                        text = stringResource(R.string.media_playlist_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                tracks.isEmpty() -> {
+                    Text(
+                        text = stringResource(R.string.media_favorites_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                else -> {
+                    LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(VivaDimens.TouchTargetMin),
-                    )
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 8.dp),
+                    ) {
+                        items(tracks, key = MediaTrack::id) { track ->
+                            FilterChip(
+                                selected = playback.track?.id == track.id,
+                                onClick = { onSelectTrack(track.id) },
+                                label = {
+                                    Text(
+                                        text = "${track.title} — ${track.artist}",
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(VivaDimens.TouchTargetMin),
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Preview(
+    name = "Playback controls column",
+    showBackground = true,
+    widthDp = 96,
+    heightDp = 420,
+)
 @Composable
-private fun VolumePane(
-    volume: Float,
-    onVolumeChange: (Float) -> Unit,
-) {
-    // M3 Expressive vertical XL slider with inset volume icon in the track.
-    // Specs: https://m3.material.io/components/sliders/specs
-    // VerticalSlider is still internal → measure as horizontal, then layout+rotate
-    // so the track length equals the card height and thickness equals card width.
-    var sliderValue by remember { mutableFloatStateOf(volume) }
-    LaunchedEffect(volume) {
-        sliderValue = volume
-    }
-    val interactionSource = remember { MutableInteractionSource() }
-    val volumeLabel = stringResource(R.string.media_volume)
-    val density = LocalDensity.current
-    // Inactive track defaults to secondaryContainer; match SectionCard surface instead.
-    val cardSurface = MaterialTheme.colorScheme.surface
-    val sliderColors = SliderDefaults.colors(inactiveTrackColor = cardSurface)
-
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val cardWidth = maxWidth
-        val cardHeight = maxHeight
-        val trackThicknessPx = with(density) { cardWidth.roundToPx() }
-        val trackLengthPx = with(density) { cardHeight.roundToPx() }
-
-        Slider(
-            value = sliderValue,
-            onValueChange = { value ->
-                sliderValue = value
-                onVolumeChange(value)
-            },
-            valueRange = 0f..1f,
-            colors = sliderColors,
+private fun PlaybackControlsColumnPreview() {
+    VivaTheme(darkTheme = true) {
+        SectionCard(
             modifier = Modifier
-                .semantics { contentDescription = volumeLabel }
-                .fillMaxSize()
-                .layout { measurable, constraints ->
-                    // Occupy the full card (W×H), but measure the slider as H×W
-                    // so after -90° the bar is snug top-to-bottom and edge-to-edge.
-                    val placeable = measurable.measure(
-                        Constraints.fixed(
-                            width = trackLengthPx.coerceAtLeast(0),
-                            height = trackThicknessPx.coerceAtLeast(0),
-                        ),
-                    )
-                    layout(constraints.maxWidth, constraints.maxHeight) {
-                        placeable.place(
-                            x = (constraints.maxWidth - placeable.width) / 2,
-                            y = (constraints.maxHeight - placeable.height) / 2,
-                        )
-                    }
-                }
-                .graphicsLayer {
-                    rotationZ = -90f
-                    transformOrigin = TransformOrigin.Center
-                },
-            interactionSource = interactionSource,
-            thumb = {
-                SliderDefaults.Thumb(
-                    interactionSource = interactionSource,
-                    colors = sliderColors,
-                    thumbSize = VolumeSliderXlThumbSize,
-                )
-            },
-            track = { sliderState ->
-                // Card + track share VolumeSliderXlCorner so bo góc khớp nhau.
-                val corner = RoundedCornerShape(VolumeSliderXlCorner)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(cardWidth)
-                        .clip(corner),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    SliderDefaults.Track(
-                        sliderState = sliderState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(cardWidth),
-                        colors = sliderColors,
-                        // Default trackCornerSize is half track height (pill); force XL 28dp
-                        // to match SectionCard shape = RoundedCornerShape(VolumeSliderXlCorner).
-                        trackCornerSize = VolumeSliderXlCorner,
-                        // M3 stop indicator at track end — hidden for volume fader.
-                        // https://m3.material.io/components/sliders/specs
-                        drawStopIndicator = null,
-                    )
-                    // Inset icon at leading (min) end → bottom of the vertical card.
-                    Icon(
-                        imageVector = if (sliderValue <= 0.01f) {
-                            Icons.AutoMirrored.Filled.VolumeDown
-                        } else {
-                            Icons.AutoMirrored.Filled.VolumeUp
-                        },
-                        contentDescription = null,
-                        modifier = Modifier
-                            .padding(start = VolumeSliderXlIconInset)
-                            .size(VolumeSliderXlIconSize)
-                            .graphicsLayer { rotationZ = 90f },
-                        tint = if (sliderValue > 0.12f) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-            },
-        )
+                .fillMaxHeight()
+                .padding(8.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+        ) {
+            PlaybackControlsColumn(
+                playback = PlaybackUiState(
+                    repeatMode = RepeatMode.ALL,
+                    audioQuality = AudioQuality.HI_RES,
+                ),
+                isRadio = false,
+                onCycleRepeat = {},
+                onCycleSpeed = {},
+                onCycleQuality = {},
+                onToggleFavorite = {},
+            )
+        }
     }
 }
-
-// M3 Expressive Slider XL tokens (track 96 / handle 108×4 / corner 28 / icon 32).
-// https://m3.material.io/components/sliders/specs
-private val VolumeSliderXlThumbSize = DpSize(width = 4.dp, height = 108.dp)
-private val VolumeSliderXlCorner = 28.dp
-private val VolumeSliderXlIconSize = 32.dp
-private val VolumeSliderXlIconInset = 16.dp

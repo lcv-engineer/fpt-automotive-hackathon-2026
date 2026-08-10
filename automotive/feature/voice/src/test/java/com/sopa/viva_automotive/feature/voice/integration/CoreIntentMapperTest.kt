@@ -31,10 +31,18 @@ class CoreIntentMapperTest {
             intent("door_lock", "lock" to true) to AutomotiveVoiceAction.VehicleControl(
                 VehicleIntent.SetDoorLock(true),
             ),
+            intent("cabin_lights", "on" to true) to AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.SetCabinLights(true),
+            ),
             intent("volume_adjust", "delta" to -1) to AutomotiveVoiceAction.VolumeAdjust(-1),
             intent("media_play") to AutomotiveVoiceAction.Media(MediaCommand.PLAY),
+            intent("media_play", "query" to "beyonce") to AutomotiveVoiceAction.Media(
+                MediaCommand.PLAY,
+                query = "beyonce",
+            ),
             intent("media_pause") to AutomotiveVoiceAction.Media(MediaCommand.PAUSE),
             intent("media_next") to AutomotiveVoiceAction.Media(MediaCommand.NEXT),
+            intent("media_favorite") to AutomotiveVoiceAction.Media(MediaCommand.FAVORITE),
         )
 
         cases.forEach { (input, expected) ->

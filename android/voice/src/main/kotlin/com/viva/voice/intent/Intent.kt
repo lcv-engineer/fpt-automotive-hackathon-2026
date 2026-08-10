@@ -20,7 +20,8 @@ sealed class RouteResult {
     ) : RouteResult()
 
     data class Unsupported(
-        val promptVi: String = "Mình chưa hỗ trợ yêu cầu này. Bạn thử nói theo cách khác nhé.",
+        val promptVi: String =
+            "Mình chưa hiểu yêu cầu này. Bạn thử: điều hòa, cửa, đèn cabin, nhạc, hoặc âm lượng nhé.",
         val rule: String = "G3_UNSUPPORTED",
         val canFallback: Boolean = true,
     ) : RouteResult()

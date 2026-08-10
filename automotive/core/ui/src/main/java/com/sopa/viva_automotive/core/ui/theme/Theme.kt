@@ -9,16 +9,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 private val VivaDarkColorScheme = darkColorScheme(
-    primary = DarkCyan,
-    onPrimary = DarkBackground,
-    primaryContainer = DarkSurfaceHigh,
-    onPrimaryContainer = DarkCyan,
-    secondary = DarkAmber,
-    onSecondary = DarkBackground,
+    primary = DarkPrimary,
+    onPrimary = DarkOnPrimary,
+    primaryContainer = DarkPrimaryContainer,
+    onPrimaryContainer = DarkOnPrimaryContainer,
+    secondary = DarkSecondary,
+    onSecondary = DarkOnPrimary,
     tertiary = DarkGreen,
-    onTertiary = DarkBackground,
+    onTertiary = DarkOnPrimary,
     error = DarkRed,
-    onError = DarkBackground,
+    onError = DarkOnPrimary,
     background = DarkBackground,
     onBackground = DarkOnSurface,
     surface = DarkSurface,
@@ -29,16 +29,16 @@ private val VivaDarkColorScheme = darkColorScheme(
 )
 
 private val VivaLightColorScheme = lightColorScheme(
-    primary = LightCyan,
-    onPrimary = LightSurface,
-    primaryContainer = LightCyanContainer,
-    onPrimaryContainer = LightOnCyanContainer,
-    secondary = LightAmber,
-    onSecondary = LightSurface,
+    primary = LightPrimary,
+    onPrimary = LightOnPrimary,
+    primaryContainer = LightPrimaryContainer,
+    onPrimaryContainer = LightOnPrimaryContainer,
+    secondary = LightSecondary,
+    onSecondary = LightOnPrimary,
     tertiary = LightGreen,
-    onTertiary = LightSurface,
+    onTertiary = LightOnPrimary,
     error = LightRed,
-    onError = LightSurface,
+    onError = LightOnPrimary,
     background = LightBackground,
     onBackground = LightOnSurface,
     surface = LightSurface,
@@ -49,11 +49,9 @@ private val VivaLightColorScheme = lightColorScheme(
 )
 
 object VivaDimens {
-        val TouchTargetMin: Dp = 44.dp
-
-        val TouchTarget: Dp = 56.dp
-
-        val ButtonHeight: Dp = 56.dp
+    val TouchTargetMin: Dp = 44.dp
+    val TouchTarget: Dp = 56.dp
+    val ButtonHeight: Dp = 56.dp
 
     val SpacingXs: Dp = 4.dp
     val SpacingS: Dp = 8.dp
@@ -61,7 +59,7 @@ object VivaDimens {
     val SpacingL: Dp = 24.dp
     val SpacingXl: Dp = 32.dp
 
-        val ScreenPadding: Dp = 24.dp
+    val ScreenPadding: Dp = 24.dp
 }
 
 @Composable

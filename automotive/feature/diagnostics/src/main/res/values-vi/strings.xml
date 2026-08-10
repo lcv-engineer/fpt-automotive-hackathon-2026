@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_title">Chuẩn đoán phần cứng</string>
+    <string name="diagnostics_drawer_title">Hạng mục</string>
+    <string name="diagnostics_section_overview">Tổng quan</string>
+    <string name="diagnostics_section_battery">Pin EV</string>
+    <string name="diagnostics_section_sensors">Cảm biến</string>
+    <string name="diagnostics_section_units">Hệ thống</string>
+    <string name="diagnostics_section_alerts">Cảnh báo</string>
+    <string name="diagnostics_section_twin">Digital twin</string>
+    <string name="diagnostics_section_updates">Cập nhật</string>
+
+    <string name="diagnostics_overview_health">Sức khỏe xe</string>
+    <string name="diagnostics_soc_short">SOC</string>
+    <string name="diagnostics_soh_short">SOH</string>
+    <string name="diagnostics_hu_short">RAM HU</string>
+
+    <string name="diagnostics_scan_title">Quét phần cứng</string>
+    <string name="diagnostics_scan_action">Bắt đầu quét</string>
+    <string name="diagnostics_scan_progress">Đang quét %1$d%% · còn ~%2$d giây</string>
+
+    <string name="diagnostics_battery">Pin xe điện</string>
+    <string name="diagnostics_soc">SOC (mức pin hiện tại)</string>
+    <string name="diagnostics_soh">SOH (sức khỏe pin)</string>
+    <string name="diagnostics_soc_value">%1$d%%</string>
+    <string name="diagnostics_soh_value">%1$d%%</string>
+    <string name="diagnostics_range">Tầm hoạt động ~%1$d km</string>
+    <string name="diagnostics_capacity">Dung lượng dùng được %1$.0f / %2$.0f kWh</string>
+    <string name="diagnostics_soc_legend">SOC = pin đang đầy bao nhiêu ngay lúc này.</string>
+    <string name="diagnostics_soh_legend">SOH = độ bền / thoái hóa pin dài hạn — không phải SOC.</string>
+    <string name="diagnostics_degradation">Suy giảm dung lượng %1$d%%</string>
+    <string name="diagnostics_soh_excellent">Excellent (≥90%): thoái hóa rất ít</string>
+    <string name="diagnostics_soh_good">Good (80–89%): lão hóa bình thường</string>
+    <string name="diagnostics_soh_fair">Fair (70–79%): nên hẹn bảo dưỡng sớm</string>
+    <string name="diagnostics_soh_poor">Poor (&lt;70%): tầm xa giảm / đưa xe kiểm tra</string>
+    <string name="diagnostics_soh_current_band">Mức hiện tại: %1$s</string>
+    <string name="diagnostics_soh_band_excellent">Excellent</string>
+    <string name="diagnostics_soh_band_good">Good</string>
+    <string name="diagnostics_soh_band_fair">Fair</string>
+    <string name="diagnostics_soh_band_poor">Poor</string>
+
+    <string name="diagnostics_system_health">Sức khỏe Head Unit (chi tiết)</string>
+    <string name="diagnostics_memory">Bộ nhớ %1$d%% · %2$d / %3$d MB</string>
+    <string name="diagnostics_flash">Flash %1$d%% (demo kiểu Watchdog)</string>
+    <string name="diagnostics_cpu">Gợi ý tải CPU %1$d%%</string>
+    <string name="diagnostics_watchdog_ok">Watchdog: OK</string>
+    <string name="diagnostics_watchdog_alert">Watchdog: áp lực bộ nhớ</string>
+
+    <string name="diagnostics_units_hint">Trạng thái UnitType từ VHAL / VSTATE (HVAC, thân xe, đèn, cửa).</string>
+    <string name="diagnostics_ignition">Đề-rô</string>
+    <string name="diagnostics_ignition_on">Đề-rô BẬT</string>
+    <string name="diagnostics_ignition_off">Đề-rô TẮT / ACC</string>
+
+    <string name="diagnostics_predictive">Bảo trì dự báo</string>
+    <string name="diagnostics_predictive_empty">Chưa có tín hiệu mòn sớm</string>
+    <string name="diagnostics_dtc">Mã lỗi (DTC)</string>
+    <string name="diagnostics_dtc_empty">Không có DTC đang active</string>
+
+    <string name="diagnostics_twin_title">Digital twin</string>
+    <string name="diagnostics_twin_hint">Bản đồ xe ảo — chấm màu đánh dấu phần cứng cần chú ý.</string>
+
+    <string name="diagnostics_ota_title">OTA / phần mềm</string>
+    <string name="diagnostics_ota_current">Đã cài: %1$s</string>
+    <string name="diagnostics_ota_available">Có bản cập nhật: %1$s</string>
+    <string name="diagnostics_ota_uptodate">Phần mềm đã mới nhất</string>
+    <string name="diagnostics_ota_start">Tải &amp; cài đặt</string>
+    <string name="diagnostics_ota_downloading">Đang tải… %1$d%%</string>
+    <string name="diagnostics_ota_installing">Đang cài… %1$d%%</string>
+    <string name="diagnostics_ota_failed">Cập nhật lỗi — thử lại khi đỗ xe</string>
+
+    <string name="diagnostics_severity_ok">Ổn</string>
+    <string name="diagnostics_severity_caution">Chú ý</string>
+    <string name="diagnostics_severity_warning">Cảnh báo</string>
+    <string name="diagnostics_severity_emergency">Khẩn cấp</string>
+
+    <string name="diagnostics_genai">Chuẩn đoán GenAI (chi tiết)</string>
+    <string name="diagnostics_genai_refresh">Chạy lại</string>
+    <string name="diagnostics_genai_summary">Tóm tắt</string>
+    <string name="diagnostics_genai_steps">Các bước suy luận</string>
+    <string name="diagnostics_genai_reco">Khuyến nghị</string>
+    <string name="diagnostics_genai_temp">Tham số giải mã</string>
+    <string name="diagnostics_remote">Từ xa / SDV</string>
+    <string name="diagnostics_remote_body">Kênh OTA + digital twin đang demo (%1$s). Remote thật cần backend và quyền Car privileged.</string>
+    <string name="diagnostics_remote_status_off">Chỉ local (emulator / mock)</string>
+    <string name="diagnostics_vhal_note">Tín hiệu qua VehicleRepository → CarPropertyManager / mock VHAL (kiểu GET_INFO / VSTATE).</string>
+</resources>

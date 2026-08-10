@@ -1,11 +1,11 @@
 <resources>
     <string name="settings_title">Settings</string>
     <string name="settings_voice">Voice assistant</string>
-    <string name="settings_voice_enabled">Voice assistant enabled</string>
-    <string name="settings_hotword_enabled">Hotword “Vi-Vi ơi”</string>
+    <string name="settings_voice_enabled">Listen for voice commands</string>
+    <string name="settings_hotword_enabled">Say “Vi-Vi ơi”</string>
     <string name="settings_hotword_hint">Hands-free wake. Off by default until false-accept / false-reject targets are met. Prefer OEM DSP; software KWS is the fallback. Enroll from voice assistant settings.</string>
-    <string name="settings_show_transcription">Show live transcription</string>
-    <string name="settings_audio_cues">Play audio cues</string>
+    <string name="settings_show_transcription">Show live transcript</string>
+    <string name="settings_audio_cues">Play confirmation sounds</string>
     <string name="settings_asr_engine">Speech-to-text engine</string>
     <string name="settings_asr_viva">VIVA ASR</string>
     <string name="settings_asr_google">Google STT</string>

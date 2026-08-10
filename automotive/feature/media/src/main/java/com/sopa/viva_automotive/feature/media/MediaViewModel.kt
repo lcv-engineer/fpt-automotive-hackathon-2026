@@ -38,14 +38,6 @@ class MediaViewModel @Inject constructor(
 
     fun previous() = launchMedia { mediaRepository.previous() }
 
-    fun volumeUp() = emitResult(mediaRepository.adjustVolume(1))
-
-    fun volumeDown() = emitResult(mediaRepository.adjustVolume(-1))
-
-    fun setMediaVolume(volume: Float) {
-        mediaRepository.setMediaVolume(volume)
-    }
-
     fun selectSource(source: MediaSource) = launchMedia {
         mediaRepository.setSource(source)
     }
@@ -64,19 +56,60 @@ class MediaViewModel @Inject constructor(
 
     fun playRadio() = launchMedia { mediaRepository.tuneRadio() }
 
-    private fun launchMedia(block: suspend () -> Result<String>) {
+    fun cycleRepeatMode() = announce(mediaRepository.cycleRepeatMode())
+
+    fun cyclePlaybackSpeed() = announce(mediaRepository.cyclePlaybackSpeed())
+
+    fun cycleAudioQuality() = announce(mediaRepository.cycleAudioQuality())
+
+    fun toggleFavoriteCurrent() = launchMedia(announceSuccess = true) {
+        mediaRepository.toggleFavoriteCurrent()
+    }
+
+    fun setFavoritesFilter(enabled: Boolean) {
+        mediaRepository.setFavoritesFilter(enabled)
+    }
+
+    fun seekTo(positionMs: Long) {
+        mediaRepository.seekTo(positionMs)
+    }
+
+    fun rewind() {
+        mediaRepository.seekBy(-SEEK_STEP_MS)
+    }
+
+    fun fastForward() {
+        mediaRepository.seekBy(SEEK_STEP_MS)
+    }
+
+    private fun launchMedia(
+        announceSuccess: Boolean = false,
+        block: suspend () -> Result<String>,
+    ) {
         viewModelScope.launch {
-            block().onFailure { error ->
-                _messages.emit(error.message ?: "Media command failed")
-            }
+            block().fold(
+                onSuccess = { message ->
+                    if (announceSuccess) _messages.emit(message)
+                },
+                onFailure = { error ->
+                    _messages.emit(error.message ?: "Media command failed")
+                },
+            )
         }
     }
 
-    private fun emitResult(result: Result<String>) {
+    private fun announce(result: Result<String>) {
         viewModelScope.launch {
-            result.onFailure { error ->
-                _messages.emit(error.message ?: "Volume command failed")
-            }
+            result.fold(
+                onSuccess = { message -> _messages.emit(message) },
+                onFailure = { error ->
+                    _messages.emit(error.message ?: "Media command failed")
+                },
+            )
         }
+    }
+
+    private companion object {
+        const val SEEK_STEP_MS = 10_000L
     }
 }

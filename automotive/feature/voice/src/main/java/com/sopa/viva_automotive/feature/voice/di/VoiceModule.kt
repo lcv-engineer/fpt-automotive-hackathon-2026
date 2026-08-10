@@ -12,6 +12,7 @@ import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMat
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.integration.AppCommandGateway
 import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
+import com.sopa.viva_automotive.feature.voice.via.RecognitionResultHub
 import com.viva.voice.agent.CommandGateway
 import com.viva.voice.agent.VoiceAgent
 import com.viva.voice.agent.VoiceTurnResult
@@ -92,12 +93,19 @@ abstract class VoiceModule {
             router: IntentRouter,
             tts: TtsSpeaker,
             stateManager: VoiceAssistantStateManager,
+            recognitionResultHub: RecognitionResultHub,
         ): VoiceAgent = VoiceAgent(
             asr = asr,
             router = router,
             gateway = gateway,
             tts = tts,
             onResultReady = { result ->
+                if (result.transcript.isNotBlank()) {
+                    recognitionResultHub.publishPartial(result.transcript)
+                    recognitionResultHub.publishFinal(result.transcript)
+                } else {
+                    recognitionResultHub.cancel()
+                }
                 publishTurnUi(stateManager, result)
             },
         )

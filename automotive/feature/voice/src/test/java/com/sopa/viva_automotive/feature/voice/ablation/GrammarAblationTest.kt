@@ -115,6 +115,7 @@ class GrammarAblationTest {
         is VehicleIntent.SetAc -> "SetAc($on)"
         is VehicleIntent.SetHvacPower -> "SetHvacPower($on)"
         is VehicleIntent.SetDoorLock -> "SetDoorLock($locked)"
+        is VehicleIntent.SetCabinLights -> "SetCabinLights($on)"
         is VehicleIntent.QueryStatus -> "QueryStatus($kind)"
         is VehicleIntent.VolumeAdjust -> "VolumeAdjust($delta)"
         is VehicleIntent.Media -> "Media(${command.intentName})"

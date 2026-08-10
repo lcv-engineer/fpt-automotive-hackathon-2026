@@ -26,11 +26,17 @@ sealed interface VehicleIntent {
 
     data class SetDoorLock(val locked: Boolean) : VehicleIntent
 
+    data class SetCabinLights(val on: Boolean) : VehicleIntent
+
     data class QueryStatus(val kind: StatusQueryKind) : VehicleIntent
 
     data class VolumeAdjust(val delta: Int) : VehicleIntent
 
-    data class Media(val command: MediaCommand) : VehicleIntent
+    data class Media(
+        val command: MediaCommand,
+        /** Optional library search for [MediaCommand.PLAY] (title/artist). */
+        val query: String? = null,
+    ) : VehicleIntent
 
     data class RadioTune(val query: String? = null) : VehicleIntent
 

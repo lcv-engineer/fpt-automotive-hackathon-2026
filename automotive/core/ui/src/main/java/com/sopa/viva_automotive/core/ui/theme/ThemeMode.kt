@@ -8,6 +8,6 @@ enum class ThemeMode(val storageKey: String) {
 
     companion object {
         fun fromStorageKey(key: String?): ThemeMode =
-            entries.firstOrNull { it.storageKey == key } ?: SYSTEM
+            entries.firstOrNull { it.storageKey == key } ?: DARK
     }
 }

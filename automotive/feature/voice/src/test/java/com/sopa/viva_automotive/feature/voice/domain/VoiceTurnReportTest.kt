@@ -233,7 +233,7 @@ class VoiceTurnReportTest {
             VoiceTurnReport.failureSpeech(VehicleIntent.Clarification("mức mấy?"), null),
         )
         assertEquals(
-            VoiceTurnReport.DID_NOT_HEAR,
+            VoiceTurnReport.OUT_OF_SCOPE,
             VoiceTurnReport.failureSpeech(
                 VehicleIntent.Unknown("xyz"),
                 CommandValidationException("Sorry, I didn't understand"),

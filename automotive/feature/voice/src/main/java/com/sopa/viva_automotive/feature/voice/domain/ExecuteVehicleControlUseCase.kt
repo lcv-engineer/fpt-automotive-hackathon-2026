@@ -10,6 +10,7 @@ import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.FanSpeed
+import com.sopa.viva_automotive.vehicleservice.api.LightSwitch
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyConfirmationRequiredException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyRules
@@ -19,6 +20,7 @@ import com.sopa.viva_automotive.vehicleservice.api.VehicleProperties
 import com.sopa.viva_automotive.vehicleservice.api.VehicleRepository
 import com.sopa.viva_automotive.vehicleservice.api.VehicleWriteContext
 import com.sopa.viva_automotive.vehicleservice.api.VehicleZone
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
@@ -117,6 +119,15 @@ class ExecuteVehicleControlUseCase @Inject constructor(
 
         is VehicleIntent.SetDoorLock -> setDoorLock(intent.locked)
 
+        is VehicleIntent.SetCabinLights ->
+            vehicleRepository
+                .setProperty(
+                    VehicleProperties.CABIN_LIGHTS_SWITCH,
+                    VehicleAreas.GLOBAL,
+                    if (intent.on) LightSwitch.ON else LightSwitch.OFF,
+                )
+                .map { VehicleControlResponses.cabinLights(intent.on) }
+
         is VehicleIntent.QueryStatus -> queryStatus(intent.kind)
 
         is VehicleIntent.Delivery -> deliverySkill.execute(intent.command)
@@ -126,7 +137,13 @@ class ExecuteVehicleControlUseCase @Inject constructor(
             if (media.isSuccess) media else volumeController.adjust(intent.delta)
         }
 
-        is VehicleIntent.Media -> mediaCommandExecutor.execute(intent.command)
+        is VehicleIntent.Media -> when {
+            intent.command == MediaCommand.FAVORITE ->
+                mediaRepository.toggleFavoriteCurrent()
+            intent.command == MediaCommand.PLAY && !intent.query.isNullOrBlank() ->
+                mediaRepository.play(intent.query)
+            else -> mediaCommandExecutor.execute(intent.command)
+        }
 
         is VehicleIntent.RadioTune -> mediaRepository.tuneRadio(intent.query)
         is VehicleIntent.RadioNextStation -> {
@@ -144,18 +161,14 @@ class ExecuteVehicleControlUseCase @Inject constructor(
         is VehicleIntent.Clarification ->
             Result.failure(CommandValidationException(intent.promptVi))
 
-        // 03-contracts.md §4, G3_UNSUPPORTED: câu ngoài 10 intent lõi bị **từ
-        // chối có lý do**, không phải im lặng hay báo lỗi kỹ thuật. Không Skill
-        // nào được gọi.
-        //
-        // Chặn ở đây chứ không ở `GuardedVehicleRepository` vì một câu ngoài
-        // phạm vi không sinh ra lệnh ghi property nào để mà chặn ở biên đó.
+        // 03-contracts.md §4, G3_UNSUPPORTED: câu ngoài phạm vi cabin bị từ chối
+        // có lý do + gợi ý sửa — không im lặng.
         is VehicleIntent.Unknown ->
             Result.failure(
                 SafetyDeniedException(
                     rule = SafetyRules.UNSUPPORTED,
-                    reasonVi = "Mình chỉ hỗ trợ điều hoà, cửa xe, âm lượng, nhạc và lộ trình giao hàng.",
-                    suggestion = "Bạn thử nói lại theo một trong các nhóm đó nhé.",
+                    reasonVi = VoiceTurnReport.OUT_OF_SCOPE,
+                    suggestion = VoiceTurnReport.OUT_OF_SCOPE_HINT,
                 ),
             )
     }

@@ -25,11 +25,15 @@ import com.google.android.gms.cast.framework.CastContext
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
+import androidx.media3.common.PlaybackParameters
+import com.sopa.viva_automotive.feature.media.domain.AudioQuality
 import com.sopa.viva_automotive.feature.media.domain.MediaRepository
 import com.sopa.viva_automotive.feature.media.domain.MediaSource
 import com.sopa.viva_automotive.feature.media.domain.MediaTrack
 import com.sopa.viva_automotive.feature.media.domain.PlaybackRoute
+import com.sopa.viva_automotive.feature.media.domain.PlaybackSpeed
 import com.sopa.viva_automotive.feature.media.domain.PlaybackUiState
+import com.sopa.viva_automotive.feature.media.domain.RepeatMode
 import com.sopa.viva_automotive.feature.media.domain.TrackDisplayInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -53,6 +57,7 @@ import kotlinx.coroutines.withContext
 class VivaMediaRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val metadataInspector: MetadataInspector,
+    private val favoritesStore: MediaFavoritesStore,
 ) : MediaRepository {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
@@ -81,6 +86,12 @@ class VivaMediaRepository @Inject constructor(
     /** In-process duck while Vivi is listening / speaking (see [setVoiceDucked]). */
     private var voiceDucked: Boolean = false
     private var positionTickerJob: Job? = null
+
+    private var repeatMode: RepeatMode = RepeatMode.OFF
+    private var playbackSpeed: PlaybackSpeed = PlaybackSpeed.X1_00
+    private var audioQuality: AudioQuality = AudioQuality.HI_RES
+    private var favoriteTrackIds: Set<String> = emptySet()
+    private var favoritesFilterEnabled: Boolean = false
 
     private val _state = MutableStateFlow(
         PlaybackUiState(
@@ -115,6 +126,12 @@ class VivaMediaRepository @Inject constructor(
         scope.launch(Dispatchers.IO) {
             reloadLibraryTracks()
             withContext(Dispatchers.Main) { publishState() }
+        }
+        scope.launch {
+            favoritesStore.favoriteIds.collect { ids ->
+                favoriteTrackIds = ids
+                publishState()
+            }
         }
     }
 
@@ -292,6 +309,82 @@ class VivaMediaRepository @Inject constructor(
     override fun setMediaVolume(volume: Float): Result<String> = runCatching {
         applyMediaVolume(volume, showSystemUi = false)
         "Đã đặt âm lượng ${(mediaVolume * 100).toInt()}%."
+    }
+
+    override fun cycleRepeatMode(): Result<String> = runCatching {
+        check(source == MediaSource.LIBRARY) { "Radio luôn lặp một kênh." }
+        repeatMode = when (repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        applyRepeatModeToPlayer()
+        publishState()
+        when (repeatMode) {
+            RepeatMode.OFF -> "Tắt lặp."
+            RepeatMode.ONE -> "Lặp một bài."
+            RepeatMode.ALL -> "Lặp danh sách."
+        }
+    }
+
+    override fun cyclePlaybackSpeed(): Result<String> = runCatching {
+        playbackSpeed = playbackSpeed.next()
+        applyPlaybackSpeedToPlayer()
+        publishState()
+        "Tốc độ ${playbackSpeed.label}."
+    }
+
+    override fun cycleAudioQuality(): Result<String> = runCatching {
+        audioQuality = audioQuality.next()
+        applyAudioQualityToPlayer()
+        publishState()
+        when (audioQuality) {
+            AudioQuality.HI_RES -> "Chất lượng Hi-Res."
+            AudioQuality.NORMAL -> "Chất lượng Normal."
+        }
+    }
+
+    override suspend fun toggleFavoriteCurrent(): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            require(source == MediaSource.LIBRARY) {
+                "Chỉ thêm bài thư viện vào playlist."
+            }
+            val id = withContext(Dispatchers.Main) {
+                currentQueue.getOrNull(index)?.id
+                    ?: error("Không có bài đang phát để thêm playlist.")
+            }
+            val next = favoritesStore.toggle(id)
+            if (id in next) "Đã thêm vào playlist." else "Đã bỏ khỏi playlist."
+        }
+    }
+
+    override fun setFavoritesFilter(enabled: Boolean): Result<String> = runCatching {
+        favoritesFilterEnabled = enabled
+        publishState()
+        if (enabled) "Lọc bài yêu thích." else "Hiện tất cả bài."
+    }
+
+    override fun seekTo(positionMs: Long): Result<String> = runCatching {
+        val p = player ?: error("Chưa sẵn sàng phát.")
+        val duration = p.duration.takeIf { it > 0L } ?: Long.MAX_VALUE
+        val target = positionMs.coerceIn(0L, duration)
+        p.seekTo(target)
+        publishState()
+        "Đã tua."
+    }
+
+    override fun seekBy(deltaMs: Long): Result<String> = runCatching {
+        val p = player ?: error("Chưa sẵn sàng phát.")
+        val duration = p.duration.takeIf { it > 0L }
+        val current = p.currentPosition.coerceAtLeast(0L)
+        val target = if (duration != null) {
+            (current + deltaMs).coerceIn(0L, duration)
+        } else {
+            (current + deltaMs).coerceAtLeast(0L)
+        }
+        p.seekTo(target)
+        publishState()
+        if (deltaMs >= 0L) "Tua nhanh." else "Tua ngược."
     }
 
     override fun setVoiceDucked(ducked: Boolean) {
@@ -641,15 +734,39 @@ class VivaMediaRepository @Inject constructor(
         val items = queue.map { it.toMediaItem() }
         val start = index.coerceIn(0, items.lastIndex)
         p.setMediaItems(items, start, /* startPositionMs= */ 0L)
-        p.repeatMode = when (source) {
-            MediaSource.RADIO -> Player.REPEAT_MODE_ONE
-            MediaSource.LIBRARY -> Player.REPEAT_MODE_OFF
-        }
+        applyRepeatModeToPlayer()
+        applyPlaybackSpeedToPlayer()
+        applyAudioQualityToPlayer()
         p.prepare()
         p.playWhenReady = playWhenReady
         if (playWhenReady) p.play()
         publishState()
         refreshDisplayMetadata()
+    }
+
+    private fun applyRepeatModeToPlayer() {
+        val p = player ?: return
+        p.repeatMode = when (source) {
+            MediaSource.RADIO -> Player.REPEAT_MODE_ONE
+            MediaSource.LIBRARY -> when (repeatMode) {
+                RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+                RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+                RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+            }
+        }
+    }
+
+    private fun applyPlaybackSpeedToPlayer() {
+        val p = player ?: return
+        p.playbackParameters = PlaybackParameters(playbackSpeed.multiplier)
+    }
+
+    private fun applyAudioQualityToPlayer() {
+        val p = player ?: return
+        val params = p.trackSelectionParameters.buildUpon()
+            .setMaxAudioBitrate(audioQuality.maxBitrate)
+            .build()
+        p.trackSelectionParameters = params
     }
 
     private fun pauseInternal() {
@@ -760,6 +877,11 @@ class VivaMediaRepository @Inject constructor(
                 castAvailable = castEnabled,
                 display = display,
                 mediaVolume = mediaVolume,
+                repeatMode = if (source == MediaSource.RADIO) RepeatMode.ONE else repeatMode,
+                playbackSpeed = playbackSpeed,
+                audioQuality = audioQuality,
+                favoriteTrackIds = favoriteTrackIds,
+                favoritesFilterEnabled = favoritesFilterEnabled,
             )
         }
     }

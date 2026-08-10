@@ -23,6 +23,9 @@ object VehicleControlResponses {
     fun driverDoor(locked: Boolean): String =
         if (locked) "Đã khóa cửa tài xế." else "Đã mở khóa cửa tài xế."
 
+    fun cabinLights(on: Boolean): String =
+        if (on) "Đã bật đèn cabin." else "Đã tắt đèn cabin."
+
     fun airConditioning(on: Boolean): String =
         if (on) "Đã bật điều hòa." else "Đã tắt điều hòa."
 

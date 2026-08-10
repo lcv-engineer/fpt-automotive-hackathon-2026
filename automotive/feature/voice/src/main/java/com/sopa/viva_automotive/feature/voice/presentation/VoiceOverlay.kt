@@ -47,6 +47,8 @@ fun VoiceOverlay(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val hotwordArmed by viewModel.hotwordArmed.collectAsStateWithLifecycle()
 
+    if (!settings.voiceEnabled) return
+
     val activeTurn = state !is VoiceAssistantState.Idle
     val listening = state is VoiceAssistantState.Listening ||
         state is VoiceAssistantState.WakeDetected

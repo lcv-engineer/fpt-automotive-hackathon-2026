@@ -18,6 +18,8 @@ object MediaCommandDispatcher {
             MediaCommand.PLAY -> controls.play()
             MediaCommand.PAUSE -> controls.pause()
             MediaCommand.NEXT -> controls.skipToNext()
+            MediaCommand.FAVORITE ->
+                error("media_favorite is handled by MediaRepository, not MediaSession transport")
         }
         return command.dispatchedMessageVi
     }

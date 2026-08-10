@@ -11,6 +11,10 @@ import com.viva.voice.trace.TraceVerdict
 object VoiceTurnReport {
 
     const val DID_NOT_HEAR = "Mình chưa nghe rõ. Bạn thử lại giúp mình nhé."
+    const val OUT_OF_SCOPE =
+        "Mình chưa hiểu lệnh đó. Mình hỗ trợ điều hòa, cửa, đèn cabin, âm lượng, nhạc và giao hàng."
+    const val OUT_OF_SCOPE_HINT =
+        "Bạn thử: \"đặt điều hòa 22 độ\", \"bật đèn\", \"phát nhạc\", \"thích bài này\"."
     const val COMMAND_FAILED = "Mình chưa thực hiện được yêu cầu. Bạn thử lại giúp mình nhé."
     const val ASR_UNAVAILABLE = "Bộ nhận dạng giọng nói chưa sẵn sàng."
     const val MICROPHONE_UNAVAILABLE = "Mình chưa mở được micro. Bạn kiểm tra quyền ghi âm giúp mình nhé."
@@ -51,6 +55,7 @@ object VoiceTurnReport {
         is VehicleIntent.SetAc -> "hvac_ac"
         is VehicleIntent.SetHvacPower -> "hvac_power"
         is VehicleIntent.SetDoorLock -> "door_lock"
+        is VehicleIntent.SetCabinLights -> "cabin_lights"
         is VehicleIntent.QueryStatus -> "vehicle_status_" + intent.kind.name.lowercase()
         is VehicleIntent.VolumeAdjust -> "volume_adjust"
         is VehicleIntent.Media -> intent.command.intentName
@@ -78,7 +83,7 @@ object VoiceTurnReport {
         error is SafetyConfirmationRequiredException -> error.questionVi
         error is ConfirmationRequiredException -> error.questionVi
         intent is VehicleIntent.Clarification -> intent.promptVi
-        intent is VehicleIntent.Unknown -> DID_NOT_HEAR
+        intent is VehicleIntent.Unknown -> OUT_OF_SCOPE
         error is CommandNotWiredException -> error.message ?: COMMAND_FAILED
         error is MediaTransportException -> error.message ?: COMMAND_FAILED
         else -> COMMAND_FAILED

@@ -11,6 +11,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
 import com.sopa.viva_automotive.core.database.settings.VoiceSettings
@@ -53,8 +54,16 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(LocaleController.wrap(newBase, language))
     }
 
+    private var companionTcpServer: com.sopa.viva_automotive.debug.CompanionNotifTcpServer? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // SplashScreen compat — must run before drawing the first frame.
+        // https://developer.android.com/develop/ui/views/launch/splash-screen
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Dev path: Phone Companion → TCP → AAOS emulator (Bluetooth stand-in).
+        companionTcpServer = com.sopa.viva_automotive.debug.CompanionNotifTcpServer().also { it.start() }
 
         val missing = listOf(
             Manifest.permission.RECORD_AUDIO,
@@ -96,6 +105,12 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(EXTRA_VOICE_LISTEN, false) == true) {
             VoiceAssistantService.startListening(this)
         }
+    }
+
+    override fun onDestroy() {
+        companionTcpServer?.close()
+        companionTcpServer = null
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: android.content.Intent) {

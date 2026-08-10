@@ -1,11 +1,16 @@
 <resources>
-    <string name="app_name">Viva Automotive</string>
+    <string name="app_name">VIVA</string>
     <string name="nav_home">Trang chủ</string>
     <string name="nav_climate">Điều hòa</string>
     <string name="nav_media">Media</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_vehicle">Xe</string>
+    <string name="nav_diagnostics">Chuẩn đoán</string>
+    <string name="vehicle_tab_status">Trạng thái</string>
     <string name="nav_settings">Cài đặt</string>
     <string name="home_title">VIVA</string>
-    <string name="home_subtitle">Thẻ media rút gọn trên màn hình chính</string>
+    <string name="home_weather_title">Thời tiết</string>
+    <string name="home_weather_condition_sunny">Nắng</string>
+    <string name="home_weather_temp_c">%1$d°</string>
+    <string name="home_weather_location">Bên ngoài</string>
 </resources>

@@ -2,27 +2,38 @@ package com.sopa.viva_automotive.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,41 +68,63 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        SectionCard(title = stringResource(R.string.settings_voice)) {
-            VivaToggleRow(
-                label = stringResource(R.string.settings_voice_enabled),
-                checked = settings.voiceEnabled,
-                onCheckedChange = viewModel::setVoiceEnabled,
-                icon = Icons.Default.Mic,
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.settings_voice),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
             )
-            VivaToggleRow(
-                label = stringResource(R.string.settings_hotword_enabled),
-                checked = settings.hotwordEnabled,
-                onCheckedChange = viewModel::setHotwordEnabled,
-                icon = Icons.Default.Mic,
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_voice_enabled),
+                    checked = settings.voiceEnabled,
+                    onCheckedChange = viewModel::setVoiceEnabled,
+                    icon = Icons.Default.Mic,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_hotword_enabled),
+                    checked = settings.hotwordEnabled,
+                    onCheckedChange = viewModel::setHotwordEnabled,
+                    icon = Icons.Default.RecordVoiceOver,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_show_transcription),
+                    checked = settings.showPartialTranscription,
+                    onCheckedChange = viewModel::setShowPartialTranscription,
+                    icon = Icons.Default.Subtitles,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_audio_cues),
+                    checked = settings.playAudioCues,
+                    onCheckedChange = viewModel::setPlayAudioCues,
+                    icon = Icons.Default.MusicNote,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+            }
             Text(
                 text = stringResource(R.string.settings_hotword_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            VivaToggleRow(
-                label = stringResource(R.string.settings_show_transcription),
-                checked = settings.showPartialTranscription,
-                onCheckedChange = viewModel::setShowPartialTranscription,
-                icon = Icons.Default.Subtitles,
-            )
-            VivaToggleRow(
-                label = stringResource(R.string.settings_audio_cues),
-                checked = settings.playAudioCues,
-                onCheckedChange = viewModel::setPlayAudioCues,
-                icon = Icons.Default.MusicNote,
-            )
-            Text(
-                text = stringResource(R.string.settings_asr_engine),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+        }
+
+        SectionCard(title = stringResource(R.string.settings_asr_engine)) {
             val currentAsr = AsrEngine.fromStorageKey(settings.asrEngine)
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
@@ -213,6 +246,50 @@ fun SettingsScreen(
             AboutRow(
                 label = stringResource(R.string.settings_about_app_id),
                 value = buildInfo.applicationId,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsToggleCard(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.Start,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Start,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
             )
         }
     }

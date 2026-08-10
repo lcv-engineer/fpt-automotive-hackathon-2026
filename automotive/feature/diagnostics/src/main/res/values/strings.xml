@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_title">Hardware diagnostics</string>
+    <string name="diagnostics_drawer_title">Categories</string>
+    <string name="diagnostics_section_overview">Overview</string>
+    <string name="diagnostics_section_battery">EV battery</string>
+    <string name="diagnostics_section_sensors">Sensors</string>
+    <string name="diagnostics_section_units">Systems</string>
+    <string name="diagnostics_section_alerts">Alerts</string>
+    <string name="diagnostics_section_twin">Digital twin</string>
+    <string name="diagnostics_section_updates">Updates</string>
+
+    <string name="diagnostics_overview_health">Vehicle health</string>
+    <string name="diagnostics_soc_short">SOC</string>
+    <string name="diagnostics_soh_short">SOH</string>
+    <string name="diagnostics_hu_short">HU RAM</string>
+
+    <string name="diagnostics_scan_title">Hardware scan</string>
+    <string name="diagnostics_scan_action">Start scan</string>
+    <string name="diagnostics_scan_progress">Scanning %1$d%% · ~%2$d s left</string>
+
+    <string name="diagnostics_battery">EV battery</string>
+    <string name="diagnostics_soc">SOC (state of charge)</string>
+    <string name="diagnostics_soh">SOH (state of health)</string>
+    <string name="diagnostics_soc_value">%1$d%%</string>
+    <string name="diagnostics_soh_value">%1$d%%</string>
+    <string name="diagnostics_range">Est. range %1$d km</string>
+    <string name="diagnostics_capacity">Usable %1$.0f / %2$.0f kWh</string>
+    <string name="diagnostics_soc_legend">SOC = how full the pack is right now (today’s energy).</string>
+    <string name="diagnostics_soh_legend">SOH = long-term pack durability — not the same as SOC.</string>
+    <string name="diagnostics_degradation">Capacity fade %1$d%%</string>
+    <string name="diagnostics_soh_excellent">Excellent (≥90%): minimal fade</string>
+    <string name="diagnostics_soh_good">Good (80–89%): normal aging</string>
+    <string name="diagnostics_soh_fair">Fair (70–79%): plan service soon</string>
+    <string name="diagnostics_soh_poor">Poor (&lt;70%): reduced range / see dealer</string>
+    <string name="diagnostics_soh_current_band">Current band: %1$s</string>
+    <string name="diagnostics_soh_band_excellent">Excellent</string>
+    <string name="diagnostics_soh_band_good">Good</string>
+    <string name="diagnostics_soh_band_fair">Fair</string>
+    <string name="diagnostics_soh_band_poor">Poor</string>
+
+    <string name="diagnostics_system_health">Head unit health (details)</string>
+    <string name="diagnostics_memory">Memory health %1$d%% · %2$d / %3$d MB</string>
+    <string name="diagnostics_flash">Flash health %1$d%% (Watchdog-style demo)</string>
+    <string name="diagnostics_cpu">CPU load hint %1$d%%</string>
+    <string name="diagnostics_watchdog_ok">Watchdog: OK</string>
+    <string name="diagnostics_watchdog_alert">Watchdog: memory pressure</string>
+
+    <string name="diagnostics_units_hint">UnitType status from VHAL / VSTATE (HVAC, body, lights, doors).</string>
+    <string name="diagnostics_ignition">Ignition</string>
+    <string name="diagnostics_ignition_on">Ignition ON</string>
+    <string name="diagnostics_ignition_off">Ignition OFF / ACC</string>
+
+    <string name="diagnostics_predictive">Predictive maintenance</string>
+    <string name="diagnostics_predictive_empty">No early-wear signals</string>
+    <string name="diagnostics_dtc">Trouble codes (DTC)</string>
+    <string name="diagnostics_dtc_empty">No active DTCs</string>
+
+    <string name="diagnostics_twin_title">Digital twin</string>
+    <string name="diagnostics_twin_hint">Virtual vehicle map — colored dots mark hardware that needs attention.</string>
+
+    <string name="diagnostics_ota_title">OTA / software</string>
+    <string name="diagnostics_ota_current">Installed: %1$s</string>
+    <string name="diagnostics_ota_available">Update available: %1$s</string>
+    <string name="diagnostics_ota_uptodate">Software is up to date</string>
+    <string name="diagnostics_ota_start">Download &amp; install</string>
+    <string name="diagnostics_ota_downloading">Downloading… %1$d%%</string>
+    <string name="diagnostics_ota_installing">Installing… %1$d%%</string>
+    <string name="diagnostics_ota_failed">Update failed — retry when parked</string>
+
+    <string name="diagnostics_severity_ok">OK</string>
+    <string name="diagnostics_severity_caution">Caution</string>
+    <string name="diagnostics_severity_warning">Warning</string>
+    <string name="diagnostics_severity_emergency">Emergency</string>
+
+    <string name="diagnostics_genai">GenAI field diagnosis (details)</string>
+    <string name="diagnostics_genai_refresh">Re-run</string>
+    <string name="diagnostics_genai_summary">Summary</string>
+    <string name="diagnostics_genai_steps">Reasoning steps</string>
+    <string name="diagnostics_genai_reco">Recommendation</string>
+    <string name="diagnostics_genai_temp">Decoding posture</string>
+    <string name="diagnostics_remote">Remote / SDV</string>
+    <string name="diagnostics_remote_body">OTA + digital-twin channel is demo (%1$s). Live remote needs backend + privileged Car APIs.</string>
+    <string name="diagnostics_remote_status_off">Local-only (emulator / mock)</string>
+    <string name="diagnostics_vhal_note">Signals via VehicleRepository → CarPropertyManager / mock VHAL (GET_INFO / VSTATE style).</string>
+</resources>

@@ -103,7 +103,7 @@ class ProcessVoiceCommandUseCaseTest {
     fun `removed vietnamese ac power intent is rejected before legacy fallback`() = runTest {
         assertEquals(
             VehicleIntent.Clarification(
-                "Lệnh này chưa hỗ trợ trong bản demo. Bạn thử một lệnh điều hòa, cửa, âm thanh hoặc giao hàng nhé.",
+                "Lệnh này chưa có trong bản demo. Bạn thử: đặt điều hòa, mở cửa, bật đèn, phát nhạc, hoặc thích bài này.",
             ),
             useCase("bật điều hòa"),
         )

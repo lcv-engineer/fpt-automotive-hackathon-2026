@@ -13,6 +13,42 @@ enum class PlaybackRoute {
     CAST,
 }
 
+/** Library queue repeat (radio stays forced to one-station loop). */
+enum class RepeatMode {
+    OFF,
+    ONE,
+    ALL,
+}
+
+enum class PlaybackSpeed(val multiplier: Float, val label: String) {
+    X0_75(0.75f, "0.75×"),
+    X1_00(1.00f, "1×"),
+    X1_25(1.25f, "1.25×"),
+    X1_50(1.50f, "1.5×"),
+    X2_00(2.00f, "2×"),
+    ;
+
+    fun next(): PlaybackSpeed {
+        val values = entries
+        return values[(ordinal + 1) % values.size]
+    }
+}
+
+/**
+ * Preferred decode ceiling. Local single-file tracks often ignore bitrate caps;
+ * still useful when Media3 can choose among adaptive/alternate tracks.
+ */
+enum class AudioQuality(val maxBitrate: Int) {
+    NORMAL(maxBitrate = 192_000),
+    HI_RES(maxBitrate = Int.MAX_VALUE),
+    ;
+
+    fun next(): AudioQuality = when (this) {
+        NORMAL -> HI_RES
+        HI_RES -> NORMAL
+    }
+}
+
 data class MediaTrack(
     val id: String,
     val title: String,
@@ -95,11 +131,27 @@ data class PlaybackUiState(
     val castAvailable: Boolean = false,
     val display: TrackDisplayInfo = TrackDisplayInfo(),
     val mediaVolume: Float = 1f,
+    val repeatMode: RepeatMode = RepeatMode.OFF,
+    val playbackSpeed: PlaybackSpeed = PlaybackSpeed.X1_00,
+    val audioQuality: AudioQuality = AudioQuality.HI_RES,
+    /** Track ids only — MP3 stays on device MediaStore. */
+    val favoriteTrackIds: Set<String> = emptySet(),
+    val favoritesFilterEnabled: Boolean = false,
 ) {
     val progress: Float
         get() = if (durationMs > 0L) {
             (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
         } else {
             0f
+        }
+
+    val isCurrentFavorite: Boolean
+        get() = track?.id?.let(favoriteTrackIds::contains) == true
+
+    val visibleLibraryTracks: List<MediaTrack>
+        get() = if (favoritesFilterEnabled) {
+            libraryTracks.filter { it.id in favoriteTrackIds }
+        } else {
+            libraryTracks
         }
 }

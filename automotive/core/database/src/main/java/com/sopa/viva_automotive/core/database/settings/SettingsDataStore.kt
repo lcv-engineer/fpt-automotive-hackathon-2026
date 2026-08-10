@@ -20,7 +20,7 @@ data class VoiceSettings(
     val useFahrenheit: Boolean = false,
     val showPartialTranscription: Boolean = true,
     val playAudioCues: Boolean = true,
-    val themeMode: String = "system",
+    val themeMode: String = "dark",
     val language: String = "system",
     val voiceLanguage: String = "vi",
     /** `viva` (default) or `google` — see [AsrEngine]. */
@@ -54,7 +54,7 @@ class SettingsDataStore @Inject constructor(
             useFahrenheit = prefs[Keys.USE_FAHRENHEIT] ?: false,
             showPartialTranscription = prefs[Keys.SHOW_PARTIAL] ?: true,
             playAudioCues = prefs[Keys.AUDIO_CUES] ?: true,
-            themeMode = prefs[Keys.THEME_MODE] ?: "system",
+            themeMode = prefs[Keys.THEME_MODE] ?: "dark",
             language = prefs[Keys.LANGUAGE] ?: "system",
             voiceLanguage = prefs[Keys.VOICE_LANGUAGE] ?: "vi",
             asrEngine = prefs[Keys.ASR_ENGINE] ?: AsrEngine.VIVA.storageKey,
