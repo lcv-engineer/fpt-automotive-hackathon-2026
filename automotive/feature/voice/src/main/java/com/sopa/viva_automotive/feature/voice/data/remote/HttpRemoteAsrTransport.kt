@@ -99,12 +99,45 @@ class HttpRemoteAsrTransport(
 
         fun validatedEndpoint(baseUrl: String): java.net.URL {
             val uri = URI(baseUrl.trimEnd('/') + "/asr")
-            val loopback = uri.host == "127.0.0.1" || uri.host.equals("localhost", ignoreCase = true)
             require(uri.scheme.equals("https", ignoreCase = true) ||
-                (uri.scheme.equals("http", ignoreCase = true) && loopback)) {
-                "vivaAsrBaseUrl must use HTTPS; HTTP is allowed only for loopback adb reverse"
+                (uri.scheme.equals("http", ignoreCase = true) && isTrustedCleartextHost(uri.host))) {
+                "vivaAsrBaseUrl must use HTTPS; HTTP is allowed only for loopback " +
+                    "or a private address on the same isolated segment"
             }
             return uri.toURL()
+        }
+
+        /**
+         * Nơi được phép gửi audio dạng rõ.
+         *
+         * Lý do có luật này: một lượt thoại là giọng nói thật của tài xế, và gửi
+         * nó qua HTTP trên mạng không tin được là rò rỉ. HTTPS là mặc định.
+         *
+         * Hai ngoại lệ, cùng một lý lẽ — gói tin không rời khỏi một đoạn mạng đã
+         * cô lập, nên không có ai ở giữa để nghe trộm:
+         *
+         *  - **loopback**: `adb reverse` trên máy dev, gói không ra khỏi thiết bị.
+         *  - **địa chỉ private (RFC 1918)**: room CarSky nối các node bằng một
+         *    bridge L2 ảo trong `10.99.0.0/24` — Android ở `.14`, `viva-asr` ở
+         *    `.3`. Đoạn này không định tuyến ra internet, và container ASR không
+         *    có TLS. Xem `docs/backend-docs/carsky-runbook.md` §6.
+         *
+         * KHÔNG nới rộng thêm: mọi địa chỉ công khai vẫn bắt buộc HTTPS. Một
+         * hostname (kể cả trỏ tới IP private) cũng bị từ chối — phân giải tên xảy
+         * ra sau khi kiểm, nên cho qua theo tên là mở một lỗ không kiểm được.
+         */
+        private fun isTrustedCleartextHost(host: String?): Boolean {
+            if (host == null) return false
+            if (host == "127.0.0.1" || host.equals("localhost", ignoreCase = true)) return true
+            val octets = host.split('.')
+                .takeIf { it.size == 4 }
+                ?.mapNotNull { it.toIntOrNull()?.takeIf { n -> n in 0..255 } }
+                ?.takeIf { it.size == 4 }
+                ?: return false
+            val (a, b) = octets[0] to octets[1]
+            return a == 10 ||
+                (a == 172 && b in 16..31) ||
+                (a == 192 && b == 168)
         }
     }
 }

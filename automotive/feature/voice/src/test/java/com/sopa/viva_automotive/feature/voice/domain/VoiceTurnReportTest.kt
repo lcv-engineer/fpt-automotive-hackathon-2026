@@ -29,6 +29,38 @@ class VoiceTurnReportTest {
     }
 
     @Test
+    fun `khong dat co thi giu nguyen nguong mac dinh`() {
+        // -1 la gia tri Settings.Global tra ve khi khoa chua ton tai.
+        assertEquals(VoiceTurnReport.MIN_ACOUSTIC_CONFIDENCE, VoiceTurnReport.minAcousticConfidence(-1))
+        assertEquals(VoiceTurnReport.MIN_ACOUSTIC_CONFIDENCE, VoiceTurnReport.minAcousticConfidence(null))
+    }
+
+    @Test
+    fun `co hop le doi duoc nguong luc chay`() {
+        assertEquals(0.40f, VoiceTurnReport.minAcousticConfidence(40))
+        assertEquals(0.0f, VoiceTurnReport.minAcousticConfidence(0))
+        assertEquals(1.0f, VoiceTurnReport.minAcousticConfidence(100))
+    }
+
+    @Test
+    fun `gia tri rac KHONG duoc am tham noi long cong an toan`() {
+        // Ngoai dai 0..100 deu ve mac dinh. Mot cai go nham `settings put global
+        // viva_min_conf 4000` khong duoc phep bien thanh "cho qua tat ca", va mot
+        // so am khong duoc phep bien thanh "chan tat ca" mot cach kho hieu.
+        assertEquals(VoiceTurnReport.MIN_ACOUSTIC_CONFIDENCE, VoiceTurnReport.minAcousticConfidence(4000))
+        assertEquals(VoiceTurnReport.MIN_ACOUSTIC_CONFIDENCE, VoiceTurnReport.minAcousticConfidence(101))
+        assertEquals(VoiceTurnReport.MIN_ACOUSTIC_CONFIDENCE, VoiceTurnReport.minAcousticConfidence(-100))
+    }
+
+    @Test
+    fun `nguong tu co duoc ap dung khi phan xet`() {
+        // Chinh ca da do 09/08: whisper-tiny phien am DUNG "phat nhac" nhung
+        // confidence 0,41 < 0,6 nen bi chan. Ha nguong xuong 0,40 thi cho qua.
+        assertTrue(VoiceTurnReport.needsRepeatForConfidence(0.41f, 0.6f))
+        assertFalse(VoiceTurnReport.needsRepeatForConfidence(0.41f, 0.40f))
+    }
+
+    @Test
     fun `ASR error codes are spoken in Vietnamese, never as the raw diagnostic`() {
         // Bản trước đọc thẳng "Microphone is unavailable" lên màn hình xe tiếng Việt.
         assertEquals(

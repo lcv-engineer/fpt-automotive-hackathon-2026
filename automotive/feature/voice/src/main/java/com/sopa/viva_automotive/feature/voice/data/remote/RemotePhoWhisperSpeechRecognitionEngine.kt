@@ -3,8 +3,10 @@ package com.sopa.viva_automotive.feature.voice.data.remote
 import com.sopa.viva_automotive.feature.voice.data.SpeechRecognitionEngine
 import com.sopa.viva_automotive.feature.voice.data.TranscriptionEvent
 import com.viva.voice.audio.PcmFrame
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.takeWhile
 
 data class RemoteAsrResponse(
@@ -26,6 +28,7 @@ fun interface RemoteAsrTransport {
  */
 class RemotePhoWhisperSpeechRecognitionEngine(
     private val transport: RemoteAsrTransport,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : SpeechRecognitionEngine {
 
     override val sendsAudioWhileCapturing: Boolean = false
@@ -106,6 +109,17 @@ class RemotePhoWhisperSpeechRecognitionEngine(
             )
         emit(event)
     }
+        // `flowOn` chi phối cả thượng nguồn, tức chính `audioCapture.frames()`. Thiếu
+        // dòng này thì `AudioRecord.read()` — một lệnh CHẶN — chạy trên luồng gọi, mà
+        // `VoiceAssistantService.startPipeline` chạy trên `lifecycleScope`, tức Main.
+        //
+        // Hậu quả đo được 09/08 trên emulator: bấm mic là UI đơ suốt phiên nghe, và
+        // Android giết app sau 5s vì "Input dispatching timed out" — nhìn từ ngoài
+        // giống hệt crash liên tục, nhưng crash buffer rỗng vì đây là ANR.
+        //
+        // `VoskSpeechRecognitionEngine` đã có đúng dòng này (`:174`), nên nhánh vosk
+        // không dính. Lỗi chỉ nằm ở đây và chỉ lộ ra khi thật sự chạy engine remote.
+        .flowOn(ioDispatcher)
 
     private fun RemoteAsrResponse.toEvent(): TranscriptionEvent {
         require(confidence.isFinite() && confidence in 0f..1f) {

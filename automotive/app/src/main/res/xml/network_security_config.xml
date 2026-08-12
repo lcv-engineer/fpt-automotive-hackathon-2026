@@ -1,15 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Dev ASR only. Non-loopback / production deployments must use HTTPS.
+    <!-- Cleartext chỉ mở cho những địa chỉ không ra khỏi một đoạn mạng đã cô lập.
+         Mọi địa chỉ công khai vẫn bắt buộc HTTPS.
+
+         includeSubdomains="false" là bắt buộc, không phải trang trí: lint chặn build
+         khi thiếu nó (NetworkSecurityConfig), và với một địa chỉ IP thì "false" mới
+         đúng nghĩa — không có subdomain nào của 127.0.0.1 để mà nới cleartext cho.
+
+         Vì sao phải khai ở ĐÂY nữa, dù `HttpRemoteAsrTransport.validatedEndpoint`
+         đã cho phép dải private: đó là hai cổng khác nhau. Cái kia là luật của app;
+         cái này là chính sách của Android (chặn cleartext mặc định từ API 28). Qua
+         được cổng app mà quên cổng này thì lượt thoại chết ở tầng nền tảng với
+         "Cleartext HTTP traffic to 10.99.0.3 not permitted" — đo được trên Device
+         CarSky 10/08, và log của app chỉ nói "cannot reach viva-asr" nên rất dễ
+         truy nhầm sang phía mạng hoặc container.
+
+         Android network security config KHÔNG nhận dải CIDR, nên phải liệt kê từng
+         địa chỉ. Thêm node mới vào room thì phải thêm vào đây.
 
          - 127.0.0.1 / localhost: physical device + `adb reverse`
          - 10.0.2.2: emulator → host loopback (no reverse needed each boot)
-
-         includeSubdomains="false" is required (NetworkSecurityConfig lint) and correct
-         for these hosts (no meaningful subdomains). -->
+         - 10.99.0.3: node `VIVA ASR` trên bridge L2 ảo của room CarSky -->
     <domain-config cleartextTrafficPermitted="true">
+        <!-- adb reverse trên máy dev -->
         <domain includeSubdomains="false">127.0.0.1</domain>
         <domain includeSubdomains="false">localhost</domain>
+        <!-- máy host nhìn từ emulator Android -->
         <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- node `VIVA ASR` trên bridge L2 ảo của room CarSky (carsky-runbook.md §6) -->
+        <domain includeSubdomains="false">10.99.0.3</domain>
     </domain-config>
 </network-security-config>

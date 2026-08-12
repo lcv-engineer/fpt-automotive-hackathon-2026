@@ -76,6 +76,13 @@ abstract class VoiceModule {
     ): DeliveryRepository
 
     companion object {
+        /**
+         * The T0 grammar tier, bound here instead of being constructed inside
+         * `ProcessVoiceCommandUseCase` so the N4 ablation can replace it with a
+         * no-op router and measure what the grammar tier is actually holding up
+         * (`16-QUYET-DINH-DUONG-NLU.md`). Stateless apart from its rule list,
+         * so one instance is enough.
+         */
         @Provides
         @Singleton
         fun provideIntentRouter(): IntentRouter = GrammarIntentRouter()

@@ -15,6 +15,7 @@ import com.sopa.viva_automotive.feature.voice.data.audio.VadUtteranceCapture
 import com.sopa.viva_automotive.feature.voice.data.audio.VoiceSessionDucker
 import com.sopa.viva_automotive.feature.voice.di.VoiceModule
 import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
+import com.sopa.viva_automotive.feature.voice.domain.VoiceTurnReport
 import com.sopa.viva_automotive.feature.voice.domain.model.VoiceAssistantState
 import com.sopa.viva_automotive.feature.voice.via.HotwordAckPlayer
 import com.viva.voice.agent.VoiceAgent
@@ -156,7 +157,7 @@ class VoiceAssistantService : LifecycleService() {
                 }
             }.getOrElse { error ->
                 Log.e(VOICE_TAG, "Mic capture failed", error)
-                stateManager.transitionToError(error.message ?: "Microphone is unavailable")
+                stateManager.transitionToError(VoiceTurnReport.MICROPHONE_UNAVAILABLE)
                 delay(RESULT_DISPLAY_MS)
                 stateManager.transitionToIdle()
                 return
@@ -169,7 +170,7 @@ class VoiceAssistantService : LifecycleService() {
             )
 
             if (!captured.isUsable) {
-                stateManager.transitionToError("I didn't hear anything")
+                stateManager.transitionToError(VoiceTurnReport.DID_NOT_HEAR)
                 delay(RESULT_DISPLAY_MS)
                 stateManager.transitionToIdle()
                 return
