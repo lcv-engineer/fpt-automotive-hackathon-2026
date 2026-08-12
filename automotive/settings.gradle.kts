@@ -37,7 +37,15 @@ include(":vehicle-service:api")
 include(":vehicle-service:impl")
 include(":voice-core")
 project(":voice-core").projectDir = file("../android/voice")
-include(":phone-companion")
-project(":phone-companion").projectDir = file("../android/phone-companion")
-include(":phone-companion-app")
-project(":phone-companion-app").projectDir = file("../android/phone-companion-app")
+
+// Optional local modules (not always present on CI / fresh clones).
+val phoneCompanionDir = file("../android/phone-companion")
+if (phoneCompanionDir.isDirectory) {
+    include(":phone-companion")
+    project(":phone-companion").projectDir = phoneCompanionDir
+}
+val phoneCompanionAppDir = file("../android/phone-companion-app")
+if (phoneCompanionAppDir.isDirectory) {
+    include(":phone-companion-app")
+    project(":phone-companion-app").projectDir = phoneCompanionAppDir
+}
