@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.sopa.viva_automotive.feature.voice.via.VivaVoiceInteractionSessionService"
+    android:recognitionService="com.sopa.viva_automotive.feature.voice.via.VivaRecognitionService"
+    android:settingsActivity="com.sopa.viva_automotive.feature.voice.via.VoiceAssistantSettingsActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true"
+    android:supportsLocalInteraction="true" />

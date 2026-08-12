@@ -103,14 +103,14 @@ class ProcessVoiceCommandUseCaseTest {
     fun `removed vietnamese ac power intent is rejected before legacy fallback`() = runTest {
         assertEquals(
             VehicleIntent.Clarification(
-                "Lệnh này chưa hỗ trợ trong bản demo. Bạn thử một lệnh điều hòa, cửa, âm thanh hoặc giao hàng nhé.",
+                "Lệnh này chưa có trong bản demo. Bạn thử: đặt điều hòa, mở cửa, bật đèn, phát nhạc, hoặc thích bài này.",
             ),
             useCase("bật điều hòa"),
         )
     }
 
     @Test
-    fun `Long grammar handles wake phrase temperature before embedding fallback`() = runTest {
+    fun `grammar handles wake phrase temperature before embedding fallback`() = runTest {
         assertEquals(
             VehicleIntent.SetTemperature(24.0, VehicleZone.DRIVER),
             useCase("Viva ơi hạ điều hòa xuống 24 độ"),
@@ -129,15 +129,33 @@ class ProcessVoiceCommandUseCaseTest {
     fun `another assistant wake phrase cannot fall through to vehicle execution`() = runTest {
         assertEquals(
             VehicleIntent.Clarification(
-                "Từ gọi của trợ lý là “Viva ơi” hoặc “Vivi ơi”. Bạn thử lại nhé.",
+                "Từ gọi của trợ lý là “Vi-Vi ơi” (cũng nhận Vivi/Viva ơi). Bạn thử lại nhé.",
             ),
             useCase("Siri ơi hạ điều hòa xuống 24 độ"),
         )
     }
 
     @Test
+    fun `play music maps to media play`() = runTest {
+        assertEquals(VehicleIntent.Media(MediaCommand.PLAY), useCase("play some jazz music"))
+    }
+
+    @Test
+    fun `next song and pause music`() = runTest {
+        assertEquals(VehicleIntent.Media(MediaCommand.NEXT), useCase("next song"))
+        assertEquals(VehicleIntent.Media(MediaCommand.PAUSE), useCase("pause the music"))
+    }
+
+    @Test
+    fun `radio tune and next station`() = runTest {
+        assertTrue(useCase("play radio") is VehicleIntent.RadioTune)
+        assertEquals(VehicleIntent.RadioNextStation, useCase("next station"))
+        assertTrue(useCase("bật đài") is VehicleIntent.RadioTune)
+    }
+
+    @Test
     fun `unrecognized utterance maps to unknown`() = runTest {
-        val intent = useCase("play some jazz music")
+        val intent = useCase("order sushi for dinner")
         assertTrue(intent is VehicleIntent.Unknown)
     }
 

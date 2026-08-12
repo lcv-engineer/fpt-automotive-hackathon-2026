@@ -1,10 +1,3 @@
-// Android library module :voice - Long's voice pipeline (VAD, ASR client,
-// intent router, TTS, latency trace).
-//
-// It is a LIBRARY, not an app: Duong owns the app shell (D1) and includes
-// this module. That split is what lets the trace and audio logic be unit
-// tested on a plain JVM while the shell is still being built - see
-// android/voice/README.md.
 plugins {
     id("com.android.library")
 }

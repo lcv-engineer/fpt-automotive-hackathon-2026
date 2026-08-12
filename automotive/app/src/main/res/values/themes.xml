@@ -1,10 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+      Launch theme (Android 12+ SplashScreen API via AndroidX compat).
+      See https://developer.android.com/develop/ui/views/launch/splash-screen
+    -->
+    <style name="Theme.Viva.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.Vivaautomotive</item>
+    </style>
 
-    <!-- Day variant; values-night/themes.xml provides the night variant so the
-         launch window already matches the system day/night state. -->
-    <style name="Theme.Vivaautomotive" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#F7F8FA</item>
-        <item name="android:statusBarColor">#F7F8FA</item>
-        <item name="android:windowLightStatusBar">true</item>
+    <!-- App theme after splash is dismissed. -->
+    <style name="Theme.Vivaautomotive" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <item name="android:navigationBarColor">@color/splash_background</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

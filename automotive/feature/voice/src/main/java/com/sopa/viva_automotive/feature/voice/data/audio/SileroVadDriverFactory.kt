@@ -18,7 +18,7 @@ import javax.inject.Singleton
  *
  * [create] trả `null` khi model không nạp được. Đây là lựa chọn có chủ đích: một
  * ảnh AAOS thiếu asset, hoặc một thiết bị ONNX Runtime không chạy được, thì lượt
- * thoại phải **xuống cấp về endpoint của Vosk**, chứ không phải chết cả trợ lý.
+ * thoại phải fail rõ ràng, chứ không phải chết im cả trợ lý.
  * Lượt xuống cấp được ghi log để đọc lại được sau, không im lặng.
  */
 @Singleton

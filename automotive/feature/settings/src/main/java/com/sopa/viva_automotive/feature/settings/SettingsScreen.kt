@@ -2,35 +2,46 @@ package com.sopa.viva_automotive.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sopa.viva_automotive.core.common.buildinfo.BuildInfo
+import com.sopa.viva_automotive.core.database.settings.AsrEngine
 import com.sopa.viva_automotive.core.ui.components.SectionCard
 import com.sopa.viva_automotive.core.ui.components.VivaToggleRow
 import com.sopa.viva_automotive.core.ui.locale.AppLanguage
-import com.sopa.viva_automotive.core.ui.locale.VoiceLanguage
 import com.sopa.viva_automotive.core.ui.theme.ThemeMode
 import com.sopa.viva_automotive.core.ui.theme.VivaDimens
 
@@ -57,47 +68,80 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        SectionCard(title = stringResource(R.string.settings_voice)) {
-            VivaToggleRow(
-                label = stringResource(R.string.settings_voice_enabled),
-                checked = settings.voiceEnabled,
-                onCheckedChange = viewModel::setVoiceEnabled,
-                icon = Icons.Default.Mic,
-            )
-            VivaToggleRow(
-                label = stringResource(R.string.settings_show_transcription),
-                checked = settings.showPartialTranscription,
-                onCheckedChange = viewModel::setShowPartialTranscription,
-                icon = Icons.Default.Subtitles,
-            )
-            VivaToggleRow(
-                label = stringResource(R.string.settings_audio_cues),
-                checked = settings.playAudioCues,
-                onCheckedChange = viewModel::setPlayAudioCues,
-                icon = Icons.Default.MusicNote,
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = stringResource(R.string.settings_voice_language),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = stringResource(R.string.settings_voice),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
             )
-            val currentVoiceLanguage = VoiceLanguage.fromStorageKey(settings.voiceLanguage)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_voice_enabled),
+                    checked = settings.voiceEnabled,
+                    onCheckedChange = viewModel::setVoiceEnabled,
+                    icon = Icons.Default.Mic,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_hotword_enabled),
+                    checked = settings.hotwordEnabled,
+                    onCheckedChange = viewModel::setHotwordEnabled,
+                    icon = Icons.Default.RecordVoiceOver,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_show_transcription),
+                    checked = settings.showPartialTranscription,
+                    onCheckedChange = viewModel::setShowPartialTranscription,
+                    icon = Icons.Default.Subtitles,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                SettingsToggleCard(
+                    label = stringResource(R.string.settings_audio_cues),
+                    checked = settings.playAudioCues,
+                    onCheckedChange = viewModel::setPlayAudioCues,
+                    icon = Icons.Default.MusicNote,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+            }
+            Text(
+                text = stringResource(R.string.settings_hotword_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(title = stringResource(R.string.settings_asr_engine)) {
+            val currentAsr = AsrEngine.fromStorageKey(settings.asrEngine)
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(VivaDimens.ButtonHeight),
             ) {
-                VoiceLanguage.entries.forEachIndexed { index, language ->
+                AsrEngine.entries.forEachIndexed { index, engine ->
                     SegmentedButton(
-                        selected = currentVoiceLanguage == language,
-                        onClick = { viewModel.setVoiceLanguage(language) },
+                        selected = currentAsr == engine,
+                        onClick = { viewModel.setAsrEngine(engine) },
                         shape = SegmentedButtonDefaults.itemShape(
                             index = index,
-                            count = VoiceLanguage.entries.size,
+                            count = AsrEngine.entries.size,
                         ),
                         label = {
                             Text(
-                                text = voiceLanguageLabel(language),
+                                text = asrEngineLabel(engine),
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         },
@@ -105,7 +149,7 @@ fun SettingsScreen(
                 }
             }
             Text(
-                text = stringResource(R.string.settings_voice_language_hint),
+                text = stringResource(R.string.settings_asr_engine_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -208,6 +252,58 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun SettingsToggleCard(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.Start,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Start,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+            )
+        }
+    }
+}
+
+@Composable
+private fun asrEngineLabel(engine: AsrEngine): String = stringResource(
+    when (engine) {
+        AsrEngine.VIVA -> R.string.settings_asr_viva
+        AsrEngine.GOOGLE -> R.string.settings_asr_google
+    },
+)
+
+@Composable
 private fun themeModeLabel(mode: ThemeMode): String = stringResource(
     when (mode) {
         ThemeMode.SYSTEM -> R.string.settings_theme_auto
@@ -222,14 +318,6 @@ private fun languageLabel(language: AppLanguage): String = stringResource(
         AppLanguage.SYSTEM -> R.string.settings_language_system
         AppLanguage.ENGLISH -> R.string.settings_language_english
         AppLanguage.VIETNAMESE -> R.string.settings_language_vietnamese
-    },
-)
-
-@Composable
-private fun voiceLanguageLabel(language: VoiceLanguage): String = stringResource(
-    when (language) {
-        VoiceLanguage.ENGLISH -> R.string.settings_language_english
-        VoiceLanguage.VIETNAMESE -> R.string.settings_language_vietnamese
     },
 )
 

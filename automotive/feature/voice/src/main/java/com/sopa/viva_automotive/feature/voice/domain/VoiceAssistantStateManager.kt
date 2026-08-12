@@ -21,12 +21,16 @@ class VoiceAssistantStateManager @Inject constructor() {
     private val _events = MutableSharedFlow<VoiceEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<VoiceEvent> = _events.asSharedFlow()
 
-    fun transitionToListening() {
-        _state.value = VoiceAssistantState.Listening()
+    fun transitionToWakeDetected() {
+        _state.value = VoiceAssistantState.WakeDetected
+    }
+
+    fun transitionToListening(fromHotword: Boolean = false) {
+        _state.value = VoiceAssistantState.Listening(fromHotword = fromHotword)
         _events.tryEmit(VoiceEvent.ListeningStarted)
     }
 
-        fun updatePartialTranscription(text: String) {
+    fun updatePartialTranscription(text: String) {
         _state.update { current ->
             if (current is VoiceAssistantState.Listening) {
                 current.copy(partialTranscription = text)
@@ -44,18 +48,27 @@ class VoiceAssistantStateManager @Inject constructor() {
         _state.value = VoiceAssistantState.Executing(description)
     }
 
-    fun transitionToClarification(promptVi: String) {
-        _state.value = VoiceAssistantState.Clarification(promptVi)
+    fun transitionToClarification(promptVi: String, heardTranscript: String = "") {
+        _state.value = VoiceAssistantState.Clarification(
+            promptVi = promptVi,
+            heardTranscript = heardTranscript,
+        )
         _events.tryEmit(VoiceEvent.ClarificationRequested(promptVi))
     }
 
-    fun transitionToSuccess(message: String) {
-        _state.value = VoiceAssistantState.Success(message)
+    fun transitionToSuccess(message: String, heardTranscript: String = "") {
+        _state.value = VoiceAssistantState.Success(
+            message = message,
+            heardTranscript = heardTranscript,
+        )
         _events.tryEmit(VoiceEvent.CommandExecuted(message))
     }
 
-    fun transitionToError(message: String) {
-        _state.value = VoiceAssistantState.Error(message)
+    fun transitionToError(message: String, heardTranscript: String = "") {
+        _state.value = VoiceAssistantState.Error(
+            message = message,
+            heardTranscript = heardTranscript,
+        )
         _events.tryEmit(VoiceEvent.CommandFailed(message))
     }
 

@@ -89,6 +89,24 @@ object IntentExemplarCatalog {
         e(VehicleIntentTypes.QUERY_TEMPERATURE, "what is the temperature"),
         e(VehicleIntentTypes.QUERY_TEMPERATURE, "current temperature"),
         e(VehicleIntentTypes.QUERY_TEMPERATURE, "nhiệt độ hiện tại"),
+
+        e(VehicleIntentTypes.MEDIA_PLAY, "play music"),
+        e(VehicleIntentTypes.MEDIA_PLAY, "play some jazz music"),
+        e(VehicleIntentTypes.MEDIA_PLAY, "phát nhạc"),
+        e(VehicleIntentTypes.MEDIA_PAUSE, "pause the music"),
+        e(VehicleIntentTypes.MEDIA_PAUSE, "dừng nhạc"),
+        e(VehicleIntentTypes.MEDIA_NEXT, "next song"),
+        e(VehicleIntentTypes.MEDIA_NEXT, "chuyển bài"),
+        e(VehicleIntentTypes.RADIO_TUNE, "play radio"),
+        e(VehicleIntentTypes.RADIO_TUNE, "turn on the radio"),
+        e(VehicleIntentTypes.RADIO_TUNE, "bật đài"),
+        e(VehicleIntentTypes.RADIO_TUNE, "mở radio"),
+        e(VehicleIntentTypes.RADIO_NEXT, "next station"),
+        e(VehicleIntentTypes.RADIO_NEXT, "chuyển đài"),
+        e(VehicleIntentTypes.VOLUME_UP, "volume up"),
+        e(VehicleIntentTypes.VOLUME_UP, "tăng âm lượng"),
+        e(VehicleIntentTypes.VOLUME_DOWN, "volume down"),
+        e(VehicleIntentTypes.VOLUME_DOWN, "giảm âm lượng"),
     )
 
     private fun e(intentType: String, phrase: String) = Exemplar(intentType, phrase)

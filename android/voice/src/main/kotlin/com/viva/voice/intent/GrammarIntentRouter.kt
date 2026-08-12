@@ -9,6 +9,10 @@ import java.util.Locale
  * future wake-word detector and with today's push-to-talk fallback. Extension
  * rules are snapshotted at construction and run only after core rules and
  * removed-command filters.
+ *
+ * Matching folds Vietnamese diacritics so ASR variants (có/không dấu) hit the
+ * same rules. Spoken number words are expanded only inside slot extractors
+ * (temperature, fan, order id) — media query text is left alone.
  */
 class GrammarIntentRouter(
     extensionRules: List<GrammarRule> = emptyList(),
@@ -19,27 +23,29 @@ class GrammarIntentRouter(
         val normalized = normalize(text)
         if (UNSUPPORTED_WAKE.containsMatchIn(normalized)) {
             return RouteResult.Unsupported(
-                "Từ gọi của trợ lý là “Viva ơi” hoặc “Vivi ơi”. Bạn thử lại nhé.",
+                "Từ gọi của trợ lý là “Vi-Vi ơi” (cũng nhận Vivi/Viva ơi). Bạn thử lại nhé.",
                 canFallback = false,
             )
         }
         val command = normalized.replaceFirst(SUPPORTED_WAKE, "").trim()
         if (command.isEmpty()) {
-            return RouteResult.NeedsClarification("Bạn muốn mình thực hiện việc gì?")
+            return RouteResult.NeedsClarification(
+                "Mình đang nghe. Bạn muốn điều hòa, cửa, đèn, nhạc hay âm lượng?",
+            )
         }
         if (isRemovedCommand(command)) {
             return RouteResult.Unsupported(
-                promptVi = "Lệnh này chưa hỗ trợ trong bản demo. Bạn thử một lệnh điều hòa, cửa, âm thanh hoặc giao hàng nhé.",
+                promptVi = "Lệnh này chưa có trong bản demo. Bạn thử: đặt điều hòa, mở cửa, bật đèn, phát nhạc, hoặc thích bài này.",
                 canFallback = false,
             )
         }
 
-        if (command.contains("lạnh quá")) {
+        if (command.contains("lanh qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn tăng nhiệt độ điều hòa lên bao nhiêu độ?",
             )
         }
-        if (command.contains("nóng quá")) {
+        if (command.contains("nong qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn giảm nhiệt độ điều hòa xuống bao nhiêu độ?",
             )
@@ -48,46 +54,55 @@ class GrammarIntentRouter(
         if (isTemperatureCommand(command)) {
             return routeTemperature(command)
         }
-        if (command.contains("quạt")) {
+        if (command.contains("quat")) {
             return routeFan(command)
         }
-        if (command.contains("mở cửa") || command.contains("mở khóa cửa")) {
+        if (command.contains("mo cua") || command.contains("mo khoa cua")) {
             return matched("door_lock", mapOf("lock" to false))
         }
-        if (command.contains("khóa cửa")) {
+        if (command.contains("khoa cua")) {
             return matched("door_lock", mapOf("lock" to true))
         }
-        if (command.contains("tăng âm lượng")) {
+        if (isCabinLightsOn(command)) {
+            return matched("cabin_lights", mapOf("on" to true))
+        }
+        if (isCabinLightsOff(command)) {
+            return matched("cabin_lights", mapOf("on" to false))
+        }
+        if (command.contains("tang am luong")) {
             return matched("volume_adjust", mapOf("delta" to 1))
         }
-        if (command.contains("giảm âm lượng")) {
+        if (command.contains("giam am luong")) {
             return matched("volume_adjust", mapOf("delta" to -1))
         }
-        if (command.contains("dừng nhạc") || command.contains("tạm dừng nhạc")) {
+        if (command.contains("dung nhac") || command.contains("tam dung nhac")) {
             return matched("media_pause")
         }
-        if (command.contains("chuyển bài") || command.contains("bài tiếp theo")) {
+        if (command.contains("chuyen bai") || command.contains("bai tiep theo")) {
             return matched("media_next")
         }
-        if (command.startsWith("phát nhạc") || command.startsWith("phát playlist")) {
-            // Slot `query` là thứ đem đi tìm bài, nên từ loại phải bị cắt cùng với
-            // động từ: "phát playlist một ngày mới" cho "một ngày mới". Bản trước
-            // chỉ cắt "phát " nên mọi query đều dính "nhạc "/"playlist " ở đầu và
-            // sẽ được gửi nguyên như vậy xuống trình phát.
+        if (isFavoriteCommand(command)) {
+            return matched("media_favorite")
+        }
+        if (command.startsWith("phat nhac") || command.startsWith("phat playlist") ||
+            command.startsWith("phat bai")
+        ) {
+            // Slot `query` is what the player searches for — strip verb + kind words.
             val query = command
-                .removePrefix("phát ")
+                .removePrefix("phat ")
                 .removePrefix("playlist ")
-                .removePrefix("nhạc ")
-                .takeUnless { it == "nhạc" || it == "playlist" }
+                .removePrefix("nhac ")
+                .removePrefix("bai ")
+                .takeUnless { it == "nhac" || it == "playlist" || it == "bai" || it.isBlank() }
             return matched("media_play", query?.let { mapOf("query" to it) }.orEmpty())
         }
-        if (command.contains("chặng tiếp theo") || command.contains("điểm dừng tiếp theo")) {
+        if (command.contains("chang tiep theo") || command.contains("diem dung tiep theo")) {
             return matched("delivery_next_stop")
         }
-        if (command.contains("đơn") && DELIVERY_STATUS_CUES.any(command::contains)) {
+        if (command.contains("don") && DELIVERY_STATUS_CUES.any(command::contains)) {
             return matched("delivery_order_status", orderIdSlot(command))
         }
-        if (command.contains("xác nhận") && command.contains("giao")) {
+        if (command.contains("xac nhan") && command.contains("giao")) {
             return matched("delivery_confirm", orderIdSlot(command))
         }
         extensionRules.forEach { rule ->
@@ -95,6 +110,23 @@ class GrammarIntentRouter(
         }
         return RouteResult.Unsupported()
     }
+
+    private fun isCabinLightsOn(command: String): Boolean =
+        command.contains("bat den") ||
+            command.contains("mo den") ||
+            command.contains("bat den cabin") ||
+            command.contains("bat den noi that")
+
+    private fun isCabinLightsOff(command: String): Boolean =
+        command.contains("tat den") ||
+            command.contains("tat den cabin") ||
+            command.contains("tat den noi that")
+
+    private fun isFavoriteCommand(command: String): Boolean =
+        command.contains("thich bai") ||
+            command.contains("yeu thich bai") ||
+            command.contains("them vao yeu thich") ||
+            command.contains("luu bai nay")
 
     private fun isRemovedCommand(command: String): Boolean =
         REMOVED_COMMANDS.any { pattern -> pattern.containsMatchIn(command) }
@@ -123,10 +155,11 @@ class GrammarIntentRouter(
     }
 
     private fun isTemperatureCommand(command: String): Boolean {
-        if (command.contains("nhiệt độ")) return true
-        if (!command.contains("điều hòa")) return false
+        if (command.contains("nhiet do")) return true
+        if (!command.contains("dieu hoa")) return false
         val parsed = parseVietnameseNumber(command)
-        return NUMBER.containsMatchIn(parsed) || TEMPERATURE_CUES.any { cue -> command.contains(cue) }
+        return NUMBER.containsMatchIn(parsed) ||
+            TEMPERATURE_CUES.any { cue -> containsWord(command, cue) }
     }
 
     private fun routeFan(command: String): RouteResult {
@@ -149,57 +182,33 @@ class GrammarIntentRouter(
             ),
         )
 
-    private fun normalize(raw: String): String {
-        return raw
-            .lowercase(Locale.ROOT)
-            .replace(PUNCTUATION, " ")
-            .replace(WHITESPACE, " ")
-            .trim()
+    private fun normalize(raw: String): String = raw
+        .lowercase(Locale.ROOT)
+        .replace(PUNCTUATION, " ")
+        .replace(WHITESPACE, " ")
+        .trim()
+        .let(::foldVietnamese)
+
+    private fun foldVietnamese(text: String): String {
+        val normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+        return DIACRITICS.replace(normalized, "")
+            .replace('đ', 'd')
+            .replace('Đ', 'd')
     }
 
+    private fun containsWord(haystack: String, needle: String): Boolean =
+        Regex("""(?:^|\s)${Regex.escape(needle)}(?:\s|$)""").containsMatchIn(haystack)
+
+    /** Keys are folded (no diacritics) because [normalize] folds before routing. */
     private fun parseVietnameseNumber(raw: String): String {
         var normalized = raw
-        val numberMap = mapOf(
-            "không" to "0",
-            "một" to "1",
-            "hai" to "2",
-            "ba" to "3",
-            "bốn" to "4",
-            "năm" to "5",
-            "sáu" to "6",
-            "bảy" to "7",
-            "tám" to "8",
-            "chín" to "9",
-            "mười" to "10",
-            "mười một" to "11",
-            "mười hai" to "12",
-            "mười ba" to "13",
-            "mười bốn" to "14",
-            "mười lăm" to "15",
-            "mười sáu" to "16",
-            "mười bảy" to "17",
-            "mười tám" to "18",
-            "mười chín" to "19",
-            "hai mươi" to "20",
-            "hai mươi một" to "21", "hai mốt" to "21", "hai một" to "21",
-            "hai mươi hai" to "22", "hai hai" to "22",
-            "hai mươi ba" to "23", "hai ba" to "23",
-            "hai mươi bốn" to "24", "hai mươi tư" to "24", "hai bốn" to "24", "hai tư" to "24",
-            "hai mươi lăm" to "25", "hai lăm" to "25", "hai năm" to "25",
-            "hai mươi sáu" to "26", "hai sáu" to "26",
-            "hai mươi bảy" to "27", "hai bảy" to "27",
-            "hai mươi tám" to "28", "hai tám" to "28",
-            "hai mươi chín" to "29", "hai chín" to "29",
-            "ba mươi" to "30",
-            "ba mươi một" to "31", "ba mốt" to "31", "ba một" to "31",
-            "ba mươi hai" to "32", "ba hai" to "32"
-        )
-
-        val sortedKeys = numberMap.keys.sortedByDescending { it.length }
+        val sortedKeys = NUMBER_WORDS.keys.sortedByDescending { it.length }
         for (key in sortedKeys) {
-            normalized = normalized.replace(Regex("(?<=\\s|^)$key(?=\\s|$)"), numberMap[key]!!)
+            normalized = normalized.replace(
+                Regex("(?<=\\s|^)${Regex.escape(key)}(?=\\s|$)"),
+                NUMBER_WORDS.getValue(key),
+            )
         }
-
         return normalized
     }
 
@@ -213,16 +222,55 @@ class GrammarIntentRouter(
         private val NUMBER = Regex("""(\d{1,2})""")
         private val PUNCTUATION = Regex("""[,.!?;:]""")
         private val WHITESPACE = Regex("""\s+""")
-        private val SUPPORTED_WAKE = Regex("""^(?:viva|vivi)\s+ơi(?:\s+|$)""")
-        private val UNSUPPORTED_WAKE = Regex("""^(?:siri|alexa|hey google)\s+ơi?(?:\s+|$)""")
+        private val DIACRITICS = Regex("""\p{M}+""")
+        // Canonical product wake: “Vi-Vi ơi”; keep Vivi/Viva aliases for PTT/ASR.
+        private val SUPPORTED_WAKE =
+            Regex("""^(?:viva|vivi|vi[\s-]?vi)\s+oi(?:\s+|$)""")
+        private val UNSUPPORTED_WAKE = Regex("""^(?:siri|alexa|hey google)\s+oi?(?:\s+|$)""")
         private val ORDER_ID = Regex("""\b([a-z])\s*((?:\d\s*){1,6})\b""")
-        private val DELIVERY_STATUS_CUES = listOf("thế nào", "trạng thái", "đến đâu")
+        private val DELIVERY_STATUS_CUES = listOf("the nao", "trang thai", "den dau")
         private val REMOVED_COMMANDS = listOf(
-            Regex("""\b(?:bật|tắt)\s+(?:điều hòa|ac)\b"""),
-            Regex("""đặt\s+âm lượng"""),
-            Regex("""\b(?:bài trước|quay lại bài trước)\b"""),
-            Regex("""\b(?:dtc|mã lỗi|xe có lỗi)\b"""),
+            Regex("""\b(?:bat|tat)\s+(?:dieu hoa|ac)\b"""),
+            Regex("""dat\s+am luong"""),
+            Regex("""\b(?:bai truoc|quay lai bai truoc)\b"""),
+            Regex("""\b(?:dtc|ma loi|xe co loi)\b"""),
         )
-        private val TEMPERATURE_CUES = listOf("đặt", "hạ", "tăng", "giảm", "xuống", "lên", "độ")
+        private val TEMPERATURE_CUES = listOf("dat", "ha", "tang", "giam", "xuong", "len", "do")
+
+        private val NUMBER_WORDS = mapOf(
+            "khong" to "0",
+            "mot" to "1",
+            "hai" to "2",
+            "ba" to "3",
+            "bon" to "4",
+            "nam" to "5",
+            "sau" to "6",
+            "bay" to "7",
+            "tam" to "8",
+            "chin" to "9",
+            "muoi" to "10",
+            "muoi mot" to "11",
+            "muoi hai" to "12",
+            "muoi ba" to "13",
+            "muoi bon" to "14",
+            "muoi lam" to "15",
+            "muoi sau" to "16",
+            "muoi bay" to "17",
+            "muoi tam" to "18",
+            "muoi chin" to "19",
+            "hai muoi" to "20",
+            "hai muoi mot" to "21", "hai mot" to "21",
+            "hai muoi hai" to "22", "hai hai" to "22",
+            "hai muoi ba" to "23", "hai ba" to "23",
+            "hai muoi bon" to "24", "hai muoi tu" to "24", "hai bon" to "24", "hai tu" to "24",
+            "hai muoi lam" to "25", "hai lam" to "25", "hai nam" to "25",
+            "hai muoi sau" to "26", "hai sau" to "26",
+            "hai muoi bay" to "27", "hai bay" to "27",
+            "hai muoi tam" to "28", "hai tam" to "28",
+            "hai muoi chin" to "29", "hai chin" to "29",
+            "ba muoi" to "30",
+            "ba muoi mot" to "31", "ba mot" to "31",
+            "ba muoi hai" to "32", "ba hai" to "32",
+        )
     }
 }

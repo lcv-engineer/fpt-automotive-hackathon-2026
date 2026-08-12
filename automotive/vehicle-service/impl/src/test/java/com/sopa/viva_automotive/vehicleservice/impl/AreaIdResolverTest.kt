@@ -15,25 +15,45 @@ class AreaIdResolverTest {
     }
 
     @Test
-    fun `passenger mask 0x44 resolves to ROW_1_RIGHT when that is declared`() {
+    fun `passenger zone resolves to ROW_1_RIGHT`() {
         val declared = intArrayOf(
-            VehicleAreas.DOOR_ROW_1_LEFT, // 0x1 — also the driver temperature zone
-            0x04, // ROW_1_RIGHT
+            VehicleAreas.DOOR_ROW_1_LEFT,
+            VehicleAreas.SEAT_ZONE_PASSENGER,
         )
 
         assertEquals(
-            listOf(0x04),
+            listOf(VehicleAreas.SEAT_ZONE_PASSENGER),
             AreaIdResolver.resolve(declared, VehicleAreas.SEAT_ZONE_PASSENGER),
         )
     }
 
     @Test
-    fun `driver mask resolves to overlapping left-side areas`() {
+    fun `legacy passenger mask 0x44 resolves to ROW_1_RIGHT when declared`() {
+        val declared = intArrayOf(0x01, 0x04, 0x40)
+
+        assertEquals(
+            listOf(0x04),
+            AreaIdResolver.resolve(declared, VehicleAreas.LEGACY_SEAT_ZONE_PASSENGER),
+        )
+    }
+
+    @Test
+    fun `driver zone resolves to ROW_1_LEFT`() {
         val declared = intArrayOf(0x01, 0x04)
 
         assertEquals(
-            listOf(0x01),
+            listOf(VehicleAreas.SEAT_ZONE_DRIVER),
             AreaIdResolver.resolve(declared, VehicleAreas.SEAT_ZONE_DRIVER),
+        )
+    }
+
+    @Test
+    fun `legacy driver mask 0x31 picks front-left not every overlapping row-2 seat`() {
+        val declared = intArrayOf(0x01, 0x04, 0x10, 0x20, 0x40)
+
+        assertEquals(
+            listOf(0x01),
+            AreaIdResolver.resolve(declared, VehicleAreas.LEGACY_SEAT_ZONE_DRIVER),
         )
     }
 
@@ -45,9 +65,15 @@ class AreaIdResolverTest {
     }
 
     @Test
-    fun `unknown config returns the requested id unchanged`() {
-        assertEquals(listOf(0x44), AreaIdResolver.resolve(null, 0x44))
-        assertEquals(listOf(0x44), AreaIdResolver.resolve(intArrayOf(), 0x44))
+    fun `unknown config returns the normalized requested id`() {
+        assertEquals(
+            listOf(VehicleAreas.SEAT_ZONE_PASSENGER),
+            AreaIdResolver.resolve(null, VehicleAreas.LEGACY_SEAT_ZONE_PASSENGER),
+        )
+        assertEquals(
+            listOf(VehicleAreas.SEAT_ZONE_PASSENGER),
+            AreaIdResolver.resolve(intArrayOf(), VehicleAreas.LEGACY_SEAT_ZONE_PASSENGER),
+        )
     }
 
     @Test

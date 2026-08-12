@@ -57,7 +57,7 @@ object PrerenderedPrompts {
                     "tts_deny_door_while_moving",
                 ),
                 PrerenderedPrompt(
-                    "Từ gọi của trợ lý là Viva ơi hoặc Vivi ơi. Bạn thử lại nhé.",
+                    "Từ gọi của trợ lý là “Vi-Vi ơi” (cũng nhận Vivi/Viva ơi). Bạn thử lại nhé.",
                     "tts_wrong_wake_phrase",
                 ),
             )

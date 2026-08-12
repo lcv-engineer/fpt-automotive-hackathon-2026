@@ -44,9 +44,15 @@ object LightSwitch {
 
 object VehicleAreas {
     const val GLOBAL = 0
-    const val SEAT_ZONE_DRIVER = 0x31   // 49
-    const val SEAT_ZONE_PASSENGER = 0x44 // 68
+    /** [android.car.VehicleAreaSeat.ROW_1_LEFT] — front driver on LHD AAOS images. */
+    const val SEAT_ZONE_DRIVER = 0x00000001
+    /** [android.car.VehicleAreaSeat.ROW_1_RIGHT] — front passenger on LHD AAOS images. */
+    const val SEAT_ZONE_PASSENGER = 0x00000004
     const val DOOR_ROW_1_LEFT = 0x00000001
+
+    /** Legacy composite masks some OEMs / older app builds used (not valid VHAL areaIds). */
+    const val LEGACY_SEAT_ZONE_DRIVER = 0x31
+    const val LEGACY_SEAT_ZONE_PASSENGER = 0x44
 }
 
 enum class VehicleZone(val areaId: Int) {

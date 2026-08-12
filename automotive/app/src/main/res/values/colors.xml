@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SplashScreen API: opaque window color only (no transparency). -->
+    <color name="splash_background">#000000</color>
+    <!-- Contrast plate behind the masked icon (brand cream). -->
+    <color name="splash_icon_background">#DFD0B8</color>
+</resources>

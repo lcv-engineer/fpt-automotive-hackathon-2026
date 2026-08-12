@@ -14,12 +14,13 @@
 .cxx
 local.properties
 
-feature/voice/src/main/assets/model-en-us/
-feature/voice/src/main/assets/model-vi/
-feature/voice/vosk-model-*.zip
 feature/voice/src/main/assets/embeddings/model_quantized.onnx
 feature/voice/src/main/assets/embeddings/vocab.txt
 feature/voice/src/main/assets/embeddings/.source
 
 # Kotlin incremental-compile scratch dir (Gradle 8+ / KGP)
 .kotlin/
+
+# Local Google Speech credentials (mock assets / drop-ins)
+**/secrets/
+fintrack-*.json

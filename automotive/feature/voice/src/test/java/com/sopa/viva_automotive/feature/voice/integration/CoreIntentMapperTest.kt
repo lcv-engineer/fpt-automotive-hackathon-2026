@@ -10,7 +10,7 @@ import org.junit.Test
 class CoreIntentMapperTest {
 
     @Test
-    fun `climate temperature maps to Duong vehicle intent`() {
+    fun `climate temperature maps to vehicle intent`() {
         val action = CoreIntentMapper.map(intent("hvac_set_temp", "value" to 24f))
 
         assertEquals(
@@ -31,10 +31,18 @@ class CoreIntentMapperTest {
             intent("door_lock", "lock" to true) to AutomotiveVoiceAction.VehicleControl(
                 VehicleIntent.SetDoorLock(true),
             ),
+            intent("cabin_lights", "on" to true) to AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.SetCabinLights(true),
+            ),
             intent("volume_adjust", "delta" to -1) to AutomotiveVoiceAction.VolumeAdjust(-1),
             intent("media_play") to AutomotiveVoiceAction.Media(MediaCommand.PLAY),
+            intent("media_play", "query" to "beyonce") to AutomotiveVoiceAction.Media(
+                MediaCommand.PLAY,
+                query = "beyonce",
+            ),
             intent("media_pause") to AutomotiveVoiceAction.Media(MediaCommand.PAUSE),
             intent("media_next") to AutomotiveVoiceAction.Media(MediaCommand.NEXT),
+            intent("media_favorite") to AutomotiveVoiceAction.Media(MediaCommand.FAVORITE),
         )
 
         cases.forEach { (input, expected) ->
@@ -52,8 +60,6 @@ class CoreIntentMapperTest {
             AutomotiveVoiceAction.Delivery(DeliveryCommand.OrderStatus("A12")),
             CoreIntentMapper.map(intent("delivery_order_status", "orderId" to "A12")),
         )
-        // No id heard is legal — the skill resolves "đơn này" to the current
-        // stop rather than the mapper inventing one.
         assertEquals(
             AutomotiveVoiceAction.Delivery(DeliveryCommand.Confirm(null)),
             CoreIntentMapper.map(intent("delivery_confirm")),
@@ -61,7 +67,7 @@ class CoreIntentMapperTest {
     }
 
     @Test
-    fun `missing or wrong slot is rejected at the module boundary`() {
+    fun `missing or wrong slot returns null`() {
         assertEquals(null, CoreIntentMapper.map(intent("hvac_set_temp")))
         assertEquals(null, CoreIntentMapper.map(intent("door_lock", "lock" to "true")))
         assertEquals(null, CoreIntentMapper.map(intent("hvac_set_temp", "value" to Float.NaN)))

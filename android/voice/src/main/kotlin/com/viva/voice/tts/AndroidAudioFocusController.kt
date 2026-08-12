@@ -21,14 +21,18 @@ class AndroidAudioFocusController(
     private var onFocusLost: (() -> Unit)? = null
 
     private val focusRequest = AudioFocusRequest.Builder(
+        // Same idea as Windows "Communications" ducking: lower other streams,
+        // don't mute/pause them. Media3 ExoPlayer (handleAudioFocus=true) ducks
+        // to ~20% gain on LOSS_TRANSIENT_CAN_DUCK.
         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK,
     )
         .setAudioAttributes(VoiceAudioAttributes.value)
         .setOnAudioFocusChangeListener { change ->
+            // Holders of MAY_DUCK should only stop on hard/transient loss.
+            // CAN_DUCK is for media players that need to attenuate — not us.
             if (
                 change == AudioManager.AUDIOFOCUS_LOSS ||
-                change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
-                change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK
+                change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
             ) {
                 onFocusLost?.invoke()
             }

@@ -16,7 +16,11 @@
          truy nhầm sang phía mạng hoặc container.
 
          Android network security config KHÔNG nhận dải CIDR, nên phải liệt kê từng
-         địa chỉ. Thêm node mới vào room thì phải thêm vào đây. -->
+         địa chỉ. Thêm node mới vào room thì phải thêm vào đây.
+
+         - 127.0.0.1 / localhost: physical device + `adb reverse`
+         - 10.0.2.2: emulator → host loopback (no reverse needed each boot)
+         - 10.99.0.3: node `VIVA ASR` trên bridge L2 ảo của room CarSky -->
     <domain-config cleartextTrafficPermitted="true">
         <!-- adb reverse trên máy dev -->
         <domain includeSubdomains="false">127.0.0.1</domain>

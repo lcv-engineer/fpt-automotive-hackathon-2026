@@ -9,4 +9,9 @@ enum class MediaCommand(
     PLAY("media_play", "Đang phát nhạc", "Đã gửi lệnh phát nhạc tới trình phát."),
     PAUSE("media_pause", "Đang dừng nhạc", "Đã gửi lệnh dừng nhạc tới trình phát."),
     NEXT("media_next", "Đang chuyển bài", "Đã gửi lệnh chuyển bài tới trình phát."),
+    FAVORITE(
+        "media_favorite",
+        "Đang cập nhật yêu thích",
+        "Đã cập nhật bài hát yêu thích.",
+    ),
 }

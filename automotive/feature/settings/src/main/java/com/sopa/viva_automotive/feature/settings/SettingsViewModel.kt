@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sopa.viva_automotive.core.common.buildinfo.BuildInfo
 import com.sopa.viva_automotive.core.common.buildinfo.BuildInfoProvider
+import com.sopa.viva_automotive.core.database.settings.AsrEngine
 import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
 import com.sopa.viva_automotive.core.database.settings.VoiceSettings
 import com.sopa.viva_automotive.core.ui.locale.AppLanguage
-import com.sopa.viva_automotive.core.ui.locale.VoiceLanguage
 import com.sopa.viva_automotive.core.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -31,6 +31,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsDataStore.setVoiceEnabled(enabled) }
     }
 
+    fun setHotwordEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setHotwordEnabled(enabled) }
+    }
+
     fun setUseFahrenheit(enabled: Boolean) {
         viewModelScope.launch { settingsDataStore.setUseFahrenheit(enabled) }
     }
@@ -43,15 +47,15 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsDataStore.setPlayAudioCues(enabled) }
     }
 
+    fun setAsrEngine(engine: AsrEngine) {
+        viewModelScope.launch { settingsDataStore.setAsrEngine(engine) }
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settingsDataStore.setThemeMode(mode.storageKey) }
     }
 
     fun setLanguage(language: AppLanguage) {
         viewModelScope.launch { settingsDataStore.setLanguage(language.storageKey) }
-    }
-
-    fun setVoiceLanguage(language: VoiceLanguage) {
-        viewModelScope.launch { settingsDataStore.setVoiceLanguage(language.storageKey) }
     }
 }

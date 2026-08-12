@@ -2,6 +2,9 @@ package com.sopa.viva_automotive.feature.media.ui
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -16,6 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sopa.viva_automotive.feature.media.R
 
+/** Always rendered as a square (1:1), cropped to fill — never stretched. */
 @Composable
 fun AlbumArtwork(
     artworkBytes: ByteArray?,
@@ -27,25 +31,27 @@ fun AlbumArtwork(
             ?.takeIf { it.isNotEmpty() }
             ?.let { bytes -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
     }
-    val shape = RoundedCornerShape(16.dp)
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = stringResource(R.string.media_artwork),
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .size(size)
-                .clip(shape),
-        )
-    } else {
-        Image(
-            painter = painterResource(R.drawable.album_art_default),
-            contentDescription = stringResource(R.string.media_artwork),
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .size(size)
-                .clip(shape),
-        )
+    Box(
+        modifier = modifier
+            .size(size)
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(16.dp)),
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = stringResource(R.string.media_artwork),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.album_art_default),
+                contentDescription = stringResource(R.string.media_artwork),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 

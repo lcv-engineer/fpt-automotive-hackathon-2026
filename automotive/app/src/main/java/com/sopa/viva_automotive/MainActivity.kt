@@ -11,6 +11,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
 import com.sopa.viva_automotive.core.database.settings.VoiceSettings
@@ -20,8 +21,14 @@ import com.sopa.viva_automotive.core.ui.theme.VivaTheme
 import com.sopa.viva_automotive.locale.LocaleController
 import com.sopa.viva_automotive.locale.LocalizedContent
 import com.sopa.viva_automotive.navigation.VivaApp
+import com.sopa.viva_automotive.feature.media.domain.MediaRepository
+import com.sopa.viva_automotive.feature.voice.service.VoiceAssistantService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -29,8 +36,17 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var settingsDataStore: SettingsDataStore
 
-    private val requestRecordAudio =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {  }
+    @Inject
+    lateinit var mediaRepository: MediaRepository
+
+    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    private val requestPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+            if (grants[Manifest.permission.READ_MEDIA_AUDIO] == true) {
+                activityScope.launch { mediaRepository.refreshLibrary() }
+            }
+        }
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences(LOCALE_PREFS, MODE_PRIVATE)
@@ -38,13 +54,25 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(LocaleController.wrap(newBase, language))
     }
 
+    private var companionTcpServer: com.sopa.viva_automotive.debug.CompanionNotifTcpServer? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // SplashScreen compat — must run before drawing the first frame.
+        // https://developer.android.com/develop/ui/views/launch/splash-screen
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestRecordAudio.launch(Manifest.permission.RECORD_AUDIO)
+        // Dev path: Phone Companion → TCP → AAOS emulator (Bluetooth stand-in).
+        companionTcpServer = com.sopa.viva_automotive.debug.CompanionNotifTcpServer().also { it.start() }
+
+        val missing = listOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.READ_MEDIA_AUDIO,
+        ).filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            requestPermissions.launch(missing.toTypedArray())
         }
 
         setContent {
@@ -72,10 +100,39 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        dispatchVoiceText(intent)
+        if (intent?.getBooleanExtra(EXTRA_VOICE_LISTEN, false) == true) {
+            VoiceAssistantService.startListening(this)
+        }
+    }
+
+    override fun onDestroy() {
+        companionTcpServer?.close()
+        companionTcpServer = null
+        super.onDestroy()
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        dispatchVoiceText(intent)
+        if (intent.getBooleanExtra(EXTRA_VOICE_LISTEN, false)) {
+            VoiceAssistantService.startListening(this)
+        }
+    }
+
+    private fun dispatchVoiceText(intent: android.content.Intent?) {
+        val text = intent?.getStringExtra(EXTRA_VOICE_TEXT)?.trim().orEmpty()
+        if (text.isNotEmpty()) {
+            VoiceAssistantService.processText(this, text)
+        }
     }
 
     private companion object {
         const val LOCALE_PREFS = "viva_locale"
         const val KEY_LANGUAGE = "language"
+        const val EXTRA_VOICE_TEXT = "viva_voice_text"
+        const val EXTRA_VOICE_LISTEN = "viva_voice_listen"
     }
 }

@@ -28,6 +28,20 @@ class GrammarIntentRouterTest {
     }
 
     @Test
+    fun `canonical vi-vi wake phrase is stripped before routing`() {
+        val result = router.route("Vi-Vi ơi khóa cửa") as RouteResult.Matched
+
+        assertEquals("door_lock", result.intent.name)
+    }
+
+    @Test
+    fun `vi vi spaced wake phrase is accepted`() {
+        val result = router.route("Vi Vi ơi tăng âm lượng") as RouteResult.Matched
+
+        assertEquals("volume_adjust", result.intent.name)
+    }
+
+    @Test
     fun `cold complaint asks to raise temperature instead of doing the opposite`() {
         val result = router.route("lạnh quá")
 
@@ -91,7 +105,21 @@ class GrammarIntentRouterTest {
         val result = router.route("phát playlist một ngày mới") as RouteResult.Matched
 
         assertEquals("media_play", result.intent.name)
-        assertEquals("một ngày mới", result.intent.slots["query"]) // number word should not be replaced
+        // Folded text; number words are not rewritten in media query slots.
+        assertEquals("mot ngay moi", result.intent.slots["query"])
+    }
+
+    @Test
+    fun `cabin lights and favorite are recognized`() {
+        val lightsOn = router.route("bật đèn cabin") as RouteResult.Matched
+        val lightsOff = router.route("tắt đèn") as RouteResult.Matched
+        val favorite = router.route("thích bài này") as RouteResult.Matched
+
+        assertEquals("cabin_lights", lightsOn.intent.name)
+        assertEquals(true, lightsOn.intent.slots["on"])
+        assertEquals("cabin_lights", lightsOff.intent.name)
+        assertEquals(false, lightsOff.intent.slots["on"])
+        assertEquals("media_favorite", favorite.intent.name)
     }
 
     @Test
@@ -161,7 +189,7 @@ class GrammarIntentRouterTest {
         removedCommands.forEach { command ->
             val result = router.route(command) as RouteResult.Unsupported
             assertEquals("Unexpected fallback for '$command'", false, result.canFallback)
-            assertTrue(result.promptVi.contains("chưa hỗ trợ"))
+            assertTrue(result.promptVi.contains("chưa có trong bản demo"))
         }
     }
 
@@ -170,7 +198,8 @@ class GrammarIntentRouterTest {
         val extendedRouter = GrammarIntentRouter(
             extensionRules = listOf(
                 GrammarRule { command ->
-                    if (command == "mở cốp số một") { // Expecting "một" not "1"
+                    // Folded command; number words are not rewritten before extensions.
+                    if (command == "mo cop so mot") {
                         RouteResult.Matched(
                             Intent(
                                 name = "trunk_open",

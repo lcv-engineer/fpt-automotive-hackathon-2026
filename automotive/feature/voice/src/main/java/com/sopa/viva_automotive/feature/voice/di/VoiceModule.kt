@@ -1,26 +1,24 @@
 package com.sopa.viva_automotive.feature.voice.di
 
 import android.content.Context
-import com.sopa.viva_automotive.core.common.coroutines.IoDispatcher
-import com.sopa.viva_automotive.feature.voice.BuildConfig
-import com.sopa.viva_automotive.feature.voice.data.SpeechRecognitionEngine
 import com.sopa.viva_automotive.feature.voice.data.audio.AndroidVolumeController
+import com.sopa.viva_automotive.feature.voice.data.asr.RoutingAsrClient
 import com.sopa.viva_automotive.feature.voice.data.embedding.OnnxEmbeddingIntentMatcher
 import com.sopa.viva_automotive.feature.voice.data.media.AndroidMediaCommandExecutor
-import com.sopa.viva_automotive.feature.voice.data.vosk.VoskSpeechRecognitionEngine
-import com.sopa.viva_automotive.feature.voice.data.remote.HttpRemoteAsrTransport
-import com.sopa.viva_automotive.feature.voice.data.remote.RemoteAsrTransport
-import com.sopa.viva_automotive.feature.voice.data.remote.RemotePhoWhisperSpeechRecognitionEngine
+import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryRepository
 import com.sopa.viva_automotive.feature.voice.domain.delivery.InMemoryDeliveryRepository
-import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
 import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMatcher
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
-import com.viva.voice.audio.AndroidPcmSource
-import com.viva.voice.audio.AudioCapture
-import com.viva.voice.audio.PcmSourceAudioCapture
+import com.sopa.viva_automotive.feature.voice.integration.AppCommandGateway
+import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
+import com.sopa.viva_automotive.feature.voice.via.RecognitionResultHub
+import com.viva.voice.agent.CommandGateway
+import com.viva.voice.agent.VoiceAgent
+import com.viva.voice.agent.VoiceTurnResult
+import com.viva.voice.agent.VoiceTurnStatus
+import com.viva.voice.asr.AsrClient
 import com.viva.voice.intent.GrammarIntentRouter
-import com.viva.voice.trace.SystemNanoClock
 import com.viva.voice.intent.IntentRouter
 import com.viva.voice.tts.AndroidTtsSpeaker
 import com.viva.voice.tts.TtsSpeaker
@@ -31,7 +29,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineDispatcher
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -42,6 +39,18 @@ abstract class VoiceModule {
     abstract fun bindSemanticIntentMatcher(
         impl: OnnxEmbeddingIntentMatcher,
     ): SemanticIntentMatcher
+
+    @Binds
+    @Singleton
+    abstract fun bindCommandGateway(
+        impl: AppCommandGateway,
+    ): CommandGateway
+
+    @Binds
+    @Singleton
+    abstract fun bindAsrClient(
+        impl: RoutingAsrClient,
+    ): AsrClient
 
     @Binds
     @Singleton
@@ -67,49 +76,6 @@ abstract class VoiceModule {
     ): DeliveryRepository
 
     companion object {
-        @Provides
-        @Singleton
-        fun provideRemoteAsrTransport(
-            @IoDispatcher ioDispatcher: CoroutineDispatcher,
-        ): RemoteAsrTransport = HttpRemoteAsrTransport(
-            baseUrl = BuildConfig.ASR_BASE_URL,
-            ioDispatcher = ioDispatcher,
-        )
-
-        /**
-         * `vosk` remains the offline-safe default. `-PvivaAsrEngine=remote` swaps
-         * only the ASR adapter; microphone/VAD/NLU/safety stay on the same path.
-         */
-        @Provides
-        @Singleton
-        fun provideSpeechRecognitionEngine(
-            vosk: VoskSpeechRecognitionEngine,
-            remoteTransport: RemoteAsrTransport,
-            @IoDispatcher ioDispatcher: CoroutineDispatcher,
-        ): SpeechRecognitionEngine = when (BuildConfig.ASR_ENGINE.lowercase()) {
-            "vosk" -> vosk
-            "remote", "phowhisper" ->
-                RemotePhoWhisperSpeechRecognitionEngine(remoteTransport, ioDispatcher)
-            else -> error(
-                "Unsupported vivaAsrEngine=${BuildConfig.ASR_ENGINE}; expected vosk or remote",
-            )
-        }
-
-        /**
-         * Chủ sở hữu microphone **duy nhất** của app (28-PIPELINE §0, quyết định 1).
-         *
-         * Singleton vì đúng một thành phần được cầm mic: `AndroidPcmSource.start()`
-         * là no-op khi `AudioRecord` đang mở, nên hai session chồng nhau không tạo ra
-         * hai handle. `VoiceAssistantService` vốn đã chặn lượt thứ hai bằng
-         * `pipelineJob`; ràng buộc này là lớp thứ hai, không phải lớp duy nhất.
-         */
-        @Provides
-        @Singleton
-        fun provideAudioCapture(): AudioCapture = PcmSourceAudioCapture(
-            source = AndroidPcmSource(),
-            clock = SystemNanoClock,
-        )
-
         /**
          * The T0 grammar tier, bound here instead of being constructed inside
          * `ProcessVoiceCommandUseCase` so the N4 ablation can replace it with a
@@ -121,15 +87,60 @@ abstract class VoiceModule {
         @Singleton
         fun provideIntentRouter(): IntentRouter = GrammarIntentRouter()
 
-        /**
-         * Application-scoped: `TextToSpeech` init costs hundreds of
-         * milliseconds, and paying it inside a turn would land straight in the
-         * p95 the 1500ms claim is about. It owns its own audio focus, which is
-         * what ducks the music while the assistant answers (L7).
-         */
         @Provides
         @Singleton
         fun provideTtsSpeaker(@ApplicationContext context: Context): TtsSpeaker =
             AndroidTtsSpeaker(context)
+
+        @Provides
+        @Singleton
+        fun provideVoiceAgent(
+            asr: AsrClient,
+            gateway: CommandGateway,
+            router: IntentRouter,
+            tts: TtsSpeaker,
+            stateManager: VoiceAssistantStateManager,
+            recognitionResultHub: RecognitionResultHub,
+        ): VoiceAgent = VoiceAgent(
+            asr = asr,
+            router = router,
+            gateway = gateway,
+            tts = tts,
+            onResultReady = { result ->
+                if (result.transcript.isNotBlank()) {
+                    recognitionResultHub.publishPartial(result.transcript)
+                    recognitionResultHub.publishFinal(result.transcript)
+                } else {
+                    recognitionResultHub.cancel()
+                }
+                publishTurnUi(stateManager, result)
+            },
+        )
+
+        /** Shows spoken copy on the voice bar before TTS starts. */
+        fun publishTurnUi(
+            stateManager: VoiceAssistantStateManager,
+            result: VoiceTurnResult,
+            displayTranscript: String = result.transcript.ifBlank { "…" },
+        ) {
+            val heard = displayTranscript.takeIf { it.isNotBlank() && it != "…" }.orEmpty()
+            if (heard.isNotEmpty()) {
+                stateManager.transitionToProcessing(heard)
+            }
+            when (result.status) {
+                VoiceTurnStatus.APPLIED ->
+                    stateManager.transitionToSuccess(result.spokenVi, heardTranscript = heard)
+                VoiceTurnStatus.NEEDS_CLARIFICATION,
+                VoiceTurnStatus.NEEDS_CONFIRMATION,
+                -> stateManager.transitionToClarification(
+                    result.spokenVi,
+                    heardTranscript = heard,
+                )
+                VoiceTurnStatus.DENIED,
+                VoiceTurnStatus.UNSUPPORTED,
+                VoiceTurnStatus.FAILED,
+                -> stateManager.transitionToError(result.spokenVi, heardTranscript = heard)
+            }
+        }
     }
 }

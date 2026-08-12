@@ -9,11 +9,6 @@ import com.viva.voice.trace.Stage
 import com.viva.voice.trace.TraceVerdict
 import com.viva.voice.tts.TtsSpeaker
 
-/**
- * Boundary implemented by the app shell today and by VivaCarService/skills later.
- * Returning [CommandResult.Applied] means the downstream layer verified the new state; accepting
- * a request is not enough to produce a success response.
- */
 fun interface CommandGateway {
     suspend fun execute(intent: Intent, trace: LatencyTrace): CommandResult
 }
@@ -56,6 +51,8 @@ class VoiceAgent(
     private val router: IntentRouter,
     private val gateway: CommandGateway,
     private val tts: TtsSpeaker,
+    /** Invoked after the turn is decided and before TTS, so HMI can show spoken copy with audio. */
+    private val onResultReady: suspend (VoiceTurnResult) -> Unit = {},
 ) {
 
     suspend fun handleAudio(
@@ -65,7 +62,10 @@ class VoiceAgent(
     ): VoiceTurnResult {
         val recognised = try {
             asr.transcribe(pcm16, sampleRate, trace)
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            // Keep spoken copy user-facing; log the real ASR failure (e.g. viva-asr down /
+            // missing `adb reverse tcp:8080 tcp:8080`) so logcat is not just "unknown".
+            System.out.println("VIVA_VOICE|asr_exception|${error.javaClass.simpleName}|${error.message}")
             return finish(
                 VoiceTurnResult(
                     transcript = "",
@@ -99,10 +99,10 @@ class VoiceAgent(
     }
 
     /**
-     * Lối vào cho text đã có sẵn (bơm benchmark, HMI gõ tay).
+     * Entry point for text already available (benchmark inject, typed HMI).
      *
-     * Không có audio nên **không có** acoustic confidence — và đó chính là lý do lối
-     * này không được dùng để đo WER hay để claim một con số ASR nào.
+     * No audio means **no** acoustic confidence — so this path must not be used
+     * for WER or any ASR quality claim.
      */
     suspend fun handleText(text: String, trace: LatencyTrace): VoiceTurnResult =
         handleRecognisedText(text, trace)
@@ -212,6 +212,7 @@ class VoiceAgent(
         trace: LatencyTrace,
     ): VoiceTurnResult {
         return try {
+            onResultReady(result)
             tts.speak(result.spokenVi, trace)
             trace.summary(result.transcript, result.intent?.name ?: "unknown", verdict)
             result
@@ -221,8 +222,6 @@ class VoiceAgent(
                 result.intent?.name ?: "unknown",
                 TraceVerdict.Error(Stage.TTS_START),
             )
-            // Audio output is not command execution. Keep the verified status and HMI text;
-            // the Android speaker already attempts a short cue as its last fallback.
             result
         }
     }

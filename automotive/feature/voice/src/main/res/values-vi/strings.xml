@@ -5,4 +5,27 @@
     <string name="voice_idle_prompt">Chạm mic và nói lệnh</string>
     <string name="voice_listening">Đang nghe…</string>
     <string name="voice_processing">Đang hiểu lệnh…</string>
+    <string name="voice_assistant_label">Trợ lý giọng nói VIVA</string>
+    <string name="voice_assistant_settings_title">Cài đặt giọng nói VIVA</string>
+    <string name="hotword_enroll_title">Đăng ký “Vi-Vi ơi”</string>
+    <string name="hotword_settings_enable">Từ gọi “Vi-Vi ơi”</string>
+    <string name="hotword_settings_enable_hint">Gọi hands-free. Ưu tiên DSP SoundTrigger khi OEM đã enroll model; nếu không dùng KWS phần mềm trên thiết bị.</string>
+    <string name="hotword_settings_enroll">Đăng ký / đăng ký lại từ gọi</string>
+    <string name="hotword_settings_status">Trạng thái hotword: %1$s</string>
+    <string name="hotword_enroll_prompt">Nói “Vi-Vi ơi” rõ ràng, rồi chạm Dừng.</string>
+    <string name="hotword_enroll_start">Bắt đầu thu</string>
+    <string name="hotword_enroll_stop">Dừng và lưu</string>
+    <string name="hotword_enroll_saved">Đã lưu mẫu từ gọi</string>
+    <string name="voice_hotword_armed">Đang chờ từ gọi — nói “Vi-Vi ơi”</string>
+    <string name="voice_modal_wake_title">Vi-Vi</string>
+    <string name="voice_modal_wake_body">Đã nghe từ gọi. Đang nghe lệnh của bạn…</string>
+    <string name="voice_modal_wake_listening_title">Vi-Vi đang nghe</string>
+    <string name="voice_modal_listening_title">Đang nghe</string>
+    <string name="voice_modal_listening_body">Hãy nói lệnh của bạn</string>
+    <string name="voice_modal_processing_title">Đang xử lý</string>
+    <string name="voice_modal_clarify_title">Cần làm rõ thêm</string>
+    <string name="voice_modal_success_title">Xong</string>
+    <string name="voice_modal_error_title">Có lỗi xảy ra</string>
+    <string name="voice_heard_transcript">Bạn nói: “%1$s”</string>
+    <string name="voice_modal_dismiss">Đóng</string>
 </resources>

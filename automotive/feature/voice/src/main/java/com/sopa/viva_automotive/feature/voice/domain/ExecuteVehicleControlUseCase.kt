@@ -2,12 +2,15 @@ package com.sopa.viva_automotive.feature.voice.domain
 
 import com.sopa.viva_automotive.core.common.units.TemperatureUnits
 import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
+import com.sopa.viva_automotive.feature.media.domain.MediaRepository
+import com.sopa.viva_automotive.feature.media.domain.MediaSource
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliverySkill
 import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.vehicleservice.api.FanSpeed
+import com.sopa.viva_automotive.vehicleservice.api.LightSwitch
 import com.sopa.viva_automotive.vehicleservice.api.SafetyDeniedException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyConfirmationRequiredException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyRules
@@ -17,24 +20,19 @@ import com.sopa.viva_automotive.vehicleservice.api.VehicleProperties
 import com.sopa.viva_automotive.vehicleservice.api.VehicleRepository
 import com.sopa.viva_automotive.vehicleservice.api.VehicleWriteContext
 import com.sopa.viva_automotive.vehicleservice.api.VehicleZone
+import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 
 class CommandValidationException(message: String) : IllegalArgumentException(message)
 
-/**
- * The command was routed correctly but no adapter in this build can execute it.
- *
- * Separate from [CommandValidationException] so the HMI, the demo script and the
- * integration table can report "understood, not wired" without dressing it up as
- * a misheard command.
- */
 class CommandNotWiredException(message: String) : IllegalStateException(message)
 
 class ExecuteVehicleControlUseCase @Inject constructor(
     private val vehicleRepository: VehicleRepository,
     private val settingsDataStore: SettingsDataStore,
+    private val mediaRepository: MediaRepository,
     private val deliverySkill: DeliverySkill,
     private val volumeController: VolumeController,
     private val mediaCommandExecutor: MediaCommandExecutor,
@@ -121,15 +119,37 @@ class ExecuteVehicleControlUseCase @Inject constructor(
 
         is VehicleIntent.SetDoorLock -> setDoorLock(intent.locked)
 
+        is VehicleIntent.SetCabinLights ->
+            vehicleRepository
+                .setProperty(
+                    VehicleProperties.CABIN_LIGHTS_SWITCH,
+                    VehicleAreas.GLOBAL,
+                    if (intent.on) LightSwitch.ON else LightSwitch.OFF,
+                )
+                .map { VehicleControlResponses.cabinLights(intent.on) }
+
         is VehicleIntent.QueryStatus -> queryStatus(intent.kind)
 
-        // Delivery is in-app state, not a vehicle property: it goes to the
-        // skill directly and never touches vehicleRepository (§0.1).
         is VehicleIntent.Delivery -> deliverySkill.execute(intent.command)
 
-        is VehicleIntent.VolumeAdjust -> volumeController.adjust(intent.delta)
+        is VehicleIntent.VolumeAdjust -> {
+            val media = mediaRepository.adjustVolume(intent.delta)
+            if (media.isSuccess) media else volumeController.adjust(intent.delta)
+        }
 
-        is VehicleIntent.Media -> mediaCommandExecutor.execute(intent.command)
+        is VehicleIntent.Media -> when {
+            intent.command == MediaCommand.FAVORITE ->
+                mediaRepository.toggleFavoriteCurrent()
+            intent.command == MediaCommand.PLAY && !intent.query.isNullOrBlank() ->
+                mediaRepository.play(intent.query)
+            else -> mediaCommandExecutor.execute(intent.command)
+        }
+
+        is VehicleIntent.RadioTune -> mediaRepository.tuneRadio(intent.query)
+        is VehicleIntent.RadioNextStation -> {
+            mediaRepository.setSource(MediaSource.RADIO)
+            mediaRepository.next()
+        }
 
         is VehicleIntent.NotWired ->
             Result.failure(
@@ -141,18 +161,14 @@ class ExecuteVehicleControlUseCase @Inject constructor(
         is VehicleIntent.Clarification ->
             Result.failure(CommandValidationException(intent.promptVi))
 
-        // 03-contracts.md §4, G3_UNSUPPORTED: câu ngoài 10 intent lõi bị **từ
-        // chối có lý do**, không phải im lặng hay báo lỗi kỹ thuật. Không Skill
-        // nào được gọi.
-        //
-        // Chặn ở đây chứ không ở `GuardedVehicleRepository` vì một câu ngoài
-        // phạm vi không sinh ra lệnh ghi property nào để mà chặn ở biên đó.
+        // 03-contracts.md §4, G3_UNSUPPORTED: câu ngoài phạm vi cabin bị từ chối
+        // có lý do + gợi ý sửa — không im lặng.
         is VehicleIntent.Unknown ->
             Result.failure(
                 SafetyDeniedException(
                     rule = SafetyRules.UNSUPPORTED,
-                    reasonVi = "Mình chỉ hỗ trợ điều hoà, cửa xe, âm lượng, nhạc và lộ trình giao hàng.",
-                    suggestion = "Bạn thử nói lại theo một trong các nhóm đó nhé.",
+                    reasonVi = VoiceTurnReport.OUT_OF_SCOPE,
+                    suggestion = VoiceTurnReport.OUT_OF_SCOPE_HINT,
                 ),
             )
     }

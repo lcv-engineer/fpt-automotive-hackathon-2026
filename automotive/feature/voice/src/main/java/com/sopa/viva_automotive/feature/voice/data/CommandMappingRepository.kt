@@ -31,7 +31,13 @@ class CommandMappingRepository @Inject constructor(
         val hasVietnamese = existing.any { entity ->
             entity.keywords.contains("bật điều hòa") || entity.keywords.contains("đặt nhiệt độ")
         }
-        if (existing.isNotEmpty() && hasVietnamese) return
+        val hasMedia = existing.any { entity ->
+            entity.intentType == VehicleIntentTypes.MEDIA_PLAY
+        }
+        val hasRadio = existing.any { entity ->
+            entity.intentType == VehicleIntentTypes.RADIO_TUNE
+        }
+        if (existing.isNotEmpty() && hasVietnamese && hasMedia && hasRadio) return
 
         dao.deleteAll()
         dao.insertAll(DEFAULT_MAPPINGS)
@@ -136,6 +142,50 @@ class CommandMappingRepository @Inject constructor(
                 10,
                 "what temperature", "current temperature", "how warm is it", "how cold is it",
                 "nhiệt độ bao nhiêu", "nhiệt độ hiện tại", "bao nhiêu độ",
+            ),
+            entity(
+                VehicleIntentTypes.MEDIA_PAUSE,
+                20,
+                "pause music", "pause the music", "stop the music", "stop music",
+                "pause song", "dừng nhạc", "tạm dừng nhạc", "dừng bài",
+            ),
+            entity(
+                VehicleIntentTypes.MEDIA_NEXT,
+                20,
+                "next song", "next track", "skip song", "skip track", "skip this song",
+                "chuyển bài", "bài tiếp", "bài tiếp theo", "qua bài",
+            ),
+            entity(
+                VehicleIntentTypes.MEDIA_PLAY,
+                15,
+                "play music", "play some music", "play the music", "play song",
+                "play some jazz", "play jazz", "start music",
+                "phát nhạc", "bật nhạc", "phát bài",
+            ),
+            entity(
+                VehicleIntentTypes.RADIO_NEXT,
+                22,
+                "next station", "next radio station", "seek station",
+                "đài tiếp", "đài tiếp theo", "chuyển đài", "qua đài",
+            ),
+            entity(
+                VehicleIntentTypes.RADIO_TUNE,
+                18,
+                "play radio", "turn on the radio", "turn on radio", "tune radio",
+                "tune to", "fm radio",
+                "bật radio", "bật đài", "mở đài", "nghe đài", "mở radio",
+            ),
+            entity(
+                VehicleIntentTypes.VOLUME_UP,
+                15,
+                "volume up", "turn up the volume", "louder", "increase volume",
+                "tăng âm lượng", "to hơn", "lớn tiếng hơn",
+            ),
+            entity(
+                VehicleIntentTypes.VOLUME_DOWN,
+                15,
+                "volume down", "turn down the volume", "quieter", "decrease volume",
+                "giảm âm lượng", "nhỏ hơn", "nhỏ tiếng hơn",
             ),
         )
 

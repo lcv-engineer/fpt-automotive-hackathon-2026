@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OEM allowlist for the privileged car permissions used by the real flavor.
-     Push to /system/etc/permissions/ (or /vendor/etc/permissions/) alongside a
-     privileged install of the APK; see README "Running the real flavor". -->
+<!-- OEM allowlist for privileged permissions used by the real flavor.
+     Push to /system/etc/permissions/ alongside a privileged install of the APK;
+     see README "Running the real flavor".
+     Missing allowlist entries for signature|privileged permissions crash
+     system_server on userdebug ("not in privileged permission allowlist"). -->
 <permissions>
     <privapp-permissions package="com.sopa.viva_automotive">
+        <permission name="android.permission.CAPTURE_AUDIO_HOTWORD" />
+        <permission name="android.permission.MANAGE_SOUND_TRIGGER" />
+        <permission name="android.permission.MEDIA_CONTENT_CONTROL" />
         <permission name="android.car.permission.CONTROL_CAR_CLIMATE" />
         <permission name="android.car.permission.CONTROL_CAR_DOORS" />
         <permission name="android.car.permission.CONTROL_CAR_INTERIOR_LIGHTS" />

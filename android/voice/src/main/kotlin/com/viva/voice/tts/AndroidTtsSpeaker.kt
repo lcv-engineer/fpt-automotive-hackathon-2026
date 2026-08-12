@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaPlayer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.viva.voice.hotword.HotwordGate
 import com.viva.voice.trace.LatencyTrace
 import com.viva.voice.trace.Stage
 import java.io.Closeable
@@ -61,12 +62,18 @@ class AndroidTtsSpeaker(
     override suspend fun speak(text: String, trace: LatencyTrace) {
         require(text.isNotBlank()) { "TTS text must not be blank" }
 
-        withAudioFocus(audioFocus, ::stopPlayback) { ensureFocus ->
-            if (canSpeakVietnamese() && speakWithEngine(text, trace)) return@withAudioFocus
-            ensureFocus()
-            if (rawPlayer.play(text, trace)) return@withAudioFocus
+        // Pause always-on hotword for the whole utterance to avoid self-wake.
+        HotwordGate.pause("tts")
+        try {
+            withAudioFocus(audioFocus, ::stopPlayback) { ensureFocus ->
+                if (canSpeakVietnamese() && speakWithEngine(text, trace)) return@withAudioFocus
+                ensureFocus()
+                if (rawPlayer.play(text, trace)) return@withAudioFocus
 
-            error("No Vietnamese TTS voice or pre-rendered prompt for: $text")
+                error("No Vietnamese TTS voice or pre-rendered prompt for: $text")
+            }
+        } finally {
+            HotwordGate.resume("tts")
         }
     }
 

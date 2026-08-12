@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OEM bring-up: install as
+  vendor/.../data/etc/permissions/privapp_allowlist_com.sopa.viva_automotive.xml
+  (and the .mock variant if used) and preload the APK under /product/priv-apps
+  or /vendor/priv-apps. See AOSP Integration flows → Permissions.
+-->
+<permissions>
+    <privapp-permissions package="com.sopa.viva_automotive">
+        <permission name="android.permission.CAPTURE_AUDIO_HOTWORD" />
+        <permission name="android.permission.MANAGE_SOUND_TRIGGER" />
+        <permission name="android.permission.MEDIA_CONTENT_CONTROL" />
+        <permission name="android.car.permission.CONTROL_CAR_CLIMATE" />
+        <permission name="android.car.permission.CONTROL_CAR_DOORS" />
+        <permission name="android.car.permission.CONTROL_CAR_INTERIOR_LIGHTS" />
+        <permission name="android.car.permission.READ_CAR_INTERIOR_LIGHTS" />
+    </privapp-permissions>
+    <privapp-permissions package="com.sopa.viva_automotive.mock">
+        <permission name="android.permission.CAPTURE_AUDIO_HOTWORD" />
+        <permission name="android.permission.MANAGE_SOUND_TRIGGER" />
+        <permission name="android.permission.MEDIA_CONTENT_CONTROL" />
+    </privapp-permissions>
+</permissions>

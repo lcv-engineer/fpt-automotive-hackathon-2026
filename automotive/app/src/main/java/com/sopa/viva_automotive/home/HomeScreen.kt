@@ -45,26 +45,24 @@ fun HomeScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(
-            text = stringResource(R.string.home_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            NowPlayingMediaCard(
-                playback = playback,
-                onPlayPause = viewModel::togglePlayPause,
-                onNext = viewModel::next,
-                onPrevious = viewModel::previous,
-                onOpenMedia = onOpenMedia,
+            Column(
                 modifier = Modifier.weight(1f),
-            )
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                WeatherCard()
+                NowPlayingMediaCard(
+                    playback = playback,
+                    onPlayPause = viewModel::togglePlayPause,
+                    onNext = viewModel::next,
+                    onPrevious = viewModel::previous,
+                    onOpenMedia = onOpenMedia,
+                )
+            }
             RadioMediaCard(
                 playback = playback,
                 stations = playback.stations,

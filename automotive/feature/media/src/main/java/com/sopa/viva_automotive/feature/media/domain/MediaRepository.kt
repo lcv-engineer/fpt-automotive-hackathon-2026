@@ -12,7 +12,28 @@ interface MediaRepository {
     fun adjustVolume(delta: Int): Result<String>
     fun setMediaVolume(volume: Float): Result<String>
 
+    /**
+     * Windows-style communications duck: lower in-app media gain while the
+     * voice session owns the mic/reply path. Does not use AudioFocus (AAOS
+     * often maps ASSISTANT → [LOSS_TRANSIENT], which can leave playback silent).
+     */
+    fun setVoiceDucked(ducked: Boolean)
+
     suspend fun setSource(source: MediaSource): Result<String>
     suspend fun tuneRadio(query: String? = null): Result<String>
     suspend fun selectStation(stationId: String): Result<String>
+    suspend fun selectTrack(trackId: String): Result<String>
+    suspend fun refreshLibrary(): Result<String>
+
+    fun cycleRepeatMode(): Result<String>
+    fun cyclePlaybackSpeed(): Result<String>
+    fun cycleAudioQuality(): Result<String>
+    suspend fun toggleFavoriteCurrent(): Result<String>
+    fun setFavoritesFilter(enabled: Boolean): Result<String>
+
+    /** Absolute seek (ms). */
+    fun seekTo(positionMs: Long): Result<String>
+
+    /** Relative seek — positive = fast-forward, negative = rewind. */
+    fun seekBy(deltaMs: Long): Result<String>
 }
