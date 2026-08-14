@@ -17,10 +17,19 @@ name: carsky-push-asr-image
 #
 # ## Push xong thì CHƯA phải deploy xong
 #
-# `PATCH /api/v1/nodes/{nodeId}` trả **404** — không đổi được image của node
-# bằng API. Sau khi workflow này in ra digest, phải vào **web UI CarSky** đổi
-# trường image của node `VIVA ASR`, rồi mới chạy `carsky-deploy-asr` để restart
-# và xác minh. Chi tiết ở docs/backend-docs/carsky-api.md §9c.
+# Sau khi workflow này in ra digest, chạy `carsky-deploy-asr` với digest đó. Nó
+# tự PATCH image vào blueprint rồi dựng lại — không phải vào web UI đổi tay.
+#
+# ⚠️ Đoạn này trước đây ghi *"`PATCH /api/v1/nodes/{nodeId}` trả 404 — không đổi
+# được image bằng API, phải vào web UI"*. **SAI, và đã sửa 14/08.** 404 đó là do
+# lấy đường dẫn từ `openapi.json`, vốn khai thiếu tiền tố `/blueprints`:
+#
+#   PATCH /api/v1/nodes/{nodeId}              -> 404   (openapi.json — SAI)
+#   PATCH /api/v1/blueprints/nodes/{nodeId}   -> 200   (Car-Sky-Platform.html)
+#
+# `carsky-deploy-asr` đã dùng đường đúng và gọi thật thành công. Nguồn đúng khi
+# `openapi.json` mâu thuẫn là `Car-Sky-Platform.html`, mục "API & MCP Tools" —
+# xem docs/backend-docs/carsky-runbook.md §1.
 
 on:
   workflow_dispatch:

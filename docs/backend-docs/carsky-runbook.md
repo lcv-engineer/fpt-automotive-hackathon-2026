@@ -102,6 +102,9 @@ image `0.2.1`, dựng deployment **mới** trên device thứ hai → ASR `Runni
 6. ⚠️ CÀI LẠI APK + chạy lại khối lệnh mạng eth1        (xem §5, §6)
 ```
 
+Bước 2-5 đã được đóng gói thành `carsky-deploy-asr` với `mode=recreate` (từ
+14/08) — xem §12.D. Bước 6 vẫn phải làm tay, không có đường tự động.
+
 ### ⚠️ Bước 3 xoá sạch máy ảo Android
 
 Đây là điều dễ quên nhất và đắt nhất. `DELETE /deployments` không chỉ tắt
@@ -743,15 +746,36 @@ curl -fsS -H "x-api-key: $KEY" \
 1. gh workflow run carsky-push-asr-image -f tag=<mới> -f hf_model=vinai/PhoWhisper-tiny \
        -f model_name=phowhisper-tiny-int8
 2. Lấy digest từ registry hoặc step summary
-3. PATCH /api/v1/blueprints/nodes/{nodeId}  {"config": {…env cũ…, "image": "…@sha256:…"}}
-   ⚠️ ĐỌC config cũ rồi TRỘN — gửi mỗi `image` có thể xoá sạch env
-4. DELETE /api/v1/deployments/{roomId}
-5. POST   /api/v1/deployments {blueprintId, roomId, name: "…"}
-6. Chờ 22/22 (~3 phút)
-7. Cài lại APK (§7) + chạy lại khối lệnh mạng (§6)
+3. gh workflow run carsky-deploy-asr -f image=<...@sha256:...> \
+       -f mode=recreate -f confirm_room=v37aa3knc6t1embelr5yi -f dry_run=false
+4. Cài lại APK (§7) + chạy lại khối lệnh mạng (§6) + chọn lại ngôn ngữ giọng nói
 ```
 
-**Làm ngoài giờ duyệt.** Bước 4 huỷ mọi thứ trên VM Android.
+Bước 3 gói trọn PATCH → DELETE → POST → chờ đủ node Running. Từ **14/08** nó nằm
+trong workflow chứ không còn phải gõ tay; chuỗi REST bên dưới vẫn y nguyên:
+
+```
+PATCH  /api/v1/blueprints/nodes/{nodeId}  {"config": {…env cũ…, "image": "…@sha256:…"}}
+       ⚠️ ĐỌC config cũ rồi TRỘN — gửi mỗi `image` có thể xoá sạch env
+DELETE /api/v1/deployments/{roomId}
+POST   /api/v1/deployments {blueprintId, roomId, name}
+```
+
+**Hai chế độ, chọn đúng cái:**
+
+| | `mode=restart` | `mode=recreate` |
+|---|---|---|
+| Làm gì | PATCH + `restart/{node}` | PATCH + DELETE + POST |
+| Áp được image mới? | **Không chắc** — pod lên lại theo spec K8s cũ | Có, đã đo |
+| Bán kính | 1 container | cả room, **xoá VM Android** |
+| Thời gian | ~50s | ~3 phút + 20-30 phút cài tay |
+
+Chạy `restart` trước cho rẻ; kiểm log `?container=user` xem dòng `VIVA_ASR model
+ready ... : <model>` có đúng bản mới không. Sai thì mới `recreate`.
+
+**Làm ngoài giờ duyệt.** `recreate` đòi gõ đúng room id vào `confirm_room` —
+chốt chặn cố ý, vì DELETE huỷ mọi thứ trên VM Android và không hoàn tác được.
+`dry_run=true` (mặc định) in ra kế hoạch mà không ghi gì.
 
 ---
 

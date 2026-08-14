@@ -1,7 +1,44 @@
 name: carsky-deploy-asr
 
-# Restart container `viva-asr` trên CarSky sau khi đã đổi image, và xác minh nó
-# trở lại Running.
+# Đổi image container `viva-asr` trên CarSky và xác minh nó trở lại Running.
+#
+# ## HAI CHẾ ĐỘ — `restart` nhanh nhưng KHÔNG chắc áp được image mới
+#
+#   mode=restart   PATCH image -> POST restart/{node} -> chờ node Running
+#   mode=recreate  PATCH image -> DELETE deployment  -> POST deployment mới
+#                                -> chờ TOÀN BỘ node Running
+#
+# `restart` là mặc định vì bán kính ảnh hưởng nhỏ (một container). Nhưng nó có
+# một lỗ hổng đã đo được, và đây là lý do `recreate` tồn tại:
+#
+# `POST /deployments/{room}/restart/{node}` chỉ chạy lại pod **theo spec K8s hiện
+# có** — nó không đọc lại blueprint. Pod lên lại vẫn mang image **cũ**, trong khi
+# blueprint đã ghi image mới và mọi bước verify đều xanh. Tức là job báo thành
+# công mà **không đổi gì**. Nút `Redeploy` trong Deployment Viewer đáng lẽ là thứ
+# vá chỗ này, nhưng đã thử 3 lần đều trả `Partial redeploy: 1 node(s) failed` và
+# không lộ lý do (runbook §2, §4).
+#
+# Cách duy nhất đã chứng minh áp được image mới là **xoá deployment rồi dựng
+# lại**: cùng blueprint, cùng image `0.2.1`, dựng deployment mới -> ASR `Running`
+# sau 9 giây. Đó là `mode=recreate`.
+#
+# ## 🔴 `recreate` XOÁ SẠCH MÁY ẢO ANDROID — đọc trước khi bấm
+#
+# `DELETE /deployments/{roomId}` không chỉ tắt container. Nó **huỷ cả VM
+# Android**, node skycraft boot lại từ artifact gốc. Mất hết:
+#
+#   - APK đã cài (phải cài lại tay qua widget `IVI ADB` — không tự động được)
+#   - Cấu hình mạng `eth1` (chỉ nằm trong RAM)
+#   - Mọi thiết lập trong app, gồm **ngôn ngữ giọng nói** -> app quay về tiếng
+#     Anh, Vosk nạp `model-en-us`, mọi câu tiếng Việt sai bét
+#
+# Tức chạy `recreate` là ký nhận ~20-30 phút thao tác tay sau đó, và room không
+# dùng được trong lúc ấy. **Đừng chạy trong giờ tổng duyệt.** Vì thế nó đòi gõ
+# đúng room id vào ô `confirm_room` — không có cách bấm nhầm.
+#
+# Muốn không gián đoạn: dựng trước một deployment thứ hai trên device khác
+# (`VIVA (Copy)` = `wcmfnwigjse4hv9r8s0e3`), xác nhận đủ node Running, rồi mới
+# recreate cái cũ. Quota `MAX_CONCURRENT_DEPLOYMENTS=2` cho phép đúng hai.
 #
 # ## ⚠️ `openapi.json` ghi SAI đường dẫn PATCH — đừng lấy path từ đó
 #
@@ -39,17 +76,16 @@ name: carsky-deploy-asr
 # lại. Thiếu giai đoạn một thì một lệnh restart không ăn gì sẽ trông y hệt một
 # lần deploy thành công.
 #
-# ## Sau khi PATCH vẫn cần một cú bấm tay: Redeploy
+# ## Vì sao không có bước "Redeploy" ở đây
 #
 # Tài liệu mục 3.7 "Khi nào cần redeploy": *đổi artifact/image dùng trong node*
 # và *cấu hình node thay đổi* đều thuộc nhóm PHẢI redeploy. Mà **redeploy không
 # có endpoint REST** — đã grep cả `openapi.json`, không có redeploy/reconcile/
-# sync/apply. Nó là nút trong Deployment Viewer.
+# sync/apply. Nó chỉ là nút trong Deployment Viewer, và nút đó đã fail 3/3 lần.
 #
-# Workflow này vẫn gọi `restart/{node}` sau khi PATCH, nhưng ĐỪNG coi restart là
-# đủ: theo tài liệu, thứ áp dụng bản blueprint mới vào Room đang chạy là
-# Redeploy. Bấm Redeploy nếu ASR vẫn chạy image cũ sau khi job này xanh.
-# Bán kính ảnh hưởng nhỏ: "Redeploy: chỉ restart các node có thay đổi".
+# Nên workflow không gọi được redeploy, và cũng không nên đợi nó: `mode=recreate`
+# đạt cùng kết quả bằng hai lệnh REST có thật. Nếu chạy `mode=restart` mà ASR vẫn
+# hành xử như bản cũ thì đừng bấm Redeploy — chạy lại với `mode=recreate`.
 #
 # ⚠️ Blueprint có cờ `Locked` để chống sửa nhầm lúc đang demo. Bật khoá thì bước
 # PATCH sẽ fail — đó là có chủ đích, đừng gỡ khoá giữa buổi duyệt.
@@ -75,6 +111,10 @@ name: carsky-deploy-asr
 # Cài APK lên node Android. Cần `adb`, mà họ endpoint điều khiển VM chưa dùng
 # được (xem docs/backend-docs/carsky-api.md §4). Đây là CD cho **service ASR**,
 # không phải CD cho app — đừng gọi nhầm tên trong báo cáo.
+#
+# Hệ quả cay nhất: `mode=recreate` **phá** thứ nó không dựng lại được. Nó xoá VM
+# Android rồi để đó, còn việc cài lại APK và khôi phục `eth1` thì con người phải
+# làm tay. Job in checklist ở step summary — đừng đóng tab trước khi làm xong.
 
 on:
   workflow_dispatch:
@@ -93,8 +133,31 @@ on:
         required: true
         default: "b8eada00-d137-4fdc-a131-2197b1d1356b"
         type: string
+      mode:
+        # restart  = nhẹ, một container, KHÔNG chắc áp được image mới
+        # recreate = chắc chắn áp được, nhưng XOÁ VM Android (APK + eth1 + cài đặt app)
+        description: "restart (nhẹ, có thể không áp được image mới) | recreate (chắc chắn, XOÁ VM Android)"
+        required: true
+        default: "restart"
+        type: choice
+        options:
+          - restart
+          - recreate
+      confirm_room:
+        # Chốt chặn duy nhất trước một thao tác không hoàn tác được. Cố ý bắt gõ
+        # lại room id thay vì tick một ô: tick nhầm rất dễ, gõ nhầm 21 ký tự thì
+        # không. Chỉ đọc khi mode=recreate.
+        description: "CHỈ cho recreate: gõ lại room id để xác nhận sẽ xoá VM Android"
+        required: false
+        default: ""
+        type: string
+      deployment_name:
+        description: "Tên deployment mới (bỏ trống = tự sinh viva-asr-<ngày>-<run>)"
+        required: false
+        default: ""
+        type: string
       dry_run:
-        description: "Chỉ in ra thay đổi sẽ làm, không gọi PATCH/restart"
+        description: "Chỉ in ra thay đổi sẽ làm, không gọi PATCH/restart/DELETE"
         required: true
         default: true
         type: boolean
@@ -111,7 +174,7 @@ env:
 
 jobs:
   deploy:
-    name: PATCH digest + restart node
+    name: PATCH digest + ${{ inputs.mode }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -136,6 +199,19 @@ jobs:
             *@sha256:*) ;;
             *) echo "::warning::Đang dùng tag chứ không phải digest. Tag là con trỏ động — bản deploy sẽ không lặp lại được." ;;
           esac
+
+      - name: chốt chặn cho recreate
+        if: ${{ inputs.mode == 'recreate' && !inputs.dry_run }}
+        run: |
+          # `DELETE /deployments` là thao tác KHÔNG hoàn tác được: nó huỷ VM
+          # Android cùng APK, cấu hình eth1 và mọi thiết lập trong app. Không có
+          # snapshot, không có undo. Nên nó phải khó bấm nhầm hơn mọi bước khác
+          # trong file này.
+          if [ "${{ inputs.confirm_room }}" != "${{ inputs.room_id }}" ]; then
+            echo "::error::confirm_room không khớp room_id. Gõ đúng '${{ inputs.room_id }}' để xác nhận xoá VM Android."
+            exit 1
+          fi
+          echo "::warning::mode=recreate — VM Android của room ${{ inputs.room_id }} sẽ bị xoá. APK và cấu hình eth1 phải cài lại tay."
 
       - name: đọc trạng thái hiện tại
         id: current
@@ -169,19 +245,36 @@ jobs:
           # Config đầy đủ, để bước PATCH trộn chứ không ghi đè — xem đầu file.
           echo "$NODE" | jq -c '.config' > /tmp/config-old.json
 
+          # Số node đang chạy, đọc TRƯỚC khi đụng vào gì. `recreate` cần con số
+          # này để biết khi nào deployment mới lên đủ.
+          #
+          # ĐẾM chứ không chép cứng "22": blueprint 6deadb05 có 22 node, bản
+          # RMbeXxTF trước đó có 21. Chép cứng thì đổi blueprint là job chờ mãi
+          # một con số không bao giờ tới, hoặc tệ hơn, báo xanh khi còn thiếu.
+          NODES=$(curl -fsS -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/nodes")
+          TOTAL=$(echo "$NODES" | jq 'length')
+          RUNNING=$(echo "$NODES" | jq '[.[] | select(.phase == "Running")] | length')
+          echo "Node hiện tại: $RUNNING/$TOTAL Running"
+          if [ "$RUNNING" != "$TOTAL" ]; then
+            echo "::warning::Room chưa lành trước khi bắt đầu ($RUNNING/$TOTAL). Cân nhắc dừng lại."
+          fi
+
           echo "blueprint=$BP"        >> "$GITHUB_OUTPUT"
           echo "old_image=$OLD_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "total_nodes=$TOTAL"   >> "$GITHUB_OUTPUT"
 
           {
             echo "### Trạng thái trước khi đổi"
             echo ""
             echo "| | |"
             echo "|---|---|"
+            echo "| chế độ | \`${{ inputs.mode }}\` |"
             echo "| room | \`$ROOM\` |"
             echo "| blueprint | \`$BP\` |"
             echo "| node | \`${{ inputs.node_id }}\` ($(echo "$NODE" | jq -r .label)) |"
             echo "| image trên node | \`$OLD_IMAGE\` |"
             echo "| image mong đợi | \`${{ inputs.image }}\` |"
+            echo "| node đang chạy | $RUNNING/$TOTAL |"
             echo ""
             echo "Config hiện tại của node:"
             echo ""
@@ -193,8 +286,30 @@ jobs:
       - name: dừng ở đây nếu dry-run
         if: ${{ inputs.dry_run }}
         run: |
-          echo "dry_run=true — không restart."
-          echo "Chạy lại với dry_run=false để áp dụng." >> "$GITHUB_STEP_SUMMARY"
+          echo "dry_run=true — không ghi gì."
+          {
+            echo ""
+            echo "### Sẽ làm gì nếu chạy thật"
+            echo ""
+            if [ "${{ inputs.mode }}" = "recreate" ]; then
+              echo "1. \`PATCH /blueprints/nodes/{node}\` — đổi image, giữ nguyên env"
+              echo "2. \`DELETE /deployments/{room}\` — 🔴 **huỷ cả VM Android**"
+              echo "3. \`POST /deployments\` — dựng lại từ blueprint"
+              echo "4. chờ toàn bộ node Running (~3 phút, skycraft chậm nhất)"
+              echo "5. **người làm tay:** cài lại APK + khối lệnh mạng eth1 + chọn lại ngôn ngữ giọng nói"
+              echo ""
+              echo "Chạy lại với \`dry_run=false\` **và** \`confirm_room=\` đúng room id để áp dụng."
+            else
+              echo "1. \`PATCH /blueprints/nodes/{node}\` — đổi image, giữ nguyên env"
+              echo "2. \`POST /deployments/{room}/restart/{node}\` — chỉ container ASR"
+              echo "3. chờ node rời rồi quay lại Running"
+              echo ""
+              echo "⚠️ \`restart\` không đọc lại blueprint — pod có thể lên lại với image **cũ**"
+              echo "mà job vẫn xanh. Nếu ASR hành xử như bản cũ, chạy lại với \`mode=recreate\`."
+              echo ""
+              echo "Chạy lại với \`dry_run=false\` để áp dụng."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: PATCH image của node
         if: ${{ !inputs.dry_run }}
@@ -230,7 +345,7 @@ jobs:
           echo "Da xac minh: image doi dung, env con $GOT_ENV bien."
 
       - name: restart node
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && inputs.mode == 'restart' }}
         run: |
           set -uo pipefail
           # Chỉ node này, KHÔNG phải `POST /deployments/{room}/restart` (cả room).
@@ -256,7 +371,7 @@ jobs:
 
       - name: chờ node Running trở lại
         id: verify
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && inputs.mode == 'restart' }}
         run: |
           set -uo pipefail
           KEY='${{ secrets.CARSKY_API_KEY }}'
@@ -265,6 +380,25 @@ jobs:
               "$BASE/deployments/${{ inputs.room_id }}/nodes" \
               | jq -r --arg id '${{ inputs.node_id }}' '.[] | select(.name == $id) | .phase'
           }
+
+          # `name` trong /nodes KHONG phai luon la UUID cua node.
+          #
+          #   blueprint 6deadb05 (08/08) : name = "b8eada00-d137-..."  <- UUID
+          #   blueprint RMbeXxTF (truoc) : name = "rmbexxtf5zvk...-n1" <- slug
+          #
+          # Bang chung: evidence/carsky/signals-rest-0808/00-nodes-live.json va
+          # backend/carsky/nodes.json. Neu room duoc dung lai bang blueprint tra
+          # ve dang slug thi select() khong khop gi va phase_now tra RONG — khi
+          # do giai doan 1 "pass" ngay lap tuc vi rong != Running, roi giai doan
+          # 2 cho du 300s va bao mot loi sai hoan toan nguyen nhan.
+          #
+          # Nen kiem mot lan truoc, va noi thang neu khong khop.
+          if [ -z "$(phase_now)" ]; then
+            echo "::error::Khong tim thay node ${{ inputs.node_id }} trong /deployments/${{ inputs.room_id }}/nodes."
+            echo "Truong .name o day co the la slug (<blueprint>-nN) thay vi UUID. Kiem bang:"
+            echo "  curl -H \"x-api-key: \$KEY\" $BASE/deployments/${{ inputs.room_id }}/nodes | jq '.[].name'"
+            exit 1
+          fi
 
           # GIAI DOAN 1 — xac nhan restart THAT SU xay ra.
           #
@@ -303,12 +437,147 @@ jobs:
             echo ""
             echo "### Node đã Running"
             echo ""
-            echo "⚠️ **Chưa chắc nó đang chạy image MỚI.** Tài liệu CarSky mục 3.7 nói"
-            echo "đổi image thì phải **Redeploy**, mà redeploy không có endpoint REST —"
-            echo "workflow này chỉ gọi được \`restart/{node}\`."
+            echo "⚠️ **Chưa chắc nó đang chạy image MỚI.** \`restart/{node}\` chạy lại pod"
+            echo "theo spec K8s hiện có, không đọc lại blueprint — pod có thể lên lại với"
+            echo "image cũ trong khi bước này vẫn xanh."
             echo ""
-            echo "Mở Deployment Viewer và bấm **Redeploy** nếu ASR vẫn hành xử như bản cũ."
-            echo "Nút đó chỉ restart các node có thay đổi, không đụng 21 node còn lại."
+            echo "Kiểm bằng log của chính container (đây là bằng chứng, không phải phase):"
+            echo ""
+            echo '```bash'
+            echo "curl -fsS -H \"x-api-key: \$KEY\" \\"
+            echo "  \"$BASE/deployments/${{ inputs.room_id }}/logs/${{ inputs.node_id }}?container=user&tail=20\" | jq -r '.lines[]'"
+            echo '```'
+            echo ""
+            echo "Dòng \`VIVA_ASR model ready ... : <model>\` phải khớp model của image mới."
+            echo "Nếu vẫn là bản cũ → chạy lại workflow với **\`mode=recreate\`**."
+            echo "Đừng bấm \`Redeploy\` trong UI: đã thử 3/3 lần đều \`Partial redeploy: 1 node(s) failed\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: xoá deployment rồi dựng lại
+        id: recreate
+        if: ${{ !inputs.dry_run && inputs.mode == 'recreate' }}
+        run: |
+          set -uo pipefail
+          KEY='${{ secrets.CARSKY_API_KEY }}'
+          ROOM='${{ inputs.room_id }}'
+          BP='${{ steps.current.outputs.blueprint }}'
+          TOTAL='${{ steps.current.outputs.total_nodes }}'
+          NAME='${{ inputs.deployment_name }}'
+          [ -n "$NAME" ] || NAME="viva-asr-$(date -u +%m%d)-${{ github.run_number }}"
+
+          # `BP` doc tu buoc `current`, tuc TRUOC khi xoa. Bat buoc: sau DELETE
+          # thi `find?device=` tra [] va khong con duong nao lay lai blueprint id
+          # cua room — job se dung giua chung voi room TRONG. Do la trang thai
+          # xau nhat co the roi vao.
+          if [ -z "$BP" ]; then
+            echo "::error::Khong co blueprint id — tu choi xoa deployment."
+            exit 1
+          fi
+
+          echo "== DELETE /deployments/$ROOM"
+          # Khong `-f`: ho endpoint nay tung tra 500 ma van thuc thi (xem dau
+          # file). Ghi lai ma, phan xet bang he qua o vong doi ben duoi.
+          DC=$(curl -s -o /tmp/delete-resp.txt -w "%{http_code}" \
+               -X DELETE "$BASE/deployments/$ROOM" -H "x-api-key: $KEY")
+          echo "DELETE tra HTTP $DC"; cat /tmp/delete-resp.txt || true
+
+          # He qua can quan sat: room khong con deployment. `/status` tra 404
+          # hoac trang thai roi RUNNING.
+          GONE=no
+          D=$(( $(date +%s) + 180 ))
+          while [ "$(date +%s)" -lt "$D" ]; do
+            SC=$(curl -s -o /tmp/status.json -w "%{http_code}" \
+                 -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/status")
+            ST=$(jq -r '.status // .phase // empty' /tmp/status.json 2>/dev/null || echo "")
+            echo "cho deployment bien mat... http=$SC status=$ST"
+            if [ "$SC" = "404" ] || [ "$ST" = "DELETED" ] || [ "$ST" = "NOT_FOUND" ]; then
+              GONE=yes; break
+            fi
+            sleep 5
+          done
+          if [ "$GONE" != "yes" ]; then
+            echo "::error::Deployment cu khong bien mat sau 180s. KHONG POST de tranh dung hai deployment len cung room."
+            exit 1
+          fi
+
+          echo "== POST /deployments  blueprint=$BP name=$NAME"
+          PC=$(curl -s -o /tmp/post-resp.json -w "%{http_code}" \
+               -X POST "$BASE/deployments" \
+               -H "x-api-key: $KEY" -H "Content-Type: application/json" \
+               -d "$(jq -nc --arg b "$BP" --arg r "$ROOM" --arg n "$NAME" \
+                     '{blueprintId:$b, roomId:$r, name:$n}')")
+          echo "POST tra HTTP $PC"; cat /tmp/post-resp.json || true
+          case "$PC" in
+            2*) ;;
+            *) echo "::error::POST /deployments tra $PC — room dang TRONG. Xem buoc lui phia duoi."; exit 1 ;;
+          esac
+
+          # Thoi gian thuc do 08/08 (runbook §2): 20s -> Provisioning,
+          # 60s -> 21/22, 180s -> 22/22. Node skycraft (VM Android) boot cham
+          # nhat. Deadline 420s de con bien cho may cham hon binh thuong.
+          DEADLINE=$(( $(date +%s) + 420 ))
+          RUN=0
+          while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+            NODES=$(curl -fsS -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/nodes" 2>/dev/null || echo "[]")
+            RUN=$(echo "$NODES" | jq '[.[] | select(.phase == "Running")] | length')
+            NOW=$(echo "$NODES" | jq 'length')
+            echo "$RUN/$NOW Running (mong doi $TOTAL)"
+            [ "$RUN" = "$TOTAL" ] && break
+            sleep 15
+          done
+          echo "running=$RUN" >> "$GITHUB_OUTPUT"
+          if [ "$RUN" != "$TOTAL" ]; then
+            echo "::error::Chi $RUN/$TOTAL node Running sau 420s."
+            curl -fsS -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/nodes" \
+              | jq -r '.[] | select(.phase != "Running") | "  \(.displayName): \(.phase) \(.message // "")"' || true
+            exit 1
+          fi
+          echo "Deployment moi len du $TOTAL node."
+
+      - name: việc phải làm tay sau recreate
+        if: ${{ !inputs.dry_run && inputs.mode == 'recreate' && steps.recreate.outcome == 'success' }}
+        run: |
+          # Day KHONG phai trang tri. VM Android vua boot lai tu artifact goc —
+          # room "xanh" nhung app thi khong co tren may. Ai doc log ma bo qua
+          # doan nay se tuong deploy da xong.
+          {
+            echo ""
+            echo "### ✅ Deployment mới đã lên đủ node"
+            echo ""
+            echo "🔴 **Chưa xong.** VM Android đã boot lại từ artifact gốc — mất APK, mất"
+            echo "cấu hình \`eth1\`, mất thiết lập trong app. Ba việc sau phải làm tay,"
+            echo "không có đường tự động (\`adb-exec\`/\`container-exec\` vẫn 502 Conduit):"
+            echo ""
+            echo "**1. Khôi phục mạng** — widget \`IVI ADB\` → part \`face-adb\`, dán TỪNG dòng:"
+            echo ""
+            echo '```sh'
+            echo "su 0 sh"
+            echo "ip addr add 10.99.0.14/24 dev eth1"
+            echo "ip link set eth1 up"
+            echo "ip rule add to 10.99.0.0/24 lookup main priority 100"
+            echo "exit"
+            echo "curl -s -m 5 http://10.99.0.3:8080/health"
+            echo '```'
+            echo ""
+            echo "Dòng \`ip rule\` là mấu chốt — thiếu nó thì root gọi được mà app thì timeout."
+            echo "Phải kiểm bằng user thường (sau \`exit\`), vì Android định tuyến theo UID."
+            echo ""
+            echo "**2. Cài lại APK** — tải từ artifact private \`viva-apk\`, dùng đường dẫn tuyệt đối:"
+            echo ""
+            echo '```sh'
+            echo "curl -L -o /data/local/tmp/viva.apk <URL>"
+            echo "pm install -r /data/local/tmp/viva.apk"
+            echo "pm grant com.sopa.viva_automotive.mock android.permission.RECORD_AUDIO"
+            echo '```'
+            echo ""
+            echo "Gặp \`INSTALL_FAILED_UPDATE_INCOMPATIBLE\` → \`pm uninstall\` rồi cài sạch."
+            echo "Đối chiếu \`sha256sum\` với bản build trước khi tin."
+            echo ""
+            echo "**3. Chọn lại ngôn ngữ giọng nói → Tiếng Việt** trong Cài đặt của app."
+            echo "Mặc định là tiếng Anh; bỏ qua bước này thì mọi câu tiếng Việt sai bét và"
+            echo "triệu chứng nhìn y hệt \"mic hỏng\"."
+            echo ""
+            echo "Chi tiết đầy đủ: \`docs/backend-docs/carsky-runbook.md\` §6, §7."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: lùi lại image cũ nếu node không lên
@@ -321,7 +590,7 @@ jobs:
         #
         # Chỉ lùi khi bước verify kết luận node THẬT SỰ không lên được — đó mới
         # là tình huống đáng đánh đổi để quay về bản cũ.
-        if: ${{ always() && !inputs.dry_run && steps.verify.outcome == 'failure' && steps.current.outputs.old_image != '' }}
+        if: ${{ always() && !inputs.dry_run && inputs.mode == 'restart' && steps.verify.outcome == 'failure' && steps.current.outputs.old_image != '' }}
         run: |
           set -euo pipefail
           echo "::warning::Lùi node về ${{ steps.current.outputs.old_image }}"
@@ -342,6 +611,59 @@ jobs:
             echo "### ⚠️ Đã lùi lại"
             echo ""
             echo "Node được trả về \`${{ steps.current.outputs.old_image }}\` và restart."
-            echo "Bấm **Redeploy** trong Deployment Viewer để chắc chắn bản cũ được áp lại,"
-            echo "rồi kiểm bằng mắt trước khi coi là xong."
+            echo "⚠️ \`restart\` không đọc lại blueprint, nên **chưa chắc bản cũ đã được áp**."
+            echo "Kiểm bằng log \`?container=user\`. Nếu vẫn sai, chạy \`mode=recreate\` với image cũ."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: cứu room nếu recreate hỏng giữa chừng
+        # Tinh huong te nhat cua ca file nay: DELETE da chay xong, POST that bai
+        # hoac deployment moi khong len du node. Room dang TRONG hoac dang o
+        # trang thai do dang, va khong ai dang truc.
+        #
+        # Muc tieu o day KHONG phai cuu ban moi — la dua room ve mot trang thai
+        # co the demo duoc. Nen: PATCH image cu, roi dung lai tu blueprint.
+        #
+        # ⚠️ Cai nay KHONG khoi phuc duoc VM Android. APK va eth1 da mat tu luc
+        # DELETE, va khong lenh REST nao lay lai duoc. Van phai lam tay.
+        if: ${{ always() && !inputs.dry_run && inputs.mode == 'recreate' && steps.recreate.outcome == 'failure' && steps.current.outputs.old_image != '' }}
+        run: |
+          set -uo pipefail
+          KEY='${{ secrets.CARSKY_API_KEY }}'
+          ROOM='${{ inputs.room_id }}'
+          BP='${{ steps.current.outputs.blueprint }}'
+
+          echo "::warning::recreate hỏng — lùi blueprint về ${{ steps.current.outputs.old_image }} và dựng lại"
+          jq -n --slurpfile c /tmp/config-old.json '{config: $c[0]}' > /tmp/rollback.json
+          curl -fsS -X PATCH "$BASE/blueprints/nodes/${{ inputs.node_id }}" \
+            -H "x-api-key: $KEY" -H "Content-Type: application/json" \
+            --data @/tmp/rollback.json || echo "::warning::PATCH lui that bai"
+
+          # Chi POST khi room that su dang trong. Neu deployment cu van con
+          # (DELETE chua an) thi POST them mot cai nua la dam vao quota va co
+          # the de lai hai ban ghi tren cung room.
+          SC=$(curl -s -o /dev/null -w "%{http_code}" -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/status")
+          if [ "$SC" = "404" ]; then
+            RC=$(curl -s -o /tmp/rb-post.json -w "%{http_code}" -X POST "$BASE/deployments" \
+                 -H "x-api-key: $KEY" -H "Content-Type: application/json" \
+                 -d "$(jq -nc --arg b "$BP" --arg r "$ROOM" '{blueprintId:$b, roomId:$r, name:"viva-asr-rollback-${{ github.run_number }}"}')")
+            echo "POST (rollback) tra HTTP $RC"; cat /tmp/rb-post.json || true
+          else
+            echo "Room van con deployment (status http=$SC) — khong POST them."
+          fi
+
+          {
+            echo ""
+            echo "### 🔴 recreate hỏng — đã cố cứu room"
+            echo ""
+            echo "Blueprint được trả về \`${{ steps.current.outputs.old_image }}\` và dựng lại từ đó."
+            echo ""
+            echo "**Không khôi phục được VM Android.** APK, cấu hình \`eth1\` và thiết lập"
+            echo "trong app đã mất từ lúc \`DELETE\` — phải cài lại tay (runbook §6, §7)."
+            echo ""
+            echo "Kiểm bằng mắt trước khi coi là xong:"
+            echo ""
+            echo '```bash'
+            echo "curl -fsS -H \"x-api-key: \$KEY\" \"$BASE/deployments/$ROOM/status\""
+            echo "curl -fsS -H \"x-api-key: \$KEY\" \"$BASE/deployments/$ROOM/nodes\" | jq -r '.[] | \"\\(.displayName): \\(.phase)\"'"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
