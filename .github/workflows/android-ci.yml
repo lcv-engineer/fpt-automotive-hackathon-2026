@@ -90,7 +90,26 @@ jobs:
             done
           } | tee "$manifest"
 
+      # Skipped on pull_request. Each upload is ~769 MB (2 x ~384 MB APKs), and
+      # every push to a PR branch produced another one. On 2026-08-12 that filled
+      # the account's artifact storage: run 31615914878 passed lint, tests and
+      # both APK builds, then died with
+      #
+      #   Failed to CreateArtifact: Artifact storage quota has been hit.
+      #
+      # 17 APK artifacts were holding 12.51 GB of a 12.69 GB total. Green builds
+      # were reported as failures for a reason that had nothing to do with the
+      # code, which is the expensive kind of noise.
+      #
+      # PRs still run lint, tests and both APK builds — only the upload is gone.
+      # Need an APK from a PR branch? Run the workflow manually on that branch
+      # (workflow_dispatch), or read the sha256 from the "Record artifact
+      # identity" step log, which still runs everywhere.
+      #
+      # Keep this in sync with evidence/c2/artifact-identity-ci.txt: the APK that
+      # evidence quotes must come from a push to main, not a PR run.
       - name: Upload APKs and identity manifest
+        if: ${{ github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v4
         with:
           name: viva-aaos-apks-${{ github.sha }}
@@ -99,7 +118,10 @@ jobs:
             automotive/app/build/outputs/apk/real/debug/app-real-debug.apk
             automotive/app/build/outputs/apk/artifact-manifest.txt
           if-no-files-found: error
-          retention-days: 14
+          # 14 days x 769 MB per push to main is what broke the quota. Five days
+          # covers the "grab yesterday's build" case; anything older should be
+          # rebuilt from the commit, which is reproducible anyway.
+          retention-days: 5
           # APKs are already ZIP archives; recompressing ~668 MB only wastes runner time.
           compression-level: 0
 
