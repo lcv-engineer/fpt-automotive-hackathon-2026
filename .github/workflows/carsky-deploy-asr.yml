@@ -6,7 +6,7 @@ name: carsky-deploy-asr
 #
 #   mode=restart   PATCH image -> POST restart/{node} -> chờ node Running
 #   mode=recreate  PATCH image -> DELETE deployment  -> POST deployment mới
-#                                -> chờ TOÀN BỘ node Running
+#                                -> chờ room lên lại, phán xét theo node ASR
 #
 # `restart` là mặc định vì bán kính ảnh hưởng nhỏ (một container). Nhưng nó có
 # một lỗ hổng đã đo được, và đây là lý do `recreate` tồn tại:
@@ -56,10 +56,12 @@ name: carsky-deploy-asr
 # vẹn. Bài học: `openapi.json` của CarSky khai sai cả địa chỉ, không chỉ khai
 # thừa endpoint. Đối chiếu với tài liệu người viết trước khi tin.
 #
-# Cùng lớp lỗi này, `docs/backend-docs/carsky-api.md` §10 kết luận "pin ETHERNET
-# chỉ tạo được trong web UI" dựa trên `POST /nodes/{nodeId}/pins` -> 404. Đường
-# thật nhiều khả năng là `POST /api/v1/blueprints/nodes/{nodeId}/pins` — CHƯA
-# THỬ, vì thêm pin là thao tác ghi không dò khan được.
+# Cùng lớp lỗi này, `carsky-api.md` §10 kết luận "pin ETHERNET chỉ tạo được
+# trong web UI" dựa trên `POST /nodes/{nodeId}/pins` -> 404. Đã kiểm lại trên
+# một blueprint clone tạm: đường đúng là `/blueprints/nodes/{id}/pins` và nó
+# TỒN TẠI, nhưng trả 422 `Pin type ... is not allowed on container nodes.
+# Allowed: CAN, KUKSA, VIDEO`. Kết luận của §10 vẫn đúng, chỉ cơ chế khác —
+# là giới hạn thiết kế, không phải route thiếu. Xem runbook §10.
 #
 # ## `restart/{node}` trả 500 nhưng VẪN CHẠY — đừng tin mã HTTP
 #
@@ -463,7 +465,10 @@ jobs:
           BP='${{ steps.current.outputs.blueprint }}'
           TOTAL='${{ steps.current.outputs.total_nodes }}'
           NAME='${{ inputs.deployment_name }}'
-          [ -n "$NAME" ] || NAME="viva-asr-$(date -u +%m%d)-${{ github.run_number }}"
+          # Timestamp toi giay: ten phai khac deployment vua xoa, va mot lan
+          # chay lai (re-run) cua CUNG job giu nguyen run_number nen chi dua vao
+          # no la co the trung ten. (Y nay lay tu PR #36.)
+          [ -n "$NAME" ] || NAME="viva-asr-$(date -u +%Y%m%d-%H%M%S)"
 
           # `BP` doc tu buoc `current`, tuc TRUOC khi xoa. Bat buoc: sau DELETE
           # thi `find?device=` tra [] va khong con duong nao lay lai blueprint id
@@ -516,23 +521,41 @@ jobs:
           # 60s -> 21/22, 180s -> 22/22. Node skycraft (VM Android) boot cham
           # nhat. Deadline 420s de con bien cho may cham hon binh thuong.
           DEADLINE=$(( $(date +%s) + 420 ))
-          RUN=0
+          RUN=0; ASR=""
           while [ "$(date +%s)" -lt "$DEADLINE" ]; do
             NODES=$(curl -fsS -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/nodes" 2>/dev/null || echo "[]")
             RUN=$(echo "$NODES" | jq '[.[] | select(.phase == "Running")] | length')
             NOW=$(echo "$NODES" | jq 'length')
-            echo "$RUN/$NOW Running (mong doi $TOTAL)"
+            ASR=$(echo "$NODES" | jq -r --arg id '${{ inputs.node_id }}' '.[] | select(.name == $id) | .phase')
+            echo "$RUN/$NOW Running (mong doi $TOTAL) | ASR=${ASR:-chua co}"
             [ "$RUN" = "$TOTAL" ] && break
             sleep 15
           done
-          echo "running=$RUN" >> "$GITHUB_OUTPUT"
-          if [ "$RUN" != "$TOTAL" ]; then
-            echo "::error::Chi $RUN/$TOTAL node Running sau 420s."
+          echo "running=$RUN/$TOTAL" >> "$GITHUB_OUTPUT"
+
+          # PHAN XET THEO NODE ASR, khong theo ca room.
+          #
+          # ASR la node DUY NHAT job nay chiu trach nhiem. Neu bat mot node khac
+          # lam dieu kien fail thi mot lan `IVI - Android` boot cham qua 420s se
+          # keo ca job xuong -> rollback chay -> XOA VA DUNG LAI THEM MOT LAN
+          # nua, trong khi ASR da chay dung image moi. Tuc lay mot node cham lam
+          # co de pha them mot vong, va vong do lai xoa VM Android lan hai.
+          #
+          # Room chua du thi canh bao va de nguoi kiem bang mat — dung tu dong
+          # lui. (Y nay lay tu PR #36.)
+          if [ "$ASR" != "Running" ]; then
+            echo "::error::Node ASR khong len duoc (phase: ${ASR:-khong thay})"
             curl -fsS -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/nodes" \
               | jq -r '.[] | select(.phase != "Running") | "  \(.displayName): \(.phase) \(.message // "")"' || true
             exit 1
           fi
-          echo "Deployment moi len du $TOTAL node."
+          if [ "$RUN" != "$TOTAL" ]; then
+            echo "::warning::ASR da Running nhung room moi $RUN/$TOTAL — kiem lai bang mat."
+            curl -fsS -H "x-api-key: $KEY" "$BASE/deployments/$ROOM/nodes" \
+              | jq -r '.[] | select(.phase != "Running") | "  cho: \(.displayName): \(.phase) \(.message // "")"' || true
+          else
+            echo "Deployment moi len du $TOTAL node."
+          fi
 
       - name: việc phải làm tay sau recreate
         if: ${{ !inputs.dry_run && inputs.mode == 'recreate' && steps.recreate.outcome == 'success' }}
@@ -542,7 +565,7 @@ jobs:
           # doan nay se tuong deploy da xong.
           {
             echo ""
-            echo "### ✅ Deployment mới đã lên đủ node"
+            echo "### Deployment mới đã dựng — node ASR đang Running (\`${{ steps.recreate.outputs.running }}\` node sẵn sàng)"
             echo ""
             echo "🔴 **Chưa xong.** VM Android đã boot lại từ artifact gốc — mất APK, mất"
             echo "cấu hình \`eth1\`, mất thiết lập trong app. Ba việc sau phải làm tay,"
