@@ -20,7 +20,7 @@ cụ thể lúc gấp rút trước deadline.
 nhánh `dev` riêng, branch feature checkout thẳng từ `main`.
 
 > ⚠️ **Sửa 03/08 — bản trước mô tả một luồng không tồn tại.** File này từng ghi
-> `feature/* → dev → main`, nhưng remote `lcv-back/fpt-automotive-hackathon`
+> `feature/* → dev → main`, nhưng remote `lcv-engineer/fpt-automotive-hackathon-2026`
 > **không có nhánh `dev`** và chưa bao giờ có. Một quy tắc mô tả sai thực tế thì
 > tệ hơn không có quy tắc: người mới làm theo sẽ `git checkout dev` và fail ngay.
 > Luồng thật, thống nhất với `03-contracts.md` §9, là **`feature/* → main`**.
@@ -135,7 +135,7 @@ Ví dụ không đạt: `update code`, `fix bug`, `wip`, `asdf`.
   tách bằng dấu `:` **đầu tiên**. Hiện thực ở `internal/domain/verdict.go`,
   test ở `verdict_test.go`.
 - ~~`backend/` có phải repo chung cả đội không~~ — ✅ **đã rõ 03/08**: đây là repo
-  chung (`lcv-back/fpt-automotive-hackathon`), và **remote không có nhánh `dev`**.
+  chung (`lcv-engineer/fpt-automotive-hackathon-2026`), và **remote không có nhánh `dev`**.
   Quy tắc branch ở đầu file mô tả luồng `feature/* → dev → main` **không khớp
   thực tế**; luồng đang dùng là `feature/* → main` đúng như `03-contracts.md` §9.
   Xem mục "Quy tắc branch" đã sửa ở trên.
