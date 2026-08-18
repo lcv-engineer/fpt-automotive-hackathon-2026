@@ -1,6 +1,6 @@
 # VIVA Digital Cockpit
 
-[![android-ci](https://github.com/lcv-back/fpt-automotive-hackathon/actions/workflows/android-ci.yml/badge.svg)](https://github.com/lcv-back/fpt-automotive-hackathon/actions/workflows/android-ci.yml)
+[![android-ci](https://github.com/lcv-engineer/fpt-automotive-hackathon-2026/actions/workflows/android-ci.yml/badge.svg)](https://github.com/lcv-engineer/fpt-automotive-hackathon-2026/actions/workflows/android-ci.yml)
 
 VIVA là prototype buồng lái số cho Android Automotive OS (AAOS), tập trung vào trợ lý giọng nói offline, điều khiển HVAC/cửa, media và quan sát độ trễ đầu-cuối. Mục tiêu của Vòng 2 là chứng minh luồng do đội sở hữu có ranh giới rõ ràng, đo được và không bỏ qua tầng an toàn/service khi thực thi lệnh xe.
 
