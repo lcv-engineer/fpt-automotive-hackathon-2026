@@ -2,34 +2,35 @@
 
 [![android-ci](https://github.com/lcv-engineer/fpt-automotive-hackathon-2026/actions/workflows/android-ci.yml/badge.svg)](https://github.com/lcv-engineer/fpt-automotive-hackathon-2026/actions/workflows/android-ci.yml)
 
-VIVA là prototype buồng lái số cho Android Automotive OS (AAOS), tập trung vào trợ lý giọng nói offline, điều khiển HVAC/cửa, media và quan sát độ trễ đầu-cuối. Mục tiêu của Vòng 2 là chứng minh luồng do đội sở hữu có ranh giới rõ ràng, đo được và không bỏ qua tầng an toàn/service khi thực thi lệnh xe.
+VIVA là prototype buồng lái số cho Android Automotive OS (AAOS), tập trung vào trợ lý giọng nói tiếng Việt, điều khiển HVAC/cửa, media và quan sát độ trễ đầu-cuối. Hệ thống được tổ chức logic thành **VIVA Voice · VIVA Brain · VIVA Body** và không cho đường thực thi bỏ qua tầng an toàn ở biên vehicle repository.
 
 ## Trạng thái hiện tại
 
 | Hạng mục | Trạng thái | Bằng chứng / giới hạn |
 |---|---|---|
 | App AAOS, UI HVAC/vehicle status, mock repository | **Đã tích hợp** | Hai flavor `mock` và `real` build được; mock dùng simulator trong bộ nhớ |
-| Voice core: trace, một nguồn PCM, Silero VAD, grammar 10 intent, TTS | **Đã tích hợp ở mức code/build** | 258 test JVM, lint và hai APK build xanh 09/08; nghe/thu trong cabin vẫn là Device Integration Gate |
+| Voice core: trace, một nguồn PCM, Silero VAD, grammar intent, TTS | **Đã tích hợp** | Active runtime đi qua `VoiceAgent` và `GrammarIntentRouter`; số test/build phải lấy từ lần chạy gần nhất trước khi trình bày |
 | Audio focus cho TTS | **Đã tích hợp ở mức code/build** | Xin transient focus trước khi nói, trả focus sau success/failure; kiểm chứng ducking với media thật trên Device còn chờ |
-| Vosk/DistilUSE assets và pipeline hiện hữu của app | **Đã tích hợp ở mức code/build** | `AndroidPcmSource` là nơi duy nhất mở mic; cùng PCM qua `VadStreamDriver` rồi Vosk; mic thật/Device còn chờ |
+| Keyword/embedding/Vosk assets hoặc code lịch sử | **Không nằm trên active path** | Active ASR là viva-asr HTTP hoặc Google theo Settings; active router được bind là `GrammarIntentRouter` |
 | `FakeAsrClient`, dữ liệu TTS/noise synthetic, mock vehicle | **Mô phỏng** | Dùng cho test tái lập, không được xem là bằng chứng cabin/xe thật |
 | `DeliverySkill` — 3 intent giao hàng | **Mô phỏng** | Lộ trình in-memory do đội tạo; unit test, Hilt và APK build xanh; dữ liệu không phải dispatch thật |
 | `SafetyGuard` ở biên `VehicleRepository` | **Mô phỏng** | Chặn cả voice và HMI trên mock/emulator; A1: bỏ guard làm 6/9 lệnh nguy hiểm ghi được xuống repository. VHAL Device pending |
 | Voice → MediaBrowser → MediaSession/ExoPlayer | **Đã kiểm chứng trên CarSky Device — từ NLU đến media, mock/debug** | APK đúng SHA-256 đã cài trên Device `VIVA`; text-injection qua đúng pipeline tạo `media_play`/`media_pause`/`media_next|Allow`, MediaSession đổi `PLAYING → PAUSED` và active item `0 → 1`. Chưa kiểm mic/VAD/ASR, TTS/audio-focus; xem `evidence/c2/carsky-runtime-20260809/` |
 | Benchmark harness + bộ 22 câu + runner PASS/FAIL | **Đã tích hợp** *(công cụ)* | `go test ./...` xanh; chạy ra CSV thật trên fixture. Số đo **trên Device** thì chưa có |
 | `VivaCarService` → VHAL → gateway → CAN/CCU | **Kế hoạch / tích hợp đội** | Contract đã chốt; quyền privileged và luồng Device phải được chứng minh riêng |
-| ASR container `viva-asr` | **Đã tích hợp ở mức container/platform** | Image đã được CarSky pull theo digest, node `VIVA ASR` và 22/22 node `Running`; APK hiện vẫn dùng Vosk on-device, chưa có client gọi container nên chưa được claim app→container |
+| ASR container `viva-asr` | **Đã có client HTTP trong app** | `RoutingAsrClient` chọn viva-asr HTTP hoặc Google theo Settings; việc node CarSky có thực sự phục vụ lượt demo hiện tại phải xác nhận bằng log runtime |
 
 Không claim toàn bộ 10 intent đi tới CAN. Chỉ `hvac_*` và `door_lock` thuộc đường Vehicle Property; media, volume và delivery đi qua adapter riêng. Xem [contract tích hợp](vong2/03-contracts.md).
 
 ## Kiến trúc
 
+Tài liệu chuẩn cho kiến trúc hiện tại và hướng tái cấu trúc:
+[`VIVA Voice–Brain–Body`](docs/architecture/VIVA-VOICE-BRAIN-BODY.md).
+
 ```text
-AndroidPcmSource (AudioRecord duy nhất)
-  → VadStreamDriver (Silero VAD, pre-roll 500 ms)
-  → VoskSpeechRecognitionEngine (cùng dòng PCM)
-  → ProcessVoiceCommandUseCase (grammar → keyword → DistilUSE)
-  → ExecuteVehicleControlUseCase
+VIVA Voice: wake/PTT → mic → Silero VAD → RoutingAsrClient [viva-asr HTTP | Google]
+  → VIVA Brain: VoiceAgent → GrammarIntentRouter → AppCommandGateway/CoreIntentMapper
+  → VIVA Body: ExecuteVehicleControlUseCase
       ├─ HVAC / door → GuardedVehicleRepository → SafetyGuard → Mock/RealVehicleRepository
       ├─ media       → MediaBrowser/MediaController → VivaMediaBrowserService → MediaSession/ExoPlayer
       ├─ volume      → Android audio adapter
@@ -47,6 +48,10 @@ automotive/                 app AAOS, feature modules, vehicle-service API/impl
 android/voice/              voice-core JVM + Android adapters
 asr/                        service ASR tiếng Việt `viva-asr` (Python) + Dockerfile
 backend/                    Go benchmark harness, bộ câu benchmark và CarSky devops helper
+embedded/                   Script Luau VHAL↔CAN, UDS/DTC simulator và 4 script kiểm thử Python
+GATEWAY/                    Lua script node do nền tảng CarSky cấp (để đối chiếu, không phải team-owned)
+evidence/                   bằng chứng chạy thật: ablation, ASR corpus, emulator, CarSky Device
+docs/                       tài liệu — xem bảng cấu trúc ngay dưới
 vong2/03-contracts.md       interface và mapping intent → PropertyID → VSS → CAN
 vong2/13-M7A-*.md           tình huống phức tạp và hành vi mong đợi
 vong2/14-KICH-BAN-*.md      kịch bản demo 3 phút và đường thoát lỗi
@@ -55,6 +60,21 @@ vong2/22-N3-*.md            baseline manifest: nền tảng cấp gì, đội x�
 vong2/23-N4-*.md            quy trình ablation A1/A2/A3
 vong2/24-N5-*.md            bảng ba trạng thái integration + dữ liệu synthetic
 vong2/25-CARSKY-*.md        runbook CI → artifact identity → ADB → Device evidence
+```
+
+Thư mục `docs/`:
+
+```text
+docs/btc/                   thể lệ, terms, webinar và template của BTC
+docs/platform/              trang tài liệu CarSky / AI Edge / Middleware (bản lưu .html)
+docs/bai-nop/vong1/         proposal Vòng 1 (md, pdf, pptx)
+docs/bai-nop/vong2/         slide pitch và bản nộp cuối Vòng 2 (docx, pdf, pptx)
+docs/bao-cao/               báo cáo tiến độ gửi mentor
+docs/backend-docs/          API CarSky, runbook devops, thiết kế viva-asr
+docs/dbc/                   DBC/VSS thật export từ CarSky — bản duy nhất trong repo
+docs/nhat-ky/               nhật ký công việc và log tin nhắn BTC/mentor + anh/
+docs/nghien-cuu/            nghiên cứu tham chiếu (ViVi của VinFast)
+docs/superpowers/           spec và implementation plan
 ```
 
 ## Build và kiểm thử
@@ -105,7 +125,7 @@ docker build -t viva-asr:phowhisper-tiny-int8 .  # build image kèm model đã c
 
 ## Triển khai lên CarSky
 
-> ⚠️ Quy trình dưới đây viết theo endpoint đã xác nhận trong `docs/Car-Sky-Platform.html`
+> ⚠️ Quy trình dưới đây viết theo endpoint đã xác nhận trong `docs/platform/Car-Sky-Platform.html`
 > và runbook nội bộ; **chưa chạy đủ đầu-cuối tại thời điểm viết** vì cần credential và
 > Room thật. Ai chạy được trước thì sửa lại mục này theo đúng thứ tự lệnh thực tế.
 
@@ -118,10 +138,10 @@ docker build -t viva-asr:phowhisper-tiny-int8 .  # build image kèm model đã c
    Lệnh này luôn export backup trước và từ chối clone nếu backup lỗi.
 2. **Tra node và pin** của Room để biết CCU/CAN/VHAL nằm ở đâu:
    `go run ./cmd/viva-tools carsky nodes --room <roomId> --out nodes.json`
-3. **Container `viva-asr` đã được CarSky pull thành công** theo digest. Đây mới là
-   proof image/platform; source APK hiện tại dùng Vosk on-device và chưa có
-   `BuildConfig.ASR_BASE_URL`/client gọi container. Không claim app→container cho
-   tới khi đường đó được implement và có request/response evidence.
+3. **Container `viva-asr` đã được CarSky pull thành công** theo digest và app đã có
+   `HttpAsrClient`/`RoutingAsrClient`. Tuy nhiên endpoint có thể trỏ localhost qua
+   `adb reverse`, CarSky hoặc Google tùy Settings/build config. Không claim lượt demo
+   đi qua node CarSky cho tới khi có request/response log cùng `traceId` ở hai đầu.
 4. **Mở adb tunnel** rồi cài APK:
    `go run ./cmd/viva-tools carsky adb-tunnel --room <roomId>` → `adb connect <host:port>` → `adb install`.
 5. **Bắt log và đo**: `.\scripts\run_benchmark.ps1 -Variant <mức nhiễu> -Adb`.
@@ -164,7 +184,7 @@ Sau khi đăng ký rule, cần bổ sung mapper/action ở module sở hữu dom
 - [Runbook tổng duyệt C2 10 phút](vong2/19-TONG-DUYET-C2-10-PHUT.md)
 - [Write-up câu chuyện AI Vòng 2](vong2/20-WRITE-UP-AI-VONG-2.md)
 - [Q&A BGK theo Claim–Evidence Map](vong2/21-QA-BGK-VONG-2.md)
-- [Slide pitch Vòng 2](docs/VIVA_Pitch_Vong2.pptx)
+- [Slide pitch Vòng 2](docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx)
 - [Plan cá nhân và các Device Integration Gate](vong2/07-PLAN-CA-NHAN-LONG.md)
 - [Baseline Manifest N3 — nền tảng cấp gì, đội xây gì](vong2/22-N3-BASELINE-MANIFEST.md)
 - [Ablation N4 — quy trình A1/A2/A3](vong2/23-N4-ABLATION.md)
@@ -172,7 +192,8 @@ Sau khi đăng ký rule, cần bổ sung mapper/action ở module sở hữu dom
 
 ## Mã nguồn mở và tài sản mô hình
 
-- Vosk Android `0.3.75` — Apache-2.0; model EN/VI theo license của từng model upstream.
+- Vosk Android `0.3.75` và model EN/VI còn tồn tại như tài sản lịch sử/offline trong workspace,
+  nhưng không được bind vào active runtime; license vẫn phải được giữ nếu tiếp tục phân phối tài sản.
 - ONNX Runtime Android `1.20.0` — MIT.
 - Silero VAD `v6.2.1` — MIT; bản license được giữ tại `android/voice/third_party/silero-vad-LICENSE`.
 - AndroidX, Kotlin, Coroutines, Hilt và Room — xem version catalog tại `automotive/gradle/libs.versions.toml` và license upstream tương ứng.

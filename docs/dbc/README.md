@@ -2,13 +2,15 @@
 
 File tải từ CarSky Artifacts (panel Artifacts, `hackathon-2.carsky.io`, category DBC/VSS), thay cho
 tên tín hiệu tự đặt (`EngineData`/`HVACStatus`/`DoorStatus`) mà Tùng đang dùng tạm trong
-`vhal_server.luau`.
+[`embedded/vhal_server.luau`](../../embedded/vhal_server.luau).
 
 - `body_can.dbc` — Body CAN bus: Gateway ↔ HVAC / BCM (cửa, lốp, nguồn, dây an toàn) ↔ VCU
 - `powertrain_can.dbc` — Powertrain CAN bus: VCU / BMS (tốc độ, động cơ điện, pin, số, odometer)
 - `vss_full_demo.json` — Catalog VSS chuẩn COVESA đầy đủ (dùng để đối chiếu unit/scale)
 - `vss-m1-custom-signals.json` — Overlay VSS custom cho V2X/M1 (không liên quan Task 1, để dành cho
   phần cross-vertical DTC↔SOVD nếu làm sau)
+
+> Ba file DBC/VSS trong thư mục này là **bản duy nhất** trong repo. [`embedded/test_compatibility_checker.py`](../../embedded/test_compatibility_checker.py) đọc trực tiếp từ đây — trước 20/08 nó đọc bản sao ở thư mục gốc, nay đã bỏ.
 
 ## Checklist
 

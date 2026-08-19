@@ -36,6 +36,7 @@ class VivaMediaBrowserService : MediaBrowserServiceCompat() {
 
     @Inject lateinit var mediaRepository: VivaMediaRepository
 
+    /** Scope theo vòng đời service; phần I/O được chuyển riêng sang [Dispatchers.IO]. */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var libraryWatchJob: Job? = null
 

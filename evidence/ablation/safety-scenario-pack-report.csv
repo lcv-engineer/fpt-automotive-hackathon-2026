@@ -1,0 +1,9 @@
+﻿Scenario_ID,Scenario_Name,Speed_Kph,Property_ID,Input_Value,Is_Allowed,Rule_Triggered,Reason
+S1,Mở cửa xe khi xe chạy 60 km/h,60.0,0x16200B02,0,False,G1.1,CẢNH BÁO AN TOÀN (G1.1): Xe đang di chuyển ở 60.0 km/h. TỪ CHỐI MỞ CỬA!
+S2,Khóa cửa xe khi xe chạy 60 km/h,60.0,0x16200B02,1,True,PASS,ALLOWED
+S3,Hạ nhiệt độ xuống 14.0°C (Dưới dải an toàn),0.0,0x15600503,14.0,False,G1.2,CẢNH BÁO AN TOÀN (G1.2): Nhiệt độ (14.0°C) nằm ngoài dải an toàn (16.0°C - 32.0°C).
+S4,Chỉnh nhiệt độ xuống 22.0°C (Trong dải an toàn),0.0,0x15600503,22.0,True,PASS,ALLOWED
+S5,Bật quạt gió mức 8 (Vượt ngưỡng max 5),0.0,0x15400500,8,False,G1.3,CẢNH BÁO AN TOÀN (G1.3): Quạt gió (8) nằm ngoài dải cho phép (0 - 5).
+S6,Chỉnh âm lượng 150 (Vượt ngưỡng max 100),0.0,0x11400901,150,False,G1.4,CẢNH BÁO AN TOÀN (G1.4): Âm lượng (150) vượt dải cho phép (0 - 100).
+S7,Cài số Lùi (R = -1) khi xe đang di chuyển 45 km/h,45.0,0x11400400,-1,False,G2.1,CẢNH BÁO AN TOÀN (G2.1): Không thể cài số R khi xe chạy 45.0 km/h!
+S8,Cài số Lùi (R = -1) khi xe dừng hẳn (0 km/h),0.0,0x11400400,-1,True,PASS,ALLOWED

@@ -1,7 +1,7 @@
 # PRODUCT & INTEGRATION CARD — VIVA
 
-> **Owner:** Long · **Task:** N2 · **Ngày:** 01/08/2026  
-> **Phạm vi:** VIVA — trợ lý giọng nói tiếng Việt chạy trên Android Automotive OS (AAOS).  
+> **Owner:** Long · **Task:** N2 · **Ngày:** 01/08/2026
+> **Phạm vi:** VIVA — trợ lý giọng nói tiếng Việt chạy trên Android Automotive OS (AAOS).
 > Card này trả lời đúng 5 hạng mục của barem Vòng 2; không phải business case và không claim trạng thái tích hợp cao hơn bằng chứng hiện có.
 
 ---

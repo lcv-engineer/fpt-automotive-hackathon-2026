@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Looper
 import android.support.v4.media.session.MediaSessionCompat
 import android.util.Log
@@ -30,6 +31,7 @@ import com.sopa.viva_automotive.feature.media.domain.AudioQuality
 import com.sopa.viva_automotive.feature.media.domain.MediaRepository
 import com.sopa.viva_automotive.feature.media.domain.MediaSource
 import com.sopa.viva_automotive.feature.media.domain.MediaTrack
+import com.sopa.viva_automotive.feature.media.domain.MediaVolume
 import com.sopa.viva_automotive.feature.media.domain.PlaybackRoute
 import com.sopa.viva_automotive.feature.media.domain.PlaybackSpeed
 import com.sopa.viva_automotive.feature.media.domain.PlaybackUiState
@@ -300,9 +302,7 @@ class VivaMediaRepository @Inject constructor(
     }
 
     override fun adjustVolume(delta: Int): Result<String> = runCatching {
-        val step = 0.1f
-        val next = (mediaVolume + delta * step).coerceIn(0f, 1f)
-        applyMediaVolume(next, showSystemUi = true)
+        applyMediaVolume(MediaVolume.stepped(mediaVolume, delta), showSystemUi = true)
         if (delta >= 0) "Đã tăng âm lượng." else "Đã giảm âm lượng."
     }
 
@@ -408,8 +408,8 @@ class VivaMediaRepository @Inject constructor(
      * - System volume UI → [VOLUME_CHANGED_ACTION] updates the fader
      * Player gain stays at 1 when system volume is writable (avoids double attenuation).
      */
-    private fun applyMediaVolume(volume: Float, showSystemUi: Boolean) {
-        val coerced = volume.coerceIn(0f, 1f)
+    private fun applyMediaVolume(volume: Float, showSystemUi: Boolean = false) {
+        val coerced = MediaVolume.clamped(volume)
         mediaVolume = coerced
         val wroteSystem = writeSystemMediaVolumeFraction(
             fraction = coerced,

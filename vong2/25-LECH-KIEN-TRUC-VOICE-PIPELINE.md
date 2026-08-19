@@ -111,7 +111,7 @@ Không đổi `PhoWhisper-tiny` sang model lớn hơn trước khi có R1, R3 v�
 | S3 | `20-WRITE-UP-AI-VONG-2.md` §1 · §3 · §6 | Mô tả pipeline đúng như APK chạy | ✅ |
 | S4 | `20-WRITE-UP-AI-VONG-2.md` mục mới | AI hỗ trợ tốt ở đâu và sai ở đâu | ✅ |
 | S5 | `15-QUYET-DINH-BENCHMARK-ASR.md` · `23-N4-ABLATION.md` | Tiền đề benchmark; A1 chưa có guard | ✅ |
-| S6 | `android/voice/README.md` · `docs/VIVA_Pitch_Vong2.pptx` | Phân biệt đường chạy và kiến trúc đích | ✅ |
+| S6 | `android/voice/README.md` · `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx` | Phân biệt đường chạy và kiến trúc đích | ✅ |
 | S7 | `12-PRODUCT-INTEGRATION-CARD.md` §5 | Voice Pipeline Gate | ✅ |
 
 ## 7. Kết quả quét nhất quán

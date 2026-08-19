@@ -6,7 +6,7 @@
 
 **Architecture:** Một file nội bộ `vong2/25-LECH-KIEN-TRUC-VOICE-PIPELINE.md` giữ toàn bộ lập luận và bằng chứng; tám điểm trích ngắn (2–5 dòng mỗi chỗ) đi vào các tài liệu nộp bài. Không copy lập luận sang bản nộp — bản nộp chỉ mang kết luận và đường trỏ về file 25.
 
-**Tech Stack:** Markdown thuần. Một thay đổi trên `docs/VIVA_Pitch_Vong2.pptx` làm bằng tay trong PowerPoint. Không có mã sản phẩm nào bị sửa.
+**Tech Stack:** Markdown thuần. Một thay đổi trên `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx` làm bằng tay trong PowerPoint. Không có mã sản phẩm nào bị sửa.
 
 ## Global Constraints
 
@@ -284,7 +284,7 @@ Bảng này để người khác kiểm tra được tính nhất quán giữa f
 | S3 | `20-WRITE-UP-AI-VONG-2.md` §1 · §3 · §6 | Mô tả pipeline đúng như APK chạy | ⬜ |
 | S4 | `20-WRITE-UP-AI-VONG-2.md` mục mới | *"AI hỗ trợ tốt ở đâu và sai ở đâu"* | ⬜ |
 | S5 | `15-QUYET-DINH-BENCHMARK-ASR.md` · `23-N4-ABLATION.md` | Tiền đề hợp lệ của trục so sánh; A1 chưa có guard để tắt | ⬜ |
-| S6 | `android/voice/README.md` · `docs/VIVA_Pitch_Vong2.pptx` | Cột "nằm trên đường chạy app?"; một dòng trên slide kiến trúc | ⬜ |
+| S6 | `android/voice/README.md` · `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx` | Cột "nằm trên đường chạy app?"; một dòng trên slide kiến trúc | ⬜ |
 | S7 | `12-PRODUCT-INTEGRATION-CARD.md` §5 | Gate thứ hai — Voice Pipeline Gate | ⬜ |
 
 Đổi ⬜ thành ✅ khi task tương ứng đã commit.
@@ -733,7 +733,7 @@ git commit -m "docs(vong2): thêm mục AI hỗ trợ tốt ở đâu và sai �
 
 **Files:**
 - Modify: `android/voice/README.md` — bảng `## Đang có gì`
-- Modify: `docs/VIVA_Pitch_Vong2.pptx` — slide kiến trúc, sửa tay
+- Modify: `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx` — slide kiến trúc, sửa tay
 - Modify: `vong2/25-LECH-KIEN-TRUC-VOICE-PIPELINE.md` §6 — đổi S6 thành ✅
 
 **Interfaces:**
@@ -791,7 +791,7 @@ Kỳ vọng: lệnh đầu ra 1 dòng; lệnh sau ra `4`.
 
 - [ ] **Step 4: Sửa slide kiến trúc**
 
-Mở `docs/VIVA_Pitch_Vong2.pptx` trong PowerPoint, tìm slide có sơ đồ voice pipeline, thêm một dòng chú thích nhỏ dưới sơ đồ:
+Mở `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx` trong PowerPoint, tìm slide có sơ đồ voice pipeline, thêm một dòng chú thích nhỏ dưới sơ đồ:
 
 ```text
 Đang chạy trong APK: mic → Vosk (tự endpoint) → grammar 10 intent → action → HMI/TTS.
@@ -808,13 +808,13 @@ Kiểm tra đủ ba lớp, không chỉ trạng thái file:
 2. Render toàn bộ deck; xem riêng slide kiến trúc ở kích thước đầy đủ.
 3. Chạy kiểm tra overflow/overlap; không chấp nhận chữ bị tràn, wrap sai hoặc che sơ đồ.
 
-Cuối cùng `git status --short docs/VIVA_Pitch_Vong2.pptx` phải ra
-`M docs/VIVA_Pitch_Vong2.pptx`.
+Cuối cùng `git status --short docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx` phải ra
+`M docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx`.
 
 - [ ] **Step 6: Đổi S6 thành ✅ ở §6 file 25, rồi commit**
 
 ```bash
-git add android/voice/README.md docs/VIVA_Pitch_Vong2.pptx vong2/25-LECH-KIEN-TRUC-VOICE-PIPELINE.md
+git add android/voice/README.md docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx vong2/25-LECH-KIEN-TRUC-VOICE-PIPELINE.md
 git commit -m "docs: README module voice và slide phân biệt đường chạy với kiến trúc đích"
 ```
 

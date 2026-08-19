@@ -37,10 +37,15 @@
     <uses-permission android:name="android.car.permission.READ_CAR_INTERIOR_LIGHTS" />
     <uses-permission android:name="android.car.permission.CONTROL_CAR_INTERIOR_LIGHTS" />
 
+    <!-- appCategory="audio" là phần còn lại của bộ khai báo giúp AAOS xếp app
+         vào nhóm nguồn nhạc (đi kèm res/xml/automotive_app_desc.xml trong
+         :feature:media). App này là cockpit có media là một tính năng, nên nếu
+         sau này media không còn là mặt tiền thì bỏ dòng này. -->
     <application
         android:name=".VivaApplication"
         android:allowBackup="true"
         android:enableOnBackInvokedCallback="true"
+        android:appCategory="audio"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"

@@ -1,16 +1,19 @@
-# Viva Automotive — Offline Voice Assistant for AAOS
+# Viva Automotive — Vietnamese Voice Assistant for AAOS
 
 A native Android Automotive OS (AAOS) app that controls vehicle features (HVAC, doors,
-vehicle status) through a fully **offline** voice assistant. Speech-to-text runs
-on-device with [Vosk](https://alphacephei.com/vosk/) (English + Vietnamese models).
-NLU uses a Room keyword vocabulary first, then on-device MiniLM embedding /
-cosine similarity for paraphrases. Vehicle signals go through `CarPropertyManager`
-(VHAL) or an in-memory simulator.
+vehicle status) and media through a Vietnamese voice assistant. The active ASR binding is
+`RoutingAsrClient`, which selects viva-asr HTTP or Google Cloud Speech from Settings. The
+active intent binding is the deterministic `GrammarIntentRouter`. Vehicle signals go through
+`CarPropertyManager` (VHAL) or an in-memory simulator.
 
 ## Architecture
 
 Clean Architecture + MVVM + unidirectional data flow, Kotlin Coroutines/Flow
 throughout, Hilt for DI.
+
+The product-level architecture is documented as
+[`VIVA Voice · Brain · Body`](../docs/architecture/VIVA-VOICE-BRAIN-BODY.md). These are logical
+boundaries; the physical Gradle modules have not been renamed before the final round.
 
 ```text
 app/                      Entry point: MainActivity, NavGraph, flavor DI wiring
@@ -19,7 +22,7 @@ core/
   ui/                     Automotive design system (Compose, dark, large targets)
   database/               Room (command vocabulary) + DataStore (settings)
 feature/
-  voice/                  STT (Vosk EN/VI), keyword + embedding NLU, service, overlay UI
+  voice/                  ASR adapters, deterministic routing, orchestration, service, overlay UI
   hvac/                   Climate control screen
   vehicle-status/         Speed / fuel / battery / doors screen
   settings/               Voice & unit settings
@@ -28,9 +31,9 @@ vehicle-service/
   impl/                   RealVehicleRepository (android.car) + MockVehicleRepository (simulator)
 ```
 
-Voice pipeline: `AudioRecord` → Vosk (language from Settings) →
-`ProcessVoiceCommandUseCase` (keywords, then MiniLM vector match → `VehicleIntent`) →
-`ExecuteVehicleControlUseCase` → `VehicleRepository`.
+Active voice pipeline: `AudioRecord` → Silero VAD → `RoutingAsrClient` → `VoiceAgent` →
+`GrammarIntentRouter` → `AppCommandGateway`/`CoreIntentMapper` →
+`ExecuteVehicleControlUseCase` → guarded `VehicleRepository`.
 Runs in `VoiceAssistantService` (mic foreground service) via
 `VoiceAssistantStateManager`
 (IDLE → LISTENING → PROCESSING → EXECUTING → SUCCESS/ERROR).

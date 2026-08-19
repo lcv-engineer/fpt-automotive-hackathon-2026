@@ -21,6 +21,10 @@ feature/voice/src/main/assets/embeddings/.source
 # Kotlin incremental-compile scratch dir (Gradle 8+ / KGP)
 .kotlin/
 
+# Vosk models. Giu ngoai src/main/assets de AGP khong goi vao APK (246 MB),
+# va vi model-vi/graph/HCLG.fst nang 151 MiB - vuot gioi han cung 100 MiB cua GitHub.
+feature/voice/models-offline/
+
 # Local Google Speech credentials (mock assets / drop-ins)
 **/secrets/
 fintrack-*.json
