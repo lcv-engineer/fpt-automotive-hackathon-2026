@@ -1,0 +1,176 @@
+VHAL READBACK BLOCKER — GUEST DÙNG LOCAL FAKE SERVER (điều tra 19/08/2026)
+==========================================================================
+
+Status: ROOT CAUSE CONFIRMED (blocker thuộc image/hạ tầng, KHÔNG phải app)
+Nguồn: CarSky web ADB shell (root) trên Device VIVA + REST /signals + widget Log
+        của node VCU và IVI Gateway, phiên 19/08/2026 ~03:2x–03:5x UTC.
+Room: v37aa3knc6t1embelr5yi · deployment VIVA-demo-0808 · 22/22 Running
+APK: app-real-debug.apk sha256 48f9830f…23677ea7e (real flavor, cài thường +
+     pm grant CAR_SPEED=granted=true). Xem real-apk-local-build-0819.txt và
+     car-speed-permission-probe-0818.txt.
+
+MỤC TIÊU PHIÊN
+--------------
+Đóng tiền đề cho Block B (34-PLAN): nền tảng đổi tốc độ -> app đọc được ->
+SafetyGuard đổi verdict. Cần chứng minh chuỗi nền tảng chạm tới VHAL của app.
+
+KẾT QUẢ — CHUỖI NỀN TẢNG SỐNG TỚI TẬN VHAL PUSH, ĐỨT Ở BƯỚC CUỐI TRONG GUEST
+----------------------------------------------------------------------------
+Đặt tốc độ bằng slider panel Drive Controls (GPIO). Đọc lại từng tầng bằng REST:
+
+  drive-controls  vcu/Speed                 = 60  (ts 03:41:51.161Z)  ✅
+  pwt-can         PWT_VehicleSpeed/Speed_kph= 60  (ts 03:49:14.613Z)  ✅
+  central-broker  Vehicle.Speed             = 60  (ts 03:41:51.300Z)  ✅
+
+Log node VCU (widget, source vcu-vehicle-control-unit-main):
+  [lua] [vcu] speed=60 km/h        <- nhận sự kiện GPIO, publish CAN
+Log node IVI Gateway (source ivi-gateway-main):
+  [lua] [igw] → vhal 0x11600207 area=0x0 pushed = 16.6666  <- ĐANG push vào VHAL
+  (16.6666 m/s = 60 km/h; quy đổi đúng)
+
+=> GPIO → VCU → PWT-CAN → PWT Gateway → KUKSA → IVI Gateway → pins.vhal:push
+   TẤT CẢ CHẠY. Đây là bằng chứng chuỗi nền tảng vận hành, có readback nhiều tầng.
+
+NHƯNG app/VM đọc property vẫn 0.0:
+  cmd car_service get-property-value 0x11600207 0
+  -> Property:0x11600207, status:0, floatValues:[0.0]   (lặp lại nhiều lần, ts đổi)
+  logcat -d | grep -i vhal -> KHÔNG có dòng nào (VHAL client không log nhận push)
+
+ROOT CAUSE — thuộc IMAGE, đọc thẳng từ getprop trong guest
+-----------------------------------------------------------
+  ro.vendor.vehiclehal.server.use_local_fake_server = true
+  ro.boot.vendor.vehiclehal.server.cid  = 1        (CID 1 = local/loopback)
+  ro.boot.vendor.vehiclehal.server.port = 9210
+
+  ps -ef cho thấy HAI tiến trình VHAL cùng chạy:
+    PID 477  android.hardware.automotive.vehicle@default-trout-FAKE-HARDWARE-grpc-server
+    PID 478  android.hardware.automotive.vehicle@default-trout-service   (client)
+
+  socket_vsock_proxy (PID 526) chỉ phục vụ ADB:
+    -server_type=vsock -server_vsock_port=6520 -client_type=tcp
+    -client_tcp_host=0.0.0.0 -client_tcp_port=5555
+  => KHÔNG có proxy nào nối VHAL ra room.
+
+Diễn giải: VHAL client (478) được image cấu hình nối vào FAKE SERVER nội bộ (477)
+qua vsock loopback CID 1 port 9210. Nó KHÔNG BAO GIỜ nối tới IVI Gateway của room.
+Gateway push đúng, KUKSA đúng, nhưng guest đọc số của fake server (0.0).
+
+Điều này KHỚP kiến trúc chuẩn bị phá vỡ: guideline CDC (carsky-analysis/03 §4)
+nói "Skycraft = VHAL client, Script Node = VehicleServer". Image build
+`eng.quyetd 2026-07-13` (ro.build.fingerprint) bật local_fake_server, cắt đứt
+đúng điểm nối đó. `use_local_fake_server` nằm trong ro.vendor.* -> nướng trong
+vendor partition, KHÔNG setprop đè lúc chạy được.
+
+Mạng: guest chỉ có route 10.0.2.0/24; `curl 10.99.0.3:8080/health` -> (7) refused;
+`ping 8.8.8.8` -> unreachable. Guest cô lập L3 với mạng room 10.99.0.x. (Đường app
+gọi ASR 10/08 đi qua network_security_config + cơ chế khác, KHÔNG phải TCP thẳng
+từ guest — cần xác minh lại riêng.)
+
+HAI BLOCKER PHỤ PHÁT HIỆN CÙNG PHIÊN (đã xử lý tạm)
+---------------------------------------------------
+1. Sau pod restart 12/08, node script MẤT subscription và không tự nối lại:
+   - VCU: on("Speed") câm tới khi restart node (POST /deployments/{room}/restart/{node}).
+     Sau restart log hiện "Connecting… / Connected to gpio-sensor.sock" rồi chạy lại.
+   - IVI Gateway: tương tự; sau restart mới push VHAL.
+   => restart node script-node là read-only về deploy, KHÔNG tốn quota; API trả
+      HTTP 500 nhưng lệnh VẪN có tác dụng (phase Provisioning -> Running ~50-60s).
+2. IVI Gateway spam ERROR "[kuksa-grpc] writer connect failed: transport error"
+   vô tận: dòng cuối script gọi nydus.kuksa.connect("http://10.99.0.3:55555") cho
+   AGL guest, nhưng 10.99.0.3 nay là container viva-asr (va chạm địa chỉ — F6 của
+   vong2/32). Không chặn đường push chính, nhưng là rác log + kết nối sai địa chỉ.
+
+Ý NGHĨA CHO ĐIỂM (bám bảng chấm Vòng 2)
+----------------------------------------
+- Vì sao mọi mốc readback qua CarPropertyManager (E06/E07/E08) chưa từng đạt:
+  KHÔNG phải lỗi app, KHÔNG phải thiếu quyền, KHÔNG phải M1a. Là image bật fake
+  server. Đúng kịch bản guideline: "property null -> báo team hạ tầng, đừng debug
+  phía app". Đây là biên nhận cụ thể để mang đi báo mentor/BTC.
+- Ô "Ranh giới / tính tương xứng" (đang 2/2): phiên này CỦNG CỐ ranh giới —
+  chứng minh chính xác phần nào của đội chạy (GPIO->KUKSA->gateway push đều là
+  cấu hình/đường của đội + nền tảng) và phần nào bị image chặn.
+- Block B (ablation tốc độ trên Device) BỊ CHẶN bởi blocker này chừng nào guest
+  còn đọc fake server. SafetyGuard vẫn đúng, nhưng đầu vào speed trên `real` là
+  fake-0, nên verdict không đổi theo nền tảng được.
+
+BƯỚC TIẾP THEO ĐỀ XUẤT (chưa làm)
+----------------------------------
+A. Báo mentor/hạ tầng: xin image trout KHÔNG bật use_local_fake_server, hoặc một
+   node/args để VHAL client trỏ tới IVI Gateway (cid/port của gateway) thay vì local.
+B. Nếu tự vá được: dùng chính binary socket_vsock_proxy trong guest bắc cầu
+   vsock:9210 -> tcp gateway, tắt fake server (477), restart client (478). RỦI RO
+   cao, đụng vendor process, chưa thử — chỉ làm sau khi xác minh guest có route tới
+   gateway (hiện CHƯA có: 10.99.0.x không ping được từ guest).
+C. Đường không phụ thuộc VHAL write cho phiên vàng: dùng Media consumer readback
+   (dumpsys media_session) — BGK cho phép "VHAL/CAN HOẶC Media consumer". Không
+   dính blocker này.
+
+TRẠNG THÁI ĐỂ LẠI TRONG ROOM
+-----------------------------
+- vcu/Speed hiện = 60 (do phiên này). Trạng thái gốc trước phiên = 0 (ts 12/08).
+  Nên trả về 0 qua slider Drive Controls hoặc REST actuate khi xong.
+- Node VCU và IVI Gateway đã restart (script-node stateless, đã Running lại).
+- app-real-debug.apk đã cài (com.sopa.viva_automotive) + CAR_SPEED granted.
+- USB image viva-usb vẫn đang attach; unplug khi không cần.
+
+==========================================================================
+BỔ SUNG 19/08 ~04:0xZ — MẠNG ROOM ↔ GUEST: ĐỨT VÀ ĐÃ KHÔI PHỤC ĐƯỢC
+==========================================================================
+
+TRIỆU CHỨNG
+-----------
+Guest không tới được 10.99.0.x (ASR node 10.99.0.3, gateway 10.99.0.2):
+  curl 10.99.0.3:8080/health -> curl (7) Couldn't connect
+  ping 10.99.0.2 / 10.99.0.3 -> Destination Host Unreachable (from 10.0.2.15)
+Trong khi phiên 10/08 app ĐÃ gọi được ASR ở đúng địa chỉ này.
+
+CHẨN ĐOÁN — HAI LỖI CHỒNG NHAU
+-------------------------------
+1. `eth1` (interface nối mạng room) UP/LOWER_UP nhưng MẤT IPv4.
+   Blueprint khai eth pin của node "IVI - Android" = 10.99.0.14; guest chỉ còn
+   IPv6 link-local trên eth1. Guest chỉ có 10.0.2.x (buried_eth0/wlan0 = NAT nội bộ).
+2. netd KHÔNG đăng ký eth1 như một Android network: `ip rule` chỉ có rule cho
+   wlan0 và dummy0, không có rule nào cho eth1. Traffic thường (fwmark 0x0) và
+   traffic app (fwmark 0x64) đều khớp rule 18000 -> table `legacy_system`, trong
+   đó không có route nào tới 10.99.0.0/24.
+
+VÁ TAY ĐÃ CHẠY ĐƯỢC (guest có root qua web ADB shell)
+-----------------------------------------------------
+  ip addr add 10.99.0.14/24 dev eth1
+  ip route add 10.99.0.0/24 dev eth1 table legacy_system
+  # (chờ vài giây cho route cache cũ hết hạn, hoặc: ip route flush cache)
+
+Kết quả kiểm:
+  ip route get 10.99.0.3
+    -> 10.99.0.3 dev eth1 table legacy_system src 10.99.0.14 uid 0     ✅
+  curl -m 5 http://10.99.0.3:8080/health        (KHÔNG dùng --interface)
+    -> {"status":"ok","model":"phowhisper-tiny-int8","config":{"compute_type":
+        "int8","initial_prompt":null,"hotwords":null,"max_new_tokens":0}}   ✅
+
+=> Container viva-asr SỐNG và guest gọi tới được. Đường mic -> ASR node cho
+   "phiên vàng" khả thi trở lại.
+
+BẪY ĐÃ GẶP (ghi để khỏi mất giờ lần sau)
+-----------------------------------------
+- `ping -I eth1` thông trong khi `ping` thường unreachable => KHÔNG phải lỗi L2,
+  mà là policy routing của Android. Đừng kết luận "mạng chết" từ ping thường.
+- Thêm route vào `table wlan0` KHÔNG đủ nếu đọc `ip route get` vẫn ra
+  `table legacy_system`. Phải hỏi kernel bằng `ip route get <ip>` (và
+  `ip route get <ip> mark 0x64` để mô phỏng traffic app) rồi thêm route vào ĐÚNG
+  bảng nó trả về.
+- Sau khi thêm route, route cache cũ còn hiệu lực vài giây -> lần curl đầu vẫn
+  fail. Thử lại hoặc flush cache trước khi kết luận.
+- `netstat` không tồn tại trên Android 14; dùng `ss -tlnp`.
+
+GIỚI HẠN CỦA CÁCH VÁ NÀY
+-------------------------
+- `ip addr`/`ip route` thủ công MẤT sau mỗi lần reboot VM hoặc restart node
+  skycraft. Không tái lập tự động -> không dùng làm nền cho evidence "chạy được"
+  mà không kèm runbook này.
+- Cách đúng về lâu dài: để nền tảng tự cấu hình (DHCP/netd đăng ký eth1 như
+  Ethernet network). Cần hỏi mentor/hạ tầng vì sao eth1 mất IPv4 sau 12/08.
+
+TÌNH TRẠNG APP
+--------------
+`ss -tlnp` cho thấy com.sopa.viva_automotive (real flavor, PID 17190) đang chạy
+và LISTEN :7788. CHƯA kiểm app thực sự gọi ASR qua đường vừa khôi phục — cần một
+lượt nói qua mic (hoặc kiểm bằng logcat VIVA_TRACE) mới khẳng định được.
