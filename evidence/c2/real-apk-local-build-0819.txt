@@ -1,0 +1,56 @@
+LOCAL ARTIFACT — app-real-debug.apk build sach 19/08/2026
+===========================================================
+
+Label: LOCAL BUILD (khong phai CI artifact — ghi ro theo gate A cua vong2/25).
+Muc dich: cai len Device VIVA de kiem dong quyen doc CAR_SPEED (buoc 2-4 runbook)
+va lam APK ung vien cho "phien vang" (vong2/34 Phase 1).
+
+IDENTITY
+--------
+  Commit        : 0c67010878ebfbd4ca11915c0b8d5a85dc4cda78 (main)
+  Build command : gradlew.bat :app:clean :app:assembleRealDebug
+                    -PvivaAsrBaseUrl=http://10.99.0.3:8080
+                  (clean BAT BUOC — xem "BAI HOC" duoi)
+  SHA-256       : 48f9830f6230c03a66f8b36e9c26c2448fdfc99028e5e0a00e93cec23677ea7e
+  Size          : 227,759,181 bytes
+  BuildConfig   : ASR_BASE_URL = http://10.99.0.3:8080 (node VIVA ASR, pin eth live)
+  Flavor        : real (package com.sopa.viva_automotive, KHONG suffix,
+                  cai song song duoc voi .mock)
+
+TRANG THAI WORKING TREE LUC BUILD (khac commit o dau)
+------------------------------------------------------
+  - automotive/feature/voice/src/main/assets/model-vi/ va model-en-us/ (untracked,
+    khong con code nao tham chieu) DA DUOC DI CHUYEN ra _local-only/vosk-models-backup/
+    TRUOC khi build -> APK khong chua chung (kiem: 0 entry assets/model-*).
+  - android/voice/src/test/.../TmpNegationProbeTest.kt (untracked) — file test JVM,
+    khong vao APK.
+  => Noi dung APK truy nguyen ve dung commit 0c67010.
+
+KIEM TOAN GOI (ZipFile listing)
+--------------------------------
+  entries=1721 · model_entries=0
+  sum(CompressedLength)=227,328,679 ~ filesize 227,759,181 (chenh ~0.4MB = header/
+  central directory/signing) -> file TU NHAT QUAN, khong co byte mo coi.
+
+BAI HOC — INCREMENTAL PACKAGING DE LAI XAC CHET
+------------------------------------------------
+  Hai lan build truoc do trong cung ngay:
+    build#1 (incremental, models con trong source): 305,243,399 bytes, 28 entry model
+    build#2 (incremental, models da di chuyen)    : 305,241,133 bytes, 0 entry model
+  build#2 listing sach nhung kich thuoc gan nhu khong doi: AGP go entry khoi central
+  directory ma KHONG compact file — ~78MB du lieu model van nam vat ly trong archive
+  (sum compressed 227MB vs filesize 305MB). App van chay, nhung ban build sach tu
+  commit se KHONG khop byte -> hong artifact identity.
+  => LUAT: moi APK dung lam evidence phai build sau `clean`. Ban mock 342MB ngay
+  10/08 nhieu kha nang cung phong vi ly do nay (models thoi do + incremental).
+
+DOI CHIEU BA CHANG KHI CAI (bat buoc)
+--------------------------------------
+  1. May dev  : Get-FileHash ... -> 48f9830f...
+  2. Tren Device sau khi tai xuong: sha256sum <file>.apk -> phai trung
+  3. Sau khi cai: sha256sum $(pm path com.sopa.viva_automotive | cut -d: -f2)
+     (base.apk) -> phai trung
+
+CAI NAY KHONG CHUNG MINH DIEU GI VE RUNTIME
+--------------------------------------------
+  Chua cai, chua grant, chua doc property nao. Do la buoc ke tiep cua runbook.

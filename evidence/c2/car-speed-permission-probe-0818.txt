@@ -1,0 +1,63 @@
+CAR_SPEED PROTECTION-LEVEL PROBE — CONFIRMED DANGEROUS
+=======================================================
+
+Status: CONFIRMED
+Source: live CarSky web ADB shell (widget IVI ADB, face-adb) on Device VIVA,
+        output dan tay boi Vi, 2026-08-18 (gio Asia/Saigon)
+Device: trout_arm64 (fingerprint AAOS 14 userdebug — xem E01/device-info.txt)
+Room:   v37aa3knc6t1embelr5yi
+
+Command executed (read-only, trong shell cua device — KHONG co prefix `adb shell`)
+----------------------------------------------------------------------------------
+  dumpsys package permission android.car.permission.CAR_SPEED
+
+Observed output (cac dong then chot, nguyen van)
+------------------------------------------------
+  Permission [android.car.permission.CAR_SPEED] (2a82064):
+    sourcePackage=com.android.car.updatable
+    uid=10114 gids=[] type=0 prot=dangerous
+
+  Package [com.sopa.viva_automotive.mock]:
+    requested permissions:
+      android.car.permission.CAR_SPEED
+    runtime permissions:
+      android.car.permission.CAR_SPEED: granted=false
+
+  SharedUser [android.uid.shell]:
+    runtime permissions:
+      android.car.permission.CAR_SPEED: granted=true, flags=[ SYSTEM_FIXED|GRANTED_BY_DEFAULT]
+
+What this proves
+----------------
+- `android.car.permission.CAR_SPEED` tren image FAuto Trout la **dangerous**,
+  khop manifest AOSP android14-release (packages/services/Car/service/
+  AndroidManifest.xml). FAuto KHONG siet quyen nay len privileged.
+- => Cap quyen DOC toc do cho app cai thuong bang:
+       pm grant com.sopa.viva_automotive android.car.permission.CAR_SPEED
+     KHONG can M1a (priv-app/root). Block B counterfactual cua "phien vang"
+     (34-PLAN §Phase 1) kha thi ve mat quyen.
+- Ban mock dang cai (installed 2026-08-10) co REQUEST quyen nay nhung chua duoc
+  grant — va du grant thi flavor mock van doc MockVehicleRepository (sine wave),
+  khong doc VHAL. Doc VHAL that bat buoc dung flavor `real`.
+- Shell cua device (android.uid.shell) DA co CAR_SPEED granted SYSTEM_FIXED
+  => tu web ADB shell co the doc speed doc lap voi app, vi du:
+       cmd car_service get-property-value 0x11600207 0
+     Dung lam nguon doi chieu thu ba trong phien vang (chua chay thu lenh nay).
+
+What this does NOT prove
+------------------------
+- Chua cai `app-real-debug.apk`, chua chay `pm grant`, chua doc duoc gia tri
+  speed nao qua app. Do la buoc 2-4 cua runbook kiem dong.
+- Chua kiem CAR_ENERGY tren device (AOSP ghi dangerous; nhung fuel/battery con
+  ke gap mapping o gateway — xem 32-ENHANCE F4 — nen grant cung chua chac doc duoc).
+- Khong noi gi ve quyen GHI: CONTROL_CAR_CLIMATE / CONTROL_CAR_DOORS van la
+  signature|privileged theo AOSP => M1a van la nut chan cua duong VHAL write.
+
+Repository alignment
+--------------------
+- Manifest da khai san: automotive/app/src/main/AndroidManifest.xml:32
+  (`CAR_SPEED`), :33 (`CAR_ENERGY`).
+- Duong doc phia app: RealVehicleRepository.requiredPermission ->
+  PERF_VEHICLE_SPEED => Car.PERMISSION_SPEED (RealVehicleRepository.kt:182).
+- Flavor mock KHONG doc VHAL: app/src/mock/.../VehicleServiceModule.kt bind
+  MockVehicleRepository (toc do = song sin, MockVehicleRepository.kt:143).

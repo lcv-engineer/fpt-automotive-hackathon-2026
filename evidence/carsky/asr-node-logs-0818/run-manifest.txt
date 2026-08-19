@@ -1,0 +1,109 @@
+Evidence: LOG NODE ASR — GET /deployments/{room}/logs/{node}?container=user CHAY DUOC
+Label: CARSKY PLATFORM — kenh doc log ung dung tu node cua doi. KHONG phai bang chung core flow.
+Captured at: 2026-08-18 03:11-03:14 UTC (10:11-10:14 gio Asia/Saigon)
+Repository commit: bd6a14e (main)
+Room: v37aa3knc6t1embelr5yi (device VIVA — room demo), 22/22 node phase=Running
+Node: "VIVA ASR" name=b8eada00-d137-4fdc-a131-2197b1d1356b, nodeType=container, phase=Running
+
+VI SAO CO FILE NAY
+------------------
+docs/backend-docs/carsky-api.md §5 ghi "/logs/{node} khong phai logcat ... lay ve
+la log WebRTC". Nhan xet do dung cho node **skycraft (IVI - Android)**, va da bi
+suy rong ra ca ho endpoint. Voi node **container** cua doi thi khac han: endpoint
+tra ve dung stdout cua tien trinh trong container, tuc log cua logger `viva.asr`.
+
+PHAT HIEN CHINH — tham so `container` KHONG CO TRONG openapi.json
+------------------------------------------------------------------
+openapi.json chi khai hai query param cho route nay: `tail` va `since`.
+Goi khong kem container -> 502 UPSTREAM_ERROR, upstream noi ro ly do:
+
+  "a container name must be specified for pod
+   b8eada00-d137-4fdc-a131-2197b1d1356b-565775b5bc-hvbbs,
+   choose one of: [user sidecar]"
+
+Day KHONG phai loi Conduit. Endpoint cham toi Kubernetes va tim thay pod; no chi
+thieu ten container. Them `?container=user` -> 200 kem log ung dung.
+
+  GET .../logs/{node}                      -> 502  (03-no-container-param-502.json)
+  GET .../logs/{node}?containerName=user   -> 502  (chi dung dung ten `container`)
+  GET .../logs/{node}?c=user               -> 502
+  GET .../logs/{node}?container=user       -> 200  (01-user-container.json)
+  GET .../logs/{node}?container=sidecar    -> 200  (02-sidecar-container.json)
+
+NOI DUNG LOG LAY VE — container `user`
+---------------------------------------
+  INFO:     Started server process [1]
+  INFO:     Waiting for application startup.
+  INFO:     Application startup complete.
+  INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+  2026-08-12 06:34:48,285 INFO viva.asr VIVA_ASR model ready in 1424 ms: phowhisper-tiny-int8
+
+Dung 5 dong. Day la logger `viva.asr` cua asr/app — cung logger sinh ra dong
+`VIVA_ASR|<trace_id>|ok|server_ms=...` o asr/app/main.py:162.
+=> Kenh de lam BIEN NHAN CHUNG IDENTITY (app <-> node ASR) da san sang.
+
+NOI DUNG LOG — container `sidecar` (thong tin phu, huu ich)
+------------------------------------------------------------
+  [sidecar] room state: fullyConnected
+  [sidecar] registered log-source part 'viva-asr-main' (1 source(s))
+  [sidecar] registered shell part 'viva-asr-shell' (container=user)
+  [sidecar] ready
+Sidecar co khai mot "shell part" tro vao container `user`. Chua thu goi.
+
+BA GIOI HAN PHAI BIET TRUOC KHI DUNG
+-------------------------------------
+1. LOG CHI SONG THEO VONG DOI POD. Pod hien tai khoi dong luc
+   2026-08-12 06:34:48 UTC. Toan bo log cua phien giong noi 10/08
+   (evidence/c2/carsky-voice-e2e-20260810/) DA MAT cung pod cu.
+   => Phai keo log NGAY TRONG PHIEN chay, khong keo lai duoc sau.
+2. LOKI KHONG CO DU LIEU. Route /logs/{node}/search (Loki) tra 200 nhung
+   result rong voi MOI node da thu, moi khoang thoi gian:
+     - VIVA ASR      since=1h / 24h / 168h, co va khong co q -> 0 stream
+     - IVI - Android (cf7fe8d1...)                           -> 0 stream
+     - TCU-NAD (n-91f65f2f...)                               -> 0 stream
+     - SeatBelt ECU (n-4e953531...)                          -> 0 stream
+     - Central Broker VSS (b6260c63...)                      -> 0 stream
+   (04-loki-search-empty.json). Khong co duong lay log lich su.
+3. Node chua nhan request nao ke tu 12/08: 0 dong `VIVA_ASR|`.
+   Endpoint chay duoc KHONG dong nghia da co bang chung app goi node.
+
+DUNG DUOC VAO VIEC GI
+---------------------
+- O barem "Evidence tu platform" (4d): mot lan chay giong noi tren Device, keo
+  log node ngay sau do, doi chieu cung mot UUID:
+    (a) logcat app : VIVA_TRACE ... asr_sent / asr_done / VIVA_TRACE_SUMMARY|<uuid>|...
+    (b) log node   : VIVA_ASR|<uuid>|ok|server_ms=...|conf=...
+    (c) readback   : POST /signals/{room}/central-broker-vss/values
+  App da gui san header X-Trace-Id (HttpAsrClient.kt:74, HttpRemoteAsrTransport.kt:37)
+  va server da log dung trace_id do (asr/app/main.py:127, :162). Khong can code them.
+- Xac nhan model chay tren CarSky bang chinh log cua nen tang:
+  `phowhisper-tiny-int8`, san sang sau 1424 ms — thay vi bang tai lieu doi tu viet.
+
+CAI NAY KHONG CHUNG MINH DIEU GI
+---------------------------------
+- Khong chung minh app goi node (chua co dong VIVA_ASR| nao).
+- Khong chung minh do tre, WER hay bat ky so do nao.
+- Khong lien quan toi VHAL/CAN.
+
+CACH TAI LAP
+------------
+  cd backend
+  KEY=$(grep '^CARSKY_API_KEY=' .env | cut -d= -f2-)
+  B=https://hackathon-2.carsky.io/api/v1
+  R=v37aa3knc6t1embelr5yi
+  N=b8eada00-d137-4fdc-a131-2197b1d1356b
+  curl -s -H "x-api-key: $KEY" "$B/deployments/$R/logs/$N?container=user&tail=2000"
+
+TRANG THAI DE LAI TRONG ROOM
+-----------------------------
+Khong co. Toan bo lenh la GET doc-only. Khong deploy, khong ghi, khong xoa.
+
+FILE TRONG THU MUC
+------------------
+  01-user-container.json        200 — log logger viva.asr
+  02-sidecar-container.json     200 — log sidecar
+  03-no-container-param-502.json 502 — thong bao thieu ten container
+  04-loki-search-empty.json     200 — Loki rong
+  run-manifest.txt              file nay
+
+Khong commit openapi.json (130 KB, noi bo nen tang — the le 3.6).
