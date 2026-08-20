@@ -87,6 +87,22 @@ class LatencyTraceTest {
         assertEquals(1, warnings.size)
     }
 
+    @Test
+    fun `multiple spoken segments keep the first tts start without a false duplicate warning`() {
+        val sink = RecordingTraceSink()
+        val warnings = mutableListOf<String>()
+        val clock = FakeClock(1_000_000_000L)
+        val t = trace(clock, sink) { warnings += it }
+
+        t.mark(Stage.TTS_START)
+        clock.advanceMs(500)
+        val secondSegment = t.mark(Stage.TTS_START)
+
+        assertEquals(1_000_000_000L, secondSegment)
+        assertEquals(1, sink.lines.size)
+        assertTrue(warnings.isEmpty())
+    }
+
     // --- summary line ------------------------------------------------------
 
     @Test
