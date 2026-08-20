@@ -9,6 +9,7 @@
     <string name="settings_asr_engine">Engine nhận dạng giọng nói</string>
     <string name="settings_asr_viva">VIVA ASR</string>
     <string name="settings_asr_google">Google STT</string>
+    <string name="settings_asr_vosk">Vosk (offline)</string>
     <string name="settings_asr_engine_hint">VIVA ASR dùng container viva-asr local (emulator → 10.0.2.2:8080). Google STT gửi từng câu VAD lên Cloud Speech (vi-VN) với service account ở secrets mock.</string>
     <string name="settings_voice_language">Ngôn ngữ giọng nói</string>
     <string name="settings_voice_language_hint">Mic gửi PCM tới engine STT đã chọn, rồi grammar + TTS voice-core. Lệnh cabin tiếng Việt.</string>

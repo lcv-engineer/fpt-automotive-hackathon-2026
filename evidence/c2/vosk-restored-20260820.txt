@@ -1,0 +1,86 @@
+KHOI PHUC VOSK ON-DEVICE ASR — 20/08/2026
+==========================================
+
+Status: DONE (compile + APK build xanh). Nhanh: feat/restore-vosk-offline-asr
+Quyet dinh cua doi: keo Vosk ve BAN DEMO (khong phai nhanh do rieng).
+
+VI SAO CO FILE NAY
+------------------
+Vosk bi go khoi code truoc 18/08. Ngay 18-19/08 doi da dung chinh viec do lam
+lap luan cho o ④ Do sau: "bo node ASR = app diec vi khong con engine on-device,
+va Google khong ra duoc internet tu room". Nay Vosk quay lai nen lap luan do
+KHONG con dung cho duong ASR. File nay ghi lai de tai lieu khong mau thuan.
+
+DA KHOI PHUC NHUNG GI — dau vet Vosk nam o SAU cho, khong chi thu muc vosk/
+------------------------------------------------------------------------------
+1. VoskAsrClient.kt                       <- git show 987508b^
+2. CommandVocabulary.kt + CommandVocabularyTest.kt
+                                          <- git show 831924e (bi xoa o commit KHAC)
+3. libs.versions.toml: vosk = "0.3.75" + vosk-android = com.alphacephei:vosk-android
+4. feature/voice/build.gradle.kts:
+   - implementation(libs.vosk.android)
+   - ham downloadAndUnpackVoskModel + task downloadVoskEnModel/downloadVoskViModel
+   - preBuild dependsOn ca hai task
+5. core/ui/.../VoiceLanguage.kt: khoi phuc THAM SO enum `voskAssetDir`
+   ENGLISH("en","model-en-us") / VIETNAMESE("vi","model-vi")
+   >> Day la manh AN. Chi trinh bien dich tim ra:
+      "e: VoskAsrClient.kt:102:37 Unresolved reference 'voskAssetDir'"
+      Copy file khong du — phai build moi biet con thieu gi.
+6. assets/model-vi (51 MB) + assets/model-en-us (68 MB) <- _local-only/vosk-models-backup/
+
+NOI VAO KIEN TRUC MOI — Vosk la NHANH THU BA, khong thay the gi
+----------------------------------------------------------------
+Kien truc da doi tu luc Vosk bi go:
+  truoc: VoiceModule bind AsrClient <- HttpAsrClient        (1 engine)
+  nay  : VoiceModule bind AsrClient <- RoutingAsrClient     (chon luc chay)
+
+Nen Vosk vao nhu mot lua chon trong Settings, mac dinh VAN la VIVA:
+  AsrEngine.VIVA("viva")     -> HttpAsrClient        container viva-asr tren CarSky
+  AsrEngine.GOOGLE("google") -> GoogleCloudSpeech    can internet + service-account json
+  AsrEngine.VOSK("vosk")     -> VoskAsrClient        chay hoan toan tren may, KHONG can mang
+
+Sua kem theo: SettingsScreen.asrEngineLabel (when exhaustive -> phai them nhanh),
+strings.xml + values-vi/strings.xml: settings_asr_vosk = "Vosk (offline)".
+
+KET QUA BUILD — da chay that
+-----------------------------
+  :feature:voice:compileDebugKotlin + :feature:settings:compileDebugKotlin
+    -> BUILD SUCCESSFUL in 2m 29s
+
+  :app:clean :app:assembleRealDebug -PvivaAsrBaseUrl=http://10.99.0.3:8080
+    -> BUILD SUCCESSFUL
+    size   = 346,287,591 bytes  (~330 MB; ban khong Vosk la 227,759,181 = ~217 MB)
+    sha256 = 8c94afc7468ce8ed8419b0b2bf9a174ebee25f8217e26822644d6641bfbfc11d
+    assets/model-*  : 28 entry
+    libvosk.so      : 4 kien truc (arm64-v8a, armeabi-v7a, x86, x86_64)
+
+  APK tang 118.5 MB. Neu can giam: chi giu model-vi (bo model-en-us) tiet kiem ~68 MB.
+
+HE QUA PHAI KHAI TRUNG THUC — o ④ Do sau
+-----------------------------------------
+BGK cham 0/4 voi ly do "bo CarSky van giu duoc flow HVAC/media".
+Ngay 18/08 doi vua co mot lap luan phan bac: engine on-device da go, Google khong
+ra duoc internet tu room (da xac minh: guest khong co default route, ping 8.8.8.8
+unreachable, 10.99.0.1 ARP FAILED) => node ASR la duong DUY NHAT.
+
+Voi Vosk quay lai, lap luan do khong con dung:
+  - Bo node ASR -> app VAN nghe duoc bang AsrEngine.VOSK (chay offline)
+  => KHONG duoc claim "platform la dieu kien can" cho duong ASR nua.
+
+Duong con lai de lay diem o ④ Do sau:
+  - Duong VHAL/CAN (door_lock ghi -> readback KUKSA), dang bi chan boi
+    use_local_fake_server trong image — xem vhal-local-fake-server-blocker-0819.txt
+  - Hoac lap luan ve CHAT LUONG: neu do duoc Vosk vs viva-asr tren cung corpus va
+    cho thay Vosk kem han, thi node ASR van la dieu kien can cho CHAT LUONG dat nguong
+    (khac voi dieu kien can cho "chay duoc"). Can so lieu, chua co.
+
+TAI LIEU DA SUA CHO KHOI MAU THUAN
+-----------------------------------
+  vong2/32 muc "Khoan tru -4": them canh bao CAP NHAT 20/08, doan cu khong con dung
+  vong2/33 bang thuat ngu: Vosk = "Go 10/08, keo lai 20/08 — nay la engine thu ba"
+
+CHUA LAM
+--------
+- Chua chay Vosk tren Device CarSky lan nao sau khi khoi phuc (moi build xong).
+- Chua do A/B Vosk vs viva-asr tren cung corpus.
+- Chua kiem model-en-us co con can khong (app dang dat vi lam mac dinh).
