@@ -21,6 +21,7 @@ When configured with a server-side OpenAI key, a third route supplies the Brain 
 ```text
 POST /v1/brain/plan
 Content-Type: application/json
+Authorization: Bearer <room-scoped deployment token>
 
 {"text":"trong xe ngột ngạt quá","trace_id":"demo-1"}
 ```
@@ -58,11 +59,14 @@ Enable the optional Brain planner in the server process:
 ```powershell
 $env:OPENAI_API_KEY = "<server-side key>"
 $env:VIVA_BRAIN_MODEL = "gpt-5.4-mini-2026-03-17"
+$env:VIVA_BRAIN_AUTH_TOKEN = "<long random deployment token>"
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8080
 ```
 
 Never put `OPENAI_API_KEY` in Android resources, Gradle properties, BuildConfig, an APK, or a tracked
-file. Without the key, `/v1/brain/plan` deliberately returns `503` while ASR continues to work.
+file. Provision `VIVA_BRAIN_AUTH_TOKEN` separately to the server and the room's Android build; it is a
+rotatable deployment access token, not an OpenAI credential. Without either server setting,
+`/v1/brain/plan` deliberately returns `503` while ASR continues to work.
 
 ### Container
 
@@ -72,8 +76,8 @@ docker run --rm -p 8080:8080 viva-asr:phowhisper-tiny-int8
 curl http://127.0.0.1:8080/health
 ```
 
-For a Brain-enabled container, inject the key through the deployment secret store or `-e
-OPENAI_API_KEY`; do not bake it into the image.
+For a Brain-enabled container, inject both values through the deployment secret store or `-e
+OPENAI_API_KEY -e VIVA_BRAIN_AUTH_TOKEN`; do not bake them into the image.
 
 The build converts `vinai/PhoWhisper-tiny` to CTranslate2 INT8 in a throwaway
 stage, so the runtime image ships the model but not torch/transformers.

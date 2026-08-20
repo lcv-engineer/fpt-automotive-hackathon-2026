@@ -36,6 +36,10 @@ chứng minh được bằng môi trường hiện tại.
    `AppCommandGateway -> ExecuteVehicleControlUseCase -> GuardedVehicleRepository -> SafetyGuard`.
 7. Feature tắt mặc định bằng `vivaBrainAgentEnabled=false`. Khi model/server timeout, lỗi hoặc trả dữ
    liệu sai, hệ thống fail closed về câu `Unsupported` của grammar; không thực thi action.
+8. `/v1/brain/plan` yêu cầu bearer token triển khai được inject riêng vào server và Android build.
+   Server thiếu token trả `503`; request thiếu/sai token trả `401` trước khi gọi provider. Token này
+   bảo vệ biên triển khai/quota nhưng không được xem là bí mật bền vững vì có thể trích từ APK; production
+   vẫn cần HTTPS, rotation và rate limiting.
 
 OpenAI công bố model này hỗ trợ Responses API và Structured Outputs. Tài liệu Structured Outputs yêu
 cầu `additionalProperties=false`, mọi field phải nằm trong schema và khuyến nghị strict mode cho output
@@ -54,6 +58,7 @@ có cấu trúc:
 
 ```text
 POST /v1/brain/plan
+Authorization: Bearer <deployment token>
 {
   "text": "trong xe ngột ngạt quá",
   "trace_id": "..."

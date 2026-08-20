@@ -14,6 +14,8 @@ Design notes live in `docs/backend-docs/v6-viva-asr.md`.
 from __future__ import annotations
 
 import logging
+import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 
@@ -42,6 +44,7 @@ log = logging.getLogger("viva.asr")
 settings = Settings.from_env()
 holder = ModelHolder(settings)
 brain_planner = OpenAiBrainPlanner.from_env()
+brain_auth_token = os.getenv("VIVA_BRAIN_AUTH_TOKEN", "").strip()
 
 
 @asynccontextmanager
@@ -60,6 +63,18 @@ def _error(status_code: int, error: str, detail: str | None = None, **headers: s
     if detail:
         body["detail"] = detail
     return JSONResponse(status_code=status_code, content=body, headers=headers or None)
+
+
+def _valid_brain_authorization(authorization: str | None) -> bool:
+    if not authorization:
+        return False
+    scheme, separator, candidate = authorization.partition(" ")
+    return (
+        separator == " "
+        and scheme.lower() == "bearer"
+        and bool(candidate)
+        and secrets.compare_digest(candidate, brain_auth_token)
+    )
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -86,11 +101,20 @@ def health() -> Response:
 
 
 @app.post("/v1/brain/plan", response_model=BrainPlan)
-async def brain_plan(request: BrainPlanRequest) -> Response:
-    trace_id = request.trace_id
+async def brain_plan(plan_request: BrainPlanRequest, http_request: Request) -> Response:
+    if not brain_auth_token:
+        return _error(
+            503,
+            "brain planner unavailable",
+            **{"Retry-After": "5"},
+        )
+    if not _valid_brain_authorization(http_request.headers.get("Authorization")):
+        return _error(401, "unauthorized", **{"WWW-Authenticate": "Bearer"})
+
+    trace_id = plan_request.trace_id
     headers = {"X-Trace-Id": trace_id, "X-Brain-Model": brain_planner.model}
     try:
-        plan = await brain_planner.plan(request.text, trace_id)
+        plan = await brain_planner.plan(plan_request.text, trace_id)
     except BrainPlannerDisabledError:
         return _error(
             503,

@@ -1,5 +1,8 @@
 import java.net.URI
 
+fun String.asBuildConfigString(): String =
+    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
@@ -85,6 +88,11 @@ android {
             "boolean",
             "BRAIN_AGENT_ENABLED",
             (project.findProperty("vivaBrainAgentEnabled") ?: "false").toString(),
+        )
+        buildConfigField(
+            "String",
+            "BRAIN_AUTH_TOKEN",
+            (project.findProperty("vivaBrainAuthToken") ?: "").toString().asBuildConfigString(),
         )
     }
 

@@ -14,6 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
+internal fun brainAuthorizationHeader(token: String): String? =
+    token.trim().takeIf { it.isNotEmpty() }?.let { "Bearer $it" }
+
 /**
  * Slow-path adapter to the server-side VIVA Brain gateway.
  *
@@ -24,10 +27,14 @@ import org.json.JSONObject
 @Singleton
 class RemoteLlmAgentPlanner @Inject constructor() : AgentPlanner {
     private val endpoint = validatedEndpoint(resolveBaseUrl(BuildConfig.BRAIN_BASE_URL))
+    private val authorization = brainAuthorizationHeader(BuildConfig.BRAIN_AUTH_TOKEN)
 
     override suspend fun plan(text: String, traceId: String): AgentPlanResult {
         if (!BuildConfig.BRAIN_AGENT_ENABLED) {
             return AgentPlanResult.Unavailable("brain agent disabled by build config")
+        }
+        if (authorization == null) {
+            return AgentPlanResult.Unavailable("brain authentication is not configured")
         }
         if (text.isBlank() || text.length > MAX_TRANSCRIPT_CHARS) {
             return AgentPlanResult.Unavailable("transcript is outside the brain contract")
@@ -43,6 +50,7 @@ class RemoteLlmAgentPlanner @Inject constructor() : AgentPlanner {
                 readTimeout = READ_TIMEOUT_MS
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("X-Trace-Id", traceId)
+                setRequestProperty("Authorization", authorization)
             }
             try {
                 val requestBody = JSONObject()
@@ -128,4 +136,3 @@ class RemoteLlmAgentPlanner @Inject constructor() : AgentPlanner {
         }
     }
 }
-

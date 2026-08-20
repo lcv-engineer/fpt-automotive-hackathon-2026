@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app import main as app_main
 from app.brain import BrainPlan, BrainPlannerDisabledError, BrainProviderError
 
@@ -17,6 +19,13 @@ VALID_PLAN = BrainPlan(
     prompt_vi=None,
     confidence=0.91,
 )
+TEST_BRAIN_TOKEN = "test-brain-token"
+AUTH_HEADERS = {"Authorization": f"Bearer {TEST_BRAIN_TOKEN}"}
+
+
+@pytest.fixture(autouse=True)
+def configured_brain_auth(monkeypatch):
+    monkeypatch.setattr(app_main, "brain_auth_token", TEST_BRAIN_TOKEN, raising=False)
 
 
 class FakeBrainPlanner:
@@ -40,7 +49,7 @@ def test_brain_plan_returns_a_strict_typed_proposal(client, monkeypatch):
     response = client.post(
         "/v1/brain/plan",
         json={"text": "trong xe ngột ngạt quá", "trace_id": "trace-123"},
-        headers={"X-Trace-Id": "trace-123"},
+        headers={**AUTH_HEADERS, "X-Trace-Id": "trace-123"},
     )
 
     assert response.status_code == 200
@@ -60,6 +69,7 @@ def test_brain_plan_is_disabled_without_a_server_side_api_key(client, monkeypatc
     response = client.post(
         "/v1/brain/plan",
         json={"text": "giúp mình làm mát", "trace_id": "trace-disabled"},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 503
@@ -75,6 +85,7 @@ def test_brain_plan_hides_provider_failures(client, monkeypatch):
     response = client.post(
         "/v1/brain/plan",
         json={"text": "giúp mình làm mát", "trace_id": "trace-provider"},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 502
@@ -89,6 +100,7 @@ def test_brain_plan_rejects_oversized_transcript_before_calling_model(client, mo
     response = client.post(
         "/v1/brain/plan",
         json={"text": "x" * 501, "trace_id": "trace-long"},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 422
@@ -101,6 +113,7 @@ def test_single_action_wire_shape_stays_backward_compatible(client, monkeypatch)
     response = client.post(
         "/v1/brain/plan",
         json={"text": "làm mát xe", "trace_id": "trace-legacy"},
+        headers=AUTH_HEADERS,
     )
 
     assert "actions" not in response.json()
@@ -151,6 +164,7 @@ def test_brain_endpoint_returns_a_bounded_action_list(client, monkeypatch):
     response = client.post(
         "/v1/brain/plan",
         json={"text": "bật đèn rồi chuyển bài", "trace_id": "trace-multi"},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -183,7 +197,52 @@ def test_brain_endpoint_returns_typed_resume_prefix_only_for_clarification(clien
     response = client.post(
         "/v1/brain/plan",
         json={"text": "làm mát giúp mình", "trace_id": "trace-resume"},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
     assert response.json()["resume_prefix"] == "temperature"
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},
+        {"Authorization": "Basic not-supported"},
+        {"Authorization": "Bearer wrong-token"},
+    ],
+)
+def test_brain_endpoint_rejects_missing_or_invalid_bearer_before_planning(
+    client,
+    monkeypatch,
+    headers,
+):
+    planner = FakeBrainPlanner()
+    monkeypatch.setattr(app_main, "brain_planner", planner)
+
+    response = client.post(
+        "/v1/brain/plan",
+        json={"text": "làm mát xe", "trace_id": "trace-unauthorized"},
+        headers=headers,
+    )
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert TEST_BRAIN_TOKEN not in response.text
+    assert planner.calls == []
+
+
+def test_brain_endpoint_fails_closed_when_server_auth_is_not_configured(client, monkeypatch):
+    planner = FakeBrainPlanner()
+    monkeypatch.setattr(app_main, "brain_planner", planner)
+    monkeypatch.setattr(app_main, "brain_auth_token", "", raising=False)
+
+    response = client.post(
+        "/v1/brain/plan",
+        json={"text": "làm mát xe", "trace_id": "trace-no-auth-config"},
+        headers=AUTH_HEADERS,
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"] == "brain planner unavailable"
+    assert planner.calls == []

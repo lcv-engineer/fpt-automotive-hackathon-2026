@@ -56,11 +56,15 @@ Vosk client được bind vào `VoiceAgent`.
 
 Brain vẫn lấy **orchestrator tất định làm fast path** và chưa phải hệ multi-agent. Từ ngày 20/08/2026,
 repo có thêm constrained LLM slow path thật được bind vào `VoiceAgent`, nhưng mặc định tắt. Khi build với
-`vivaBrainAgentEnabled=true` và server có `OPENAI_API_KEY`, chỉ kết quả
+`vivaBrainAgentEnabled=true`, Android có deployment bearer token và server có cùng token cùng
+`OPENAI_API_KEY`, chỉ kết quả
 `Unsupported(canFallback=true)` mới gọi model; proposal T2 hợp lệ quay lại cùng `AppCommandGateway`.
 Planner hiện có thể trả tối đa ba proposal có kiểu cho một câu ghép. Mỗi proposal vẫn đi qua gateway
 và SafetyGuard riêng, theo thứ tự người dùng nói; không có model/agent thứ hai và không có quyền thực
 thi trực tiếp trong Brain.
+Endpoint planner fail closed trước khi gọi model nếu thiếu/sai bearer token. Đây là access control ở
+biên triển khai để bảo vệ quota và proposal endpoint; token nằm trong APK nên không thay thế HTTPS,
+rate limit hoặc cơ chế attestation nếu đưa ra môi trường không tin cậy.
 Clarification từ slow path chỉ giữ một `resume_prefix` dạng enum trong đúng lượt kế tiếp; app sở hữu
 chuỗi canonical dùng để gọi lại planner, nên model không thể cài một tiền tố lệnh tùy ý vào context.
 Keyword mapping và ONNX semantic matcher vẫn không nằm trên active path này, vì vậy không gọi runtime là
