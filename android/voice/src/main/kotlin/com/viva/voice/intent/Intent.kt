@@ -14,6 +14,14 @@ data class Intent(
 sealed class RouteResult {
     data class Matched(val intent: Intent) : RouteResult()
 
+    data class MatchedMany(val intents: List<Intent>) : RouteResult() {
+        init {
+            require(intents.size in 2..MAX_ACTIONS) {
+                "A compound route needs between 2 and $MAX_ACTIONS actions"
+            }
+        }
+    }
+
     data class NeedsClarification(
         val promptVi: String,
         val rule: String = "G3_MISSING_SLOT",
@@ -35,6 +43,10 @@ sealed class RouteResult {
         val rule: String = "G3_UNSUPPORTED",
         val canFallback: Boolean = true,
     ) : RouteResult()
+
+    companion object {
+        const val MAX_ACTIONS = 3
+    }
 }
 
 fun interface IntentRouter {

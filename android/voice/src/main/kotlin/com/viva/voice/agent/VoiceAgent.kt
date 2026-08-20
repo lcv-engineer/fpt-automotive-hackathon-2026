@@ -32,6 +32,7 @@ sealed class CommandResult {
 
 enum class VoiceTurnStatus {
     APPLIED,
+    PARTIALLY_APPLIED,
     DENIED,
     NEEDS_CONFIRMATION,
     NEEDS_CLARIFICATION,
@@ -45,7 +46,18 @@ data class VoiceTurnResult(
     val status: VoiceTurnStatus,
     val spokenVi: String,
     val hmiPatch: Map<String, Any> = emptyMap(),
-)
+    val intents: List<Intent> = intent?.let(::listOf).orEmpty(),
+    val spokenSegmentsVi: List<String> = listOf(spokenVi),
+) {
+    init {
+        require(spokenSegmentsVi.isNotEmpty() && spokenSegmentsVi.none(String::isBlank)) {
+            "A voice result needs at least one non-blank spoken segment"
+        }
+        require(intent == intents.firstOrNull()) {
+            "intent must be the first item in intents"
+        }
+    }
+}
 
 /** Orchestrates one voice turn without depending on an Activity or ViewModel. */
 class VoiceAgent(
@@ -153,7 +165,9 @@ class VoiceAgent(
         val pending = pendingResumePrefix
         val direct = router.route(text)
         val route = if (direct is RouteResult.Unsupported && pending != null) {
-            router.route("$pending $text").takeIf { it is RouteResult.Matched } ?: direct
+            router.route("$pending $text").takeIf {
+                it is RouteResult.Matched || it is RouteResult.MatchedMany
+            } ?: direct
         } else {
             direct
         }
@@ -195,6 +209,11 @@ class VoiceAgent(
                     trace = trace,
                 )
             }
+
+            is RouteResult.MatchedMany -> {
+                trace.mark(Stage.NLU_DONE)
+                executeMany(text, route.intents, trace)
+            }
         }
     }
 
@@ -215,6 +234,14 @@ class VoiceAgent(
                     finishUnsupported(text, grammarResult.promptVi, grammarResult.rule, trace)
                 } else {
                     execute(text, plan.intent, trace)
+                }
+            }
+
+            is AgentPlanResult.Actions -> {
+                if (plan.intents.any { it.tier != Intent.Tier.T2 }) {
+                    finishUnsupported(text, grammarResult.promptVi, grammarResult.rule, trace)
+                } else {
+                    executeMany(text, plan.intents, trace)
                 }
             }
 
@@ -263,6 +290,7 @@ class VoiceAgent(
         } catch (error: Exception) {
             CommandResult.Failed(error.message ?: "command gateway failed")
         }
+        trace.mark(Stage.EXEC_DONE)
         return when (val result = gatewayResult) {
             is CommandResult.Applied -> finish(
                 VoiceTurnResult(
@@ -311,6 +339,112 @@ class VoiceAgent(
         }
     }
 
+    private suspend fun executeMany(
+        transcript: String,
+        intents: List<Intent>,
+        trace: LatencyTrace,
+    ): VoiceTurnResult {
+        require(intents.size in 2..AgentPlanResult.MAX_ACTIONS)
+        val attempted = mutableListOf<Intent>()
+        val spoken = mutableListOf<String>()
+        val hmiPatch = linkedMapOf<String, Any>()
+        var appliedCount = 0
+
+        for (intent in intents) {
+            attempted += intent
+            val result = try {
+                gateway.execute(intent, trace)
+            } catch (error: Exception) {
+                CommandResult.Failed(error.message ?: "command gateway failed")
+            }
+            when (result) {
+                is CommandResult.Applied -> {
+                    appliedCount++
+                    spoken += result.spokenVi
+                    hmiPatch.putAll(result.hmiPatch)
+                }
+                is CommandResult.Denied -> {
+                    spoken += result.reasonVi
+                    trace.mark(Stage.EXEC_DONE)
+                    return finishBatch(
+                        transcript,
+                        attempted,
+                        partialStatus(appliedCount, VoiceTurnStatus.DENIED),
+                        spoken,
+                        hmiPatch,
+                        TraceVerdict.Deny(result.rule),
+                        trace,
+                    )
+                }
+                is CommandResult.ConfirmationRequired -> {
+                    spoken += result.questionVi
+                    trace.mark(Stage.EXEC_DONE)
+                    return finishBatch(
+                        transcript,
+                        attempted,
+                        VoiceTurnStatus.NEEDS_CONFIRMATION,
+                        spoken,
+                        hmiPatch,
+                        TraceVerdict.Confirm(result.rule),
+                        trace,
+                    )
+                }
+                is CommandResult.Failed -> {
+                    spoken += "Mình chưa thực hiện được phần còn lại. Bạn thử lại giúp mình nhé."
+                    trace.mark(Stage.EXEC_DONE)
+                    return finishBatch(
+                        transcript,
+                        attempted,
+                        partialStatus(appliedCount, VoiceTurnStatus.FAILED),
+                        spoken,
+                        hmiPatch,
+                        TraceVerdict.Error(Stage.EXEC_DONE),
+                        trace,
+                    )
+                }
+            }
+        }
+
+        trace.mark(Stage.EXEC_DONE)
+        return finishBatch(
+            transcript,
+            attempted,
+            VoiceTurnStatus.APPLIED,
+            spoken,
+            hmiPatch,
+            TraceVerdict.Allow,
+            trace,
+        )
+    }
+
+    private fun partialStatus(appliedCount: Int, terminal: VoiceTurnStatus): VoiceTurnStatus =
+        if (appliedCount > 0) VoiceTurnStatus.PARTIALLY_APPLIED else terminal
+
+    private suspend fun finishBatch(
+        transcript: String,
+        intents: List<Intent>,
+        status: VoiceTurnStatus,
+        spokenSegments: List<String>,
+        hmiPatch: Map<String, Any>,
+        verdict: TraceVerdict,
+        trace: LatencyTrace,
+    ): VoiceTurnResult {
+        val combined = spokenSegments.joinToString(" ")
+        return finish(
+            VoiceTurnResult(
+                transcript = transcript,
+                intent = intents.firstOrNull(),
+                status = status,
+                spokenVi = combined,
+                hmiPatch = hmiPatch,
+                intents = intents,
+                spokenSegmentsVi = spokenSegments,
+            ),
+            verdict,
+            trace,
+        )
+    }
+
     private suspend fun finish(
         result: VoiceTurnResult,
         verdict: TraceVerdict,
@@ -318,18 +452,21 @@ class VoiceAgent(
     ): VoiceTurnResult {
         return try {
             onResultReady(result)
-            tts.speak(result.spokenVi, trace)
-            trace.summary(result.transcript, result.intent?.name ?: "unknown", verdict)
+            result.spokenSegmentsVi.forEach { segment -> tts.speak(segment, trace) }
+            trace.summary(result.transcript, result.intentNamesForTrace(), verdict)
             result
         } catch (_: Exception) {
             trace.summary(
                 result.transcript,
-                result.intent?.name ?: "unknown",
+                result.intentNamesForTrace(),
                 TraceVerdict.Error(Stage.TTS_START),
             )
             result
         }
     }
+
+    private fun VoiceTurnResult.intentNamesForTrace(): String =
+        intents.joinToString("+") { it.name }.ifBlank { "unknown" }
 
     companion object {
         private const val MIN_ASR_CONFIDENCE = 0.6f

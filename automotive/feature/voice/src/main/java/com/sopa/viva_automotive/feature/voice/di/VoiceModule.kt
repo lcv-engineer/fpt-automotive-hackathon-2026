@@ -140,6 +140,8 @@ abstract class VoiceModule {
             when (result.status) {
                 VoiceTurnStatus.APPLIED ->
                     stateManager.transitionToSuccess(result.spokenVi, heardTranscript = heard)
+                VoiceTurnStatus.PARTIALLY_APPLIED ->
+                    stateManager.transitionToError(result.spokenVi, heardTranscript = heard)
                 VoiceTurnStatus.NEEDS_CLARIFICATION,
                 VoiceTurnStatus.NEEDS_CONFIRMATION,
                 -> stateManager.transitionToClarification(

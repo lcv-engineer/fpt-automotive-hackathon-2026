@@ -62,6 +62,17 @@ class VoiceAgentTest {
         }
     }
 
+    private class SequencedGateway(
+        private val results: List<CommandResult>,
+    ) : CommandGateway {
+        val received = mutableListOf<Intent>()
+
+        override suspend fun execute(intent: Intent, trace: LatencyTrace): CommandResult {
+            received += intent
+            return results[received.lastIndex]
+        }
+    }
+
     private fun trace(id: String = "t-1") =
         LatencyTrace(id, StepClock(), RecordingTraceSink())
 
@@ -385,6 +396,65 @@ class VoiceAgentTest {
             assertEquals(listOf("trong xe ngột ngạt quá, làm mát giúp mình"), planner.received)
             assertEquals("hvac_set_temp", gateway.received?.name)
             assertEquals(Intent.Tier.T2, gateway.received?.tier)
+        }
+
+    @Test
+    fun `deterministic compound actions execute in spoken order through the same gateway`() =
+        runImmediate {
+            val tts = RecordingTts()
+            val gateway = SequencedGateway(
+                listOf(
+                    CommandResult.Applied("Đã bật đèn cabin.", mapOf("lights.on" to true)),
+                    CommandResult.Applied("Đã chuyển bài.", mapOf("media.track" to "next")),
+                ),
+            )
+            val agent = VoiceAgent(
+                asr = FakeAsrClient(),
+                router = GrammarIntentRouter(),
+                gateway = gateway,
+                tts = tts,
+            )
+
+            val result = agent.handleText("bật đèn cabin rồi chuyển bài", trace())
+
+            assertEquals(VoiceTurnStatus.APPLIED, result.status)
+            assertEquals(listOf("cabin_lights", "media_next"), gateway.received.map(Intent::name))
+            assertEquals(listOf("Đã bật đèn cabin.", "Đã chuyển bài."), result.spokenSegmentsVi)
+            assertEquals(result.spokenSegmentsVi, tts.spoken)
+            assertEquals(true, result.hmiPatch["lights.on"])
+            assertEquals("next", result.hmiPatch["media.track"])
+        }
+
+    @Test
+    fun `compound execution stops after the first non-applied result without claiming rollback`() =
+        runImmediate {
+            val tts = RecordingTts()
+            val gateway = SequencedGateway(
+                listOf(
+                    CommandResult.Applied("Đã bật đèn cabin.", mapOf("lights.on" to true)),
+                    CommandResult.Denied("G1_SPEED_LOCK", "Xe đang chạy, mình chưa mở cửa được."),
+                    CommandResult.Applied("Đã chuyển bài."),
+                ),
+            )
+            val agent = VoiceAgent(
+                asr = FakeAsrClient(),
+                router = GrammarIntentRouter(),
+                gateway = gateway,
+                tts = tts,
+            )
+
+            val result = agent.handleText(
+                "bật đèn cabin rồi mở cửa rồi chuyển bài",
+                trace(),
+            )
+
+            assertEquals(VoiceTurnStatus.PARTIALLY_APPLIED, result.status)
+            assertEquals(listOf("cabin_lights", "door_lock"), gateway.received.map(Intent::name))
+            assertEquals(
+                listOf("Đã bật đèn cabin.", "Xe đang chạy, mình chưa mở cửa được."),
+                result.spokenSegmentsVi,
+            )
+            assertEquals(true, result.hmiPatch["lights.on"])
         }
 
     @Test
