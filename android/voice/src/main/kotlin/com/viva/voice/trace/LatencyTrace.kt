@@ -105,6 +105,24 @@ class LatencyTrace(
      * [summary] calls it exactly once, at the end, which is when that is the
      * number wanted.
      */
+    /**
+     * Độ trễ tài xế **thật sự cảm nhận**: từ lúc dứt câu tới lúc nghe tiếng.
+     *
+     * Khác [e2eMs] ở điểm đầu. [Stage.SPEECH_END] được đóng dấu khi VAD quyết
+     * định endpoint, tức là sau khi đã chờ hết `minSilenceMs` — với cấu hình
+     * cabin hiện tại là 800 ms. Khoảng chờ đó tài xế phải ngồi im chịu, nên nó
+     * thuộc về độ trễ cảm nhận dù không thuộc về thời gian xử lý.
+     *
+     * [e2eMs] được giữ nguyên định nghĩa cũ vì `03-contracts.md` §1.3 và
+     * backend đang chốt trên nó; đây là số thứ hai, không phải số thay thế.
+     */
+    fun feltLatencyMs(): Double? {
+        val start = marks[Stage.ACOUSTIC_END] ?: return e2eMs()
+        val end = marks[Stage.TTS_START] ?: clock.nanos()
+        if (end < start) return null
+        return (end - start) / 1_000_000.0
+    }
+
     fun e2eMs(): Double? {
         val start = marks[Stage.SPEECH_END] ?: marks[Stage.SPEECH_START] ?: return null
         val end = marks[Stage.TTS_START] ?: clock.nanos()

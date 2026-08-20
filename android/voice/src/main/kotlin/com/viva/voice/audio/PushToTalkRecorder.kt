@@ -10,11 +10,38 @@ import com.viva.voice.trace.NanoClock
  * marked here - the recorder deliberately knows nothing about tracing, so
  * both can be tested apart.
  */
+/**
+ * Khoảng trễ giữa lúc người nói dứt câu và lúc VAD quyết định endpoint.
+ *
+ * `SpeechEnded` chỉ bắn ra sau khi đã trôi hết `minSilenceMs`, nên đồng hồ đọc
+ * tại thời điểm đó không phải lúc dứt câu. Số mẫu audio giữa mốc âm học và
+ * frame đang xử lý chính là khoảng trễ đó, quy về nanosecond.
+ *
+ * Kẹp về 0 khi âm nếu mốc pad vượt frame hiện tại: thà mất độ chính xác còn hơn
+ * lùi ngày một mốc trace và đẻ ra độ trễ âm.
+ */
+fun endpointLagNanos(
+    acousticEndSample: Int,
+    currentFrameEndSample: Int,
+    sampleRate: Int,
+): Long {
+    require(sampleRate > 0) { "sampleRate must be positive" }
+    val distance = (currentFrameEndSample - acousticEndSample).toLong()
+    if (distance <= 0L) return 0L
+    return distance * 1_000_000_000L / sampleRate
+}
+
 data class Utterance(
     val pcm: ShortArray,
     val sampleRate: Int,
     val startNanos: Long,
     val endNanos: Long,
+    /**
+     * Ước lượng lúc người nói **dứt câu**, sớm hơn [endNanos] đúng bằng khoảng
+     * chờ im lặng của VAD. Mặc định bằng [endNanos] cho đường push-to-talk,
+     * nơi người dùng thả nút nên không có khoảng chờ nào.
+     */
+    val acousticEndNanos: Long = endNanos,
     /** Hit [AudioConfig.maxDurationMs]; the tail was dropped. */
     val truncated: Boolean = false,
     /** Shorter than [AudioConfig.minDurationMs]; a mis-tap, do not send to ASR. */

@@ -16,7 +16,11 @@ package com.viva.voice.trace
  */
 enum class Stage(val id: String) {
     SPEECH_START("speech_start"),   // VadSegmenter: bat dau co tieng noi
-    SPEECH_END("speech_end"),       // VadSegmenter: endpoint (noi xong)
+    // Uoc luong luc nguoi noi DUT CAU. Khac SPEECH_END dung bang minSilenceMs:
+    // SPEECH_END la luc VAD *quyet dinh* endpoint, sau khi da cho het im lang.
+    // Them moi, khong doi id cu — backend/internal/domain van parse duoc trace cu.
+    ACOUSTIC_END("acoustic_end"),   // VadEndpointer: im lang bat dau
+    SPEECH_END("speech_end"),       // VadSegmenter: endpoint (VAD quyet dinh)
     ASR_SENT("asr_sent"),           // AsrClient: da gui audio di
     ASR_DONE("asr_done"),           // AsrClient: da nhan text ve
     NLU_DONE("nlu_done"),           // IntentRouter: da ra intent

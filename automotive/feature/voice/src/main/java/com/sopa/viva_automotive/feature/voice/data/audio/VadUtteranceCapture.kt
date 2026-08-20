@@ -7,6 +7,7 @@ import com.viva.voice.audio.AndroidPcmSource
 import com.viva.voice.audio.AudioConfig
 import com.viva.voice.audio.SileroVadOnnxScorer
 import com.viva.voice.audio.Utterance
+import com.viva.voice.audio.endpointLagNanos
 import com.viva.voice.audio.VadConfig
 import com.viva.voice.audio.VadEndpointer
 import com.viva.voice.audio.VadEvent
@@ -98,6 +99,13 @@ class VadUtteranceCapture @Inject constructor(
                             }
                             is VadEvent.SpeechEnded -> {
                                 val endNanos = clock.nanos()
+                                // `frameStartSample` đã được cộng thêm một frame ở trên,
+                                // nên tại đây nó chính là mẫu cuối của frame vừa xử lý.
+                                val lagNanos = endpointLagNanos(
+                                    acousticEndSample = event.acousticEndSample,
+                                    currentFrameEndSample = frameStartSample,
+                                    sampleRate = audioConfig.sampleRate,
+                                )
                                 val segment = slice(pcm, event.startSample, event.endSample)
                                 Log.i(
                                     TAG,
@@ -109,6 +117,7 @@ class VadUtteranceCapture @Inject constructor(
                                     sampleRate = audioConfig.sampleRate,
                                     startNanos = startNanos,
                                     endNanos = endNanos,
+                                    acousticEndNanos = endNanos - lagNanos,
                                     truncated = false,
                                     tooShort = segment.size <
                                         audioConfig.sampleRate * audioConfig.minDurationMs / 1000,
