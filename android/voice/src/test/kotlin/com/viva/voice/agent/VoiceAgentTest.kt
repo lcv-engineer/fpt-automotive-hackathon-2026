@@ -51,14 +51,11 @@ class VoiceAgentTest {
         }
     }
 
-    private fun trace() = LatencyTrace(
-        traceId = "voice-agent-test",
-        clock = StepClock(),
-        sink = RecordingTraceSink(),
-    )
+    private fun trace(id: String = "t-1") =
+        LatencyTrace(id, StepClock(), RecordingTraceSink())
 
     @Test
-    fun `successful climate command speaks only the verified gateway response`() = runImmediate {
+    fun `happy path handles audio produces spoken response and updates HMI`() = runImmediate {
         val tts = RecordingTts()
         val gateway = FakeGateway(
             CommandResult.Applied(
@@ -67,26 +64,79 @@ class VoiceAgentTest {
             ),
         )
         val agent = VoiceAgent(
-            asr = FakeAsrClient(AsrResult("Viva ơi hạ điều hòa xuống 24 độ", 0.97f, 18)),
+            asr = FakeAsrClient(AsrResult("hạ điều hòa xuống 24 độ", 0.98f, 12)),
             router = GrammarIntentRouter(),
             gateway = gateway,
             tts = tts,
         )
 
-        val result = agent.handleAudio(shortArrayOf(1, 2), 16_000, trace())
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
 
         assertEquals(VoiceTurnStatus.APPLIED, result.status)
-        assertEquals("hvac_set_temp", result.intent?.name)
+        assertEquals("hvac_set_temp", gateway.received?.name)
+        assertEquals(24f, gateway.received?.slots?.get("value"))
+        assertEquals("Đã đặt nhiệt độ mục tiêu 24°C.", result.spokenVi)
         assertEquals(24f, result.hmiPatch["climate.temperatureC"])
         assertEquals(listOf("Đã đặt nhiệt độ mục tiêu 24°C."), tts.spoken)
     }
 
     @Test
-    fun `ambiguous cold complaint asks a question and never reaches the car gateway`() = runImmediate {
-        val tts = RecordingTts()
+    fun `negated command never reaches the gateway`() = runImmediate {
         val gateway = FakeGateway(CommandResult.Failed("must not execute"))
         val agent = VoiceAgent(
-            asr = FakeAsrClient(AsrResult("lạnh quá", 0.95f, 12)),
+            asr = FakeAsrClient(AsrResult("Vivi ơi đừng mở cửa", 0.97f, 15)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, result.status)
+        assertNull(gateway.received)
+    }
+
+    /** N5 hồi quy: "không" ở vị trí giá trị vẫn phải là quạt mức 0. */
+    @Test
+    fun `N5 fan level zero survives the negation gate`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt quạt mức 0.", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("Vivi ơi quạt mức không", 0.95f, 15)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, result.status)
+        assertEquals("hvac_set_fan", gateway.received?.name)
+        assertEquals(0, gateway.received?.slots?.get("level"))
+    }
+
+    /** Bẫy dấu: "dừng nhạc" là media_pause, không phải "đừng". */
+    @Test
+    fun `dung nhac still pauses media`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đang dừng nhạc", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("Vivi ơi dừng nhạc", 0.95f, 15)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, result.status)
+        assertEquals("media_pause", gateway.received?.name)
+    }
+
+    @Test
+    fun `ambiguous cold complaint asks a question and never reaches the car gateway`() = runImmediate {
+        val tts = RecordingTts()
+        val gateway = FakeGateway(CommandResult.Applied("must not execute"))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("lạnh quá", 0.95f, 10)),
             router = GrammarIntentRouter(),
             gateway = gateway,
             tts = tts,
@@ -174,8 +224,6 @@ class VoiceAgentTest {
 
         val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
 
-        // Vosk small không trả confidence. Bắt lượt đó hỏi lại vô điều kiện thì trợ lý
-        // không bao giờ thực thi được lệnh nào trên bản offline.
         assertEquals(VoiceTurnStatus.APPLIED, result.status)
         assertEquals("hvac_set_temp", gateway.received?.name)
     }
@@ -212,8 +260,6 @@ class VoiceAgentTest {
 
         agent.handleAudio(shortArrayOf(1), 16_000, trace())
 
-        // Grammar T0 khớp tất định — độ chắc của NLU là 1.0 và không liên quan tới
-        // việc mic hôm nay ồn tới đâu.
         assertEquals(1f, gateway.received?.confidence)
         assertEquals(Intent.Tier.T0, gateway.received?.tier)
     }

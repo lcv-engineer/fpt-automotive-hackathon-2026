@@ -3,6 +3,8 @@ package com.viva.voice.agent
 import com.viva.voice.asr.AsrClient
 import com.viva.voice.intent.Intent
 import com.viva.voice.intent.IntentRouter
+import com.viva.voice.intent.NegationGate
+import com.viva.voice.intent.NegationVerdict
 import com.viva.voice.intent.RouteResult
 import com.viva.voice.trace.LatencyTrace
 import com.viva.voice.trace.Stage
@@ -111,6 +113,27 @@ class VoiceAgent(
         text: String,
         trace: LatencyTrace,
     ): VoiceTurnResult {
+        // Cổng phủ định đứng trước router: router khớp bằng `contains()` nên
+        // "đừng mở cửa" chứa "mo cua" và mở khóa cửa thật. Đứng sau router là
+        // đã muộn — lệnh đã thành `Matched`.
+        when (val negation = NegationGate.inspect(text)) {
+            is NegationVerdict.Negated -> {
+                trace.mark(Stage.NLU_DONE)
+                return finish(
+                    VoiceTurnResult(
+                        transcript = text,
+                        intent = null,
+                        status = VoiceTurnStatus.NEEDS_CLARIFICATION,
+                        spokenVi = negation.promptVi,
+                    ),
+                    TraceVerdict.Confirm(NEGATION_RULE),
+                    trace,
+                )
+            }
+
+            NegationVerdict.None -> Unit
+        }
+
         val route = router.route(text)
         trace.mark(Stage.NLU_DONE)
         return when (route) {
@@ -228,5 +251,6 @@ class VoiceAgent(
 
     companion object {
         private const val MIN_ASR_CONFIDENCE = 0.6f
+        private const val NEGATION_RULE = "N1_NEGATION"
     }
 }
