@@ -227,8 +227,33 @@ từ trong guest sẽ chết. Quy trình: tạo `.img` FAT32 chứa APK → uplo
 
 | Muốn làm | Trạng thái |
 |---|---|
-| Sửa `env` của node đang chạy (vd thêm `ASR_INITIAL_PROMPT`) | ❌ Không có route, và **UI ở view deployment cũng không cho** — Inspector của node chỉ có `View Logs` / `Restart Node`. `PATCH /blueprints/{id}` chỉ sửa name/description; `update_blueprint` (MCP) chỉ `addNode/addPin/addEdge`. Chỉ còn **UI**, hoặc `import_blueprint` + redeploy (thổi bay trạng thái — không nên) |
+| Đổi `env`/config của node trong một **deployment đang chạy** | ❌ **KHÔNG LÀM ĐƯỢC** — đã thử đủ 4 đường 20/08, xem mục dưới bảng | `PATCH /blueprints/{id}` chỉ sửa name/description; `update_blueprint` (MCP) chỉ `addNode/addPin/addEdge`. Chỉ còn **UI**, hoặc `import_blueprint` + redeploy (thổi bay trạng thái — không nên) |
 | `adb_shell`, `container_shell`, `ui_tree`, `find_text` | ❌ 502 — Conduit chết, kể cả gọi qua MCP |
 | `vm_tunnel_open` → local ADB | ❌ port trả về là `localhost` **của máy chủ MCP**, không tới được từ máy dev |
 | Đặt tốc độ bằng REST `actuate` trên GPIO | ❌ không sinh sự kiện cho VCU — **phải kéo slider** trong widget GPIO Panel |
 | `periodic/start` trên GPIO | ❌ `"not supported by this signal source"` (CAN/KUKSA thì hỗ trợ) |
+
+### 🔴 Đã kiểm cạn 20/08: không đổi được config node của deployment đang chạy
+
+Mục tiêu thử: thêm `ASR_INITIAL_PROMPT` (domain biasing) cho node `VIVA ASR`.
+
+| Cách | Kết quả |
+|---|---|
+| UI, view deployment → click node | Inspector chỉ có `View Logs` / `Restart Node` — không sửa được env |
+| UI, **blueprint editor** → click node | ✅ CÓ form đầy đủ (Image/Command/Args/Environment/Pins) |
+| `PATCH /api/v1/blueprints/nodes/{nodeId}` | ✅ **200** — env vào blueprint, UI hiện `Environment (4)`. ⚠️ Đường trong `openapi.json` (`/api/v1/nodes/{id}`) là **SAI**, trả 404; đường đúng có tiền tố `/blueprints` |
+| `Redeploy` (chuột phải deployment ở sidebar) | ⚠️ báo *"Partial redeploy: 4 node(s) failed"* nhưng API cho thấy 22/22 `Running`. **Không chạm node ASR** — log pod không đổi |
+| `Restart Node` sau Redeploy | Pod mới lên (`model ready` giờ mới) nhưng `/health` **vẫn** `initial_prompt: null` |
+
+⇒ **Deployment giữ snapshot config từ lúc tạo.** Sửa blueprint chỉ có tác dụng cho
+**deployment tạo mới sau đó**. Muốn áp dụng vào room đang chạy thì phải undeploy +
+deploy lại — đổi lấy toàn bộ trạng thái đã dựng (IP `eth1`, log node, subscription
+script node), thường **không đáng**.
+
+**Cách làm đúng:** gom mọi thay đổi config vào blueprint, rồi áp dụng **một lần** khi
+buộc phải dựng lại room, thay vì sửa lắt nhắt giữa chừng.
+
+**Bài học chung — đừng tin mã trả về, hãy tin hệ quả quan sát được:**
+`restart` trả `500` mà node vẫn restart; `Redeploy` báo `4 node failed` mà 22/22 vẫn
+`Running`; `PATCH` đường trong openapi trả 404 còn đường trong tài liệu trả 200.
+Luôn xác minh bằng trạng thái thật (`phase`, log pod, `/health`).
