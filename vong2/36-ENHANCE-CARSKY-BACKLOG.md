@@ -128,9 +128,9 @@ Script gọi nhanh đã lưu ở scratchpad (`mcp.sh <tool> <json-args>`).
 
 | # | Việc | Ăn ô | Trạng thái |
 |---|---|---|---|
-| E1 | **Deploy room thứ hai** (quota cho 2 concurrent) để thử nghiệm an toàn, không đụng room demo. Bản thân việc clone + deploy đã là năng lực nền tảng dùng thực chất (đội mới clone, **chưa deploy** bản clone) | ④ Align | ⬜ |
+| E1 | **Deploy room thứ hai** để thử nghiệm an toàn | ④ Align | ✅ **XONG 20/08** — `VIVA-asr-prompt-0820` trên device `VIVA (Copy)` (room `wcmfnwigjse4hv9r8s0e3`), 22/22 Running trong ~3 phút. Đội nay đã **deploy** bản clone chứ không chỉ clone |
 | E2 | Sửa `nydus.kuksa.connect("http://10.99.0.3:55555")` trong IVI Gateway — dọn rác log ERROR vô tận + sửa va chạm địa chỉ (F6 của doc 32). Làm trên room test trước | ④ Ranh giới | ⬜ |
-| E4 | **Domain biasing `ASR_INITIAL_PROMPT`** — chữa lớp lỗi "dừng nhạc"→"dân nhạc", "độ C"→"độ xê" | ③ lợi ích baseline | 🟡 **ĐÃ VÀO BLUEPRINT** (PATCH 20/08) nhưng deployment đang chạy giữ snapshot cũ → chỉ có tác dụng ở lần deploy mới. Xem runbook 37 |
+| E4 | **Domain biasing `ASR_INITIAL_PROMPT`** | ③ lợi ích baseline | ✅ **ĐANG CHẠY** ở room mới — `/health` trả prompt đầy đủ. Room demo cũ vẫn `null` ⇒ có sẵn **cặp A/B song song** |
 | E3 | PATCH pin thêm propId HVAC chuẩn (`358614275`, `356517120`) | ④ Độ sâu | ⏸️ **HOÃN** — fake server còn bật thì thêm vào cũng vô nghĩa. Chờ mentor trả lời image |
 
 ---
@@ -154,3 +154,4 @@ Ba cái độc lập, làm song song được.
 | 19/08 | D0 ✅ MCP server chạy qua HTTP, 44 tool. D1 ❌ tunnel là localhost của server. D2 ❌ 502 Conduit |
 | 19/08 | Sau reboot node skycraft: `eth1` **lại mất IPv4** (nền tảng không tự cấp) · shell **mất root** · app còn cài + `CAR_SPEED` vẫn granted · chuỗi GPIO→CAN→KUKSA vẫn thông |
 | 20/08 | E4: PATCH `ASR_INITIAL_PROMPT` vào blueprint ✅ (đường đúng `/blueprints/nodes/{id}`, openapi ghi sai). Nhưng Redeploy + Restart Node **không** áp dụng được vào deployment đang chạy — deployment giữ snapshot lúc tạo. Kết luận: đổi config node của room đang chạy là không làm được |
+| 20/08 | E1 ✅ deploy blueprint (đã có prompt) sang device `VIVA (Copy)` → room `wcmfnwigjse4hv9r8s0e3`, 22/22 Running ~3 phút. `/health` trả `initial_prompt` đầy đủ ⇒ **xác minh: config chỉ áp dụng khi TẠO deployment mới**. Giờ có hai room song song: cũ (không prompt, có app+evidence) và mới (có prompt, chưa có app) — sẵn cho A/B |

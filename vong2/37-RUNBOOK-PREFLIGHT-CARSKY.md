@@ -257,3 +257,30 @@ buộc phải dựng lại room, thay vì sửa lắt nhắt giữa chừng.
 `restart` trả `500` mà node vẫn restart; `Redeploy` báo `4 node failed` mà 22/22 vẫn
 `Running`; `PATCH` đường trong openapi trả 404 còn đường trong tài liệu trả 200.
 Luôn xác minh bằng trạng thái thật (`phase`, log pod, `/health`).
+
+### ✅ Cách ĐÚNG để áp dụng config node mới: tạo deployment mới (xác minh 20/08)
+
+Sau khi 4 đường trên đều thất bại, thử deploy blueprint (đã có `ASR_INITIAL_PROMPT`)
+lên **device khác** — quota cho 2 deployment đồng thời, lúc đó mới dùng 1:
+
+```bash
+curl -X POST -H "x-api-key: $KEY" -H "Content-Type: application/json"   -d '{"blueprintId":"6deadb05-...","roomId":"wcmfnwigjse4hv9r8s0e3","name":"VIVA-asr-prompt-0820"}'   "$B/deployments"
+# -> 201, namespace room-9pjsm4pz
+```
+
+Thời gian lên: node container ~1 phút, **21/22 trong ~1 phút**, riêng `IVI - Android`
+(skycraft) mất thêm ~2 phút → tổng ~3 phút cho 22/22.
+
+Xác minh trong room mới (guest cũng thiếu IPv4 như mọi room — vá theo 3.2):
+```
+curl -sm 8 http://10.99.0.3:8080/health
+-> "initial_prompt":"Lệnh điều khiển xe: điều hòa, nhiệt độ, độ C, …"   ✅
+```
+
+**Kết luận:** config trong blueprint chỉ đi vào container **khi deployment được tạo**.
+⇒ Quy trình đúng: gom thay đổi vào blueprint → **deploy sang device rảnh** để kiểm,
+giữ room demo nguyên vẹn. Không bao giờ undeploy room đang có dữ liệu/app.
+
+**Mẹo dùng quota:** `MAX_CONCURRENT_DEPLOYMENTS_PER_ACCOUNT=2`, `MAX_DEVICES=5`.
+Đội có 4 device (`VIVA`, `VIVA (Copy)`, `Gemini`, `Gemini 2`) → luôn có chỗ dựng một
+room thử nghiệm song song mà không đụng room demo.
