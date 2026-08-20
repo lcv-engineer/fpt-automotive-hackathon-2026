@@ -1,7 +1,17 @@
 # 38 — Phép A/B domain biasing: mọi thứ đã sẵn, chỉ còn nói ba câu
 
-> Lập 20/08/2026 · **trạng thái: ĐANG CHỜ ĐO** — hạ tầng dựng xong, chưa nói lượt nào
-> ở room mới. Đọc file này rồi làm tiếp là đủ, không cần đọc lại lịch sử chat.
+> Lập 20/08/2026 · **TRẠNG THÁI: ĐÃ ĐO XONG, ROOM A/B ĐÃ XOÁ.**
+>
+> 🔴 **Kết quả: prompt PHẢN TÁC DỤNG, đã rollback.** Xem
+> `evidence/c2/voice-ab-prompt-20260820/README.md` — cùng câu *"phát nhạc lên"*:
+> không prompt ra `media_play|Allow`, có prompt ra `"đám đồng độc da sưởi da di dụi…"`.
+> Phát hiện kèm theo: `ASR_MAX_NEW_TOKENS=0` là lỗ hổng thật (server_ms 25s → 904ms
+> khi đặt `=32`); đã giữ `=32` trong blueprint.
+>
+> Room `wcmfnwigjse4hv9r8s0e3` **đã xoá 20/08** để trả quota. Muốn đo lại phải deploy
+> mới + cài lại APK (undeploy xoá sạch `/data`).
+>
+> Phần dưới giữ nguyên làm hồ sơ cách dựng phép A/B — tái dùng được cho lần sau.
 
 ---
 

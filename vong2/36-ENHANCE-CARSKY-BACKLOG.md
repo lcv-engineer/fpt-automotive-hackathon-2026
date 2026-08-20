@@ -128,9 +128,9 @@ Script gọi nhanh đã lưu ở scratchpad (`mcp.sh <tool> <json-args>`).
 
 | # | Việc | Ăn ô | Trạng thái |
 |---|---|---|---|
-| E1 | **Deploy room thứ hai** để thử nghiệm an toàn | ④ Align | ✅ **XONG 20/08** — `VIVA-asr-prompt-0820` trên device `VIVA (Copy)` (room `wcmfnwigjse4hv9r8s0e3`), 22/22 Running trong ~3 phút. Đội nay đã **deploy** bản clone chứ không chỉ clone |
+| E1 | **Deploy room thứ hai** để thử nghiệm an toàn | ④ Align | ✅ **XONG 20/08** — `VIVA-asr-prompt-0820` trên device `VIVA-AB-prompt`, 22/22 Running ~3 phút; đo A/B xong thì **đã xoá để trả quota**. Đội nay đã **deploy** bản clone chứ không chỉ clone |
 | E2 | Sửa `nydus.kuksa.connect("http://10.99.0.3:55555")` trong IVI Gateway — dọn rác log ERROR vô tận + sửa va chạm địa chỉ (F6 của doc 32). Làm trên room test trước | ④ Ranh giới | ⬜ |
-| E4 | **Domain biasing `ASR_INITIAL_PROMPT`** | ③ lợi ích baseline | ✅ **ĐANG CHẠY** ở room mới — `/health` trả prompt đầy đủ. Room demo cũ vẫn `null` ⇒ có sẵn **cặp A/B song song** |
+| E4 | **Domain biasing `ASR_INITIAL_PROMPT`** | ③ lợi ích baseline | ❌ **ĐÃ ĐO → PHẢN TÁC DỤNG, ROLLBACK**. Nhưng lộ ra lỗ hổng `ASR_MAX_NEW_TOKENS=0` (25s → 904ms), đã giữ `=32`. Xem `evidence/c2/voice-ab-prompt-20260820/` |
 | E3 | PATCH pin thêm propId HVAC chuẩn (`358614275`, `356517120`) | ④ Độ sâu | ⏸️ **HOÃN** — fake server còn bật thì thêm vào cũng vô nghĩa. Chờ mentor trả lời image |
 
 ---
@@ -183,3 +183,5 @@ Quy trình đo thực tế:
 **phải copy tay**, không tự động hoá được. Đây là chi phí cố định của mỗi lượt đo —
 tính vào thời gian khi lên kịch bản phiên.
 | 20/08 | B3 ❌ đã dò cạn: không có API nào đọc `face-logcat` (container-file/vms-logs đều 502 Conduit, Loki rỗng, không có route "part"). Chỉ còn nút download trên widget |
+| 20/08 | Đo A/B xong → prompt phản tác dụng, rollback. Xoá room `wcmfnwigjse4hv9r8s0e3` trả quota. Trả `vcu/Speed` room demo về 0 (GPIO); **CAN/KUKSA vẫn 106 vì REST không sinh sự kiện cho VCU — cần kéo slider một nhịp để đồng bộ** |
+| 20/08 | Kéo Vosk về bản demo (nhánh `feat/restore-vosk-offline-asr`, PR #5). Hệ quả: lập luận "bỏ node ASR = app điếc" ở ô ④ Độ sâu không còn dùng được |
