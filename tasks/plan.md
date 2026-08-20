@@ -93,10 +93,10 @@ Streaming VAD timing model
 
 ### Checkpoint: Complete
 
-- [ ] Full `pytest` suite passes.
-- [ ] Full `gradlew test` suite passes.
-- [ ] Five-axis review finds no unresolved correctness, architecture, security, or performance issue.
-- [ ] Each logical increment is committed atomically; unrelated untracked directories are untouched.
+- [x] Full `pytest` suite passes (59 tests).
+- [x] Full `gradlew test` suite passes (350 tests, 0 failed/skipped).
+- [x] Five-axis review finds no unresolved correctness, architecture, security, or performance issue.
+- [x] Each logical increment is committed atomically; unrelated untracked directories are untouched.
 
 ## Risks and mitigations
 

@@ -7,7 +7,7 @@
 - [x] T5: bearer authentication for `/v1/brain/plan`
 - [x] T6: one streaming runtime VAD path and one lazy Silero session
 - [x] T7: focused tests after every slice
-- [ ] T8: full Android/Python suites, security diff check, and five-axis review
+- [x] T8: full Android/Python suites, security diff check, and five-axis review
 
 Deferred pending external evidence/approval:
 
