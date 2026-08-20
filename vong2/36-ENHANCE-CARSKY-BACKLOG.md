@@ -24,7 +24,7 @@
 |---|---|---|---|
 | B1 | **Nút `Record`** trên khung IVI Screen. Barem đòi *"output **từ CarSky**"*: video OBS là output của máy mình, video Record là output của nền tảng — khác hạng, chi phí một cú click | ④ Evidence 2/4 | ⬜ 🔴 giá trị cao / công gần 0 |
 | B2 | **SSE `/signals/{room}/{node}/subscribe`** — stream tín hiệu suốt phiên, có timeline đóng dấu bởi nền tảng, ghép với logcat theo mốc giờ | ② observability −1 | ⬜ (tôi viết script được) |
-| B3 | **`POST /deployments/{room}/container-file/{node}`** — đọc/ghi file trong container pod. Nếu đọc được log ASR từ file → **thoát ràng buộc "log chết theo pod"** (F1), ràng buộc cứng nhất của runbook | ④ Evidence | ⬜ route có trong openapi, chưa ai gọi |
+| B3 | `POST /container-file/{node}` để đọc file log trong container | ④ Evidence | ❌ **502 Conduit** — xem mục dưới |
 
 ---
 
@@ -155,3 +155,24 @@ Ba cái độc lập, làm song song được.
 | 19/08 | Sau reboot node skycraft: `eth1` **lại mất IPv4** (nền tảng không tự cấp) · shell **mất root** · app còn cài + `CAR_SPEED` vẫn granted · chuỗi GPIO→CAN→KUKSA vẫn thông |
 | 20/08 | E4: PATCH `ASR_INITIAL_PROMPT` vào blueprint ✅ (đường đúng `/blueprints/nodes/{id}`, openapi ghi sai). Nhưng Redeploy + Restart Node **không** áp dụng được vào deployment đang chạy — deployment giữ snapshot lúc tạo. Kết luận: đổi config node của room đang chạy là không làm được |
 | 20/08 | E1 ✅ deploy blueprint (đã có prompt) sang device `VIVA (Copy)` → room `wcmfnwigjse4hv9r8s0e3`, 22/22 Running ~3 phút. `/health` trả `initial_prompt` đầy đủ ⇒ **xác minh: config chỉ áp dụng khi TẠO deployment mới**. Giờ có hai room song song: cũ (không prompt, có app+evidence) và mới (có prompt, chưa có app) — sẵn cho A/B |
+
+### B3 — đã dò cạn 20/08: KHÔNG có đường API nào đọc được `face-logcat`
+
+`face-logcat` là **log-source part**: sidecar tail `/logcat/logcat.txt` rồi đẩy qua
+**WebSocket của room** tới widget. Không có REST tương ứng.
+
+| Đường thử | Kết quả |
+|---|---|
+| `/deployments/{room}/logs/{node}?container=sidecar` | chỉ log nydus sidecar, **không có logcat** |
+| `?container=user` trên node skycraft | node này không có container `user` |
+| `POST /container-file/{node}?direction=pull&path=/logcat/logcat.txt` | **502 Conduit** (cú pháp đúng là query param `direction=pull\|push` + `path`, không phải body — openapi để requestBody rỗng) |
+| `GET /vms/{room}/{node}/logs` | **502 Conduit** |
+| Loki `/logs/{node}/search?q=VIVA_` | 0 stream |
+| route riêng cho "part" / "log-source" | không tồn tại trong openapi |
+
+**Cách duy nhất:** nút **⬇ (download)** trên widget `face-logcat` — tải cả buffer về
+thành file. Kèm ô **Filter** (gõ `VIVA_`) và nút **🗑** xoá buffer trước khi đo.
+
+⇒ Ràng buộc "log chết theo pod" **vẫn còn** với log container; với logcat của guest thì
+phải tải tay từ widget. Quy trình đo: 🗑 xoá buffer → nói → Filter `VIVA_` → ⬇ tải file.
+| 20/08 | B3 ❌ đã dò cạn: không có API nào đọc `face-logcat` (container-file/vms-logs đều 502 Conduit, Loki rỗng, không có route "part"). Chỉ còn nút download trên widget |
