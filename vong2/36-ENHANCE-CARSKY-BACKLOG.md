@@ -170,9 +170,16 @@ Ba cái độc lập, làm song song được.
 | Loki `/logs/{node}/search?q=VIVA_` | 0 stream |
 | route riêng cho "part" / "log-source" | không tồn tại trong openapi |
 
-**Cách duy nhất:** nút **⬇ (download)** trên widget `face-logcat` — tải cả buffer về
-thành file. Kèm ô **Filter** (gõ `VIVA_`) và nút **🗑** xoá buffer trước khi đo.
+**Cách duy nhất: copy tay từ widget.** ⚠️ Icon mũi tên xuống trên widget là
+**scroll-to-bottom**, KHÔNG phải download — widget không có chức năng xuất file.
 
-⇒ Ràng buộc "log chết theo pod" **vẫn còn** với log container; với logcat của guest thì
-phải tải tay từ widget. Quy trình đo: 🗑 xoá buffer → nói → Filter `VIVA_` → ⬇ tải file.
+Quy trình đo thực tế:
+1. **🗑** xoá buffer trước khi nói (log sạch, dễ đọc)
+2. Ô **Filter**: gõ `VIVA_` → chỉ còn dòng của app
+3. Nói các câu cần đo
+4. Bấm icon **↗ (mở cửa sổ riêng)** hoặc **⤢ (phóng to)** → bôi đen → Ctrl+C
+
+⇒ Ràng buộc "log chết theo pod" **vẫn còn** với log container; logcat của guest thì
+**phải copy tay**, không tự động hoá được. Đây là chi phí cố định của mỗi lượt đo —
+tính vào thời gian khi lên kịch bản phiên.
 | 20/08 | B3 ❌ đã dò cạn: không có API nào đọc `face-logcat` (container-file/vms-logs đều 502 Conduit, Loki rỗng, không có route "part"). Chỉ còn nút download trên widget |
