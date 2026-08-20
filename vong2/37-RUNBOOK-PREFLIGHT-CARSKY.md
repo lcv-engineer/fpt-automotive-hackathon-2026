@@ -284,3 +284,25 @@ giữ room demo nguyên vẹn. Không bao giờ undeploy room đang có dữ li�
 **Mẹo dùng quota:** `MAX_CONCURRENT_DEPLOYMENTS_PER_ACCOUNT=2`, `MAX_DEVICES=5`.
 Đội có 4 device (`VIVA`, `VIVA (Copy)`, `Gemini`, `Gemini 2`) → luôn có chỗ dựng một
 room thử nghiệm song song mà không đụng room demo.
+
+---
+
+## PHẦN 6 — Khoảng lệch đang tồn tại giữa repo và CarSky (chốt 21/08)
+
+**Merge PR KHÔNG đổi gì trên CarSky.** Ba thứ đang lệch, ghi ở đây để khỏi quên:
+
+| Thành phần | Trên CarSky | Trong repo `main` | Ghi chú |
+|---|---|---|---|
+| APK trên Device | `48f9830f…` bản `real` 19/08, **không có Vosk** | có Vosk, APK `8c94afc7…` (330 MB) | cài lại mất ~15 phút qua USB image |
+| Container ASR | image `6ca09c24…` (commit `ef7903c`) | không đổi | ✅ khớp |
+| `ASR_MAX_NEW_TOKENS` | **`0`** — container chạy snapshot từ 20/08 01:13 | blueprint đã có `=32` | chỉ áp dụng khi **deploy mới** |
+| `ASR_INITIAL_PROMPT` | `null` | đã rollback | ✅ đúng ý muốn |
+
+**Vì sao chấp nhận để `max_new_tokens=0` trên room demo:** lỗ hổng 25 giây chỉ bùng
+khi có `initial_prompt`, mà container đang chạy thì `null`. Baseline 19/08 chạy 13
+lượt, `server_ms` cao nhất 755 ms. Deploy lại để lấy lưới an toàn chưa cần đến sẽ
+**xoá `/data`, mất app** — không đáng.
+
+**Thời điểm gộp cả hai:** lần nào buộc phải dựng lại room (hoặc trước buổi demo
+chính thức) thì làm một lượt: deploy mới (tự có `max_new_tokens=32`) + cài APK có
+Vosk. Xem quy trình cài APK ở PHẦN 4.
