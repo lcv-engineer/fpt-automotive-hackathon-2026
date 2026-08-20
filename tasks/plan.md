@@ -47,49 +47,49 @@ Streaming VAD timing model
 
 ### Phase 1: Multi-action core
 
-- [ ] Add a failing grammar test proving a compound command is not reduced to its first action.
-- [ ] Add typed multi-action route/plan results with a hard limit of three actions.
-- [ ] Add failing agent tests for ordered execution, stop-on-first-failure, merged HMI state, and
+- [x] Add a failing grammar test proving a compound command is not reduced to its first action.
+- [x] Add typed multi-action route/plan results with a hard limit of three actions.
+- [x] Add failing agent tests for ordered execution, stop-on-first-failure, merged HMI state, and
       per-action spoken segments.
-- [ ] Implement sequential execution through the existing gateway.
+- [x] Implement sequential execution through the existing gateway.
 
 ### Checkpoint: Core
 
-- [ ] `:voice-core:testDebugUnitTest` passes.
-- [ ] Single-action behavior and negation tests remain green.
+- [x] `:voice-core:testDebugUnitTest` passes.
+- [x] Single-action behavior and negation tests remain green.
 
 ### Phase 2: Planner wire and dialogue resume
 
-- [ ] Add failing Python contract tests for two-action plans, size bounds, invalid member actions,
+- [x] Add failing Python contract tests for two-action plans, size bounds, invalid member actions,
       and continued rejection of `door_lock`.
-- [ ] Extend strict Structured Outputs and semantic validation without weakening single-action checks.
-- [ ] Add failing Android parser tests for action arrays and typed `resume_prefix`.
-- [ ] Add typed LLM clarification resume tests and implementation in `VoiceAgent`.
-- [ ] Update ADR/architecture contract documentation.
+- [x] Extend strict Structured Outputs and semantic validation without weakening single-action checks.
+- [x] Add failing Android parser tests for action arrays and typed `resume_prefix`.
+- [x] Add typed LLM clarification resume tests and implementation in `VoiceAgent`.
+- [x] Update ADR/architecture contract documentation.
 
 ### Checkpoint: Planner
 
-- [ ] Focused Python Brain tests pass.
-- [ ] Android Brain parser and VoiceAgent tests pass.
+- [x] Focused Python Brain tests pass.
+- [x] Android Brain parser and VoiceAgent tests pass.
 
 ### Phase 3: Endpoint authentication
 
-- [ ] Add failing endpoint tests for missing, malformed, and valid bearer credentials.
-- [ ] Implement constant-time token comparison and fail-closed configuration.
-- [ ] Add the Android header/configuration and document secret injection.
+- [x] Add failing endpoint tests for missing, malformed, and valid bearer credentials.
+- [x] Implement constant-time token comparison and fail-closed configuration.
+- [x] Add the Android header/configuration and document secret injection.
 
 ### Checkpoint: Security
 
-- [ ] No token value appears in logs, tracked files, or staged diff.
-- [ ] Brain tests pass; ASR and health routes remain unchanged.
+- [x] No token value appears in logs, tracked files, or staged diff.
+- [x] Brain tests pass; ASR and health routes remain unchanged.
 
 ### Phase 4: One runtime VAD architecture
 
-- [ ] Add timing fields/tests so streaming VAD preserves acoustic end and endpoint-decision time.
-- [ ] Add a construction-count regression test proving repeated captures reuse one scorer/session.
-- [ ] Migrate `VadUtteranceCapture` to `PcmSourceAudioCapture + VadStreamDriver` and remove its manual
+- [x] Add timing fields/tests so streaming VAD preserves acoustic end and endpoint-decision time.
+- [x] Add a construction-count regression test proving repeated captures reuse one scorer/session.
+- [x] Migrate `VadUtteranceCapture` to `PcmSourceAudioCapture + VadStreamDriver` and remove its manual
       frame/endpointer/session loop.
-- [ ] Keep the 800 ms cabin configuration and existing felt-latency measurement intact.
+- [x] Keep the 800 ms cabin configuration and existing felt-latency measurement intact.
 
 ### Checkpoint: Complete
 
@@ -113,4 +113,3 @@ Streaming VAD timing model
 - Device A/B must choose `minSilenceMs` 450 vs 600; current value remains 800.
 - Product/device measurements must choose the ASR deadline replacing both 30-second client constants.
 - Vĩ must approve adding `feltLatencyMs` to the published summary line.
-

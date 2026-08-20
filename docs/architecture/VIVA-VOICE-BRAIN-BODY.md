@@ -34,7 +34,7 @@ và **NLP/NLU** cho Brain; đây là hai trách nhiệm khác nhau và là cách
 | Capability đang chạy | Hiện thực |
 |---|---|
 | Wake word/PTT và vòng đời phiên thoại | `VoiceAssistantService`, `HotwordGate`, lớp `via/*` |
-| Capture và end-pointing | `VadUtteranceCapture` + Silero VAD |
+| Capture và end-pointing | `VadUtteranceCapture` -> `PcmSourceAudioCapture` -> `VadStreamDriver`; một lazy Silero ONNX session dùng lại giữa các lượt |
 | ASR có thể chọn | `RoutingAsrClient`: viva-asr HTTP hoặc Google Cloud Speech theo Settings |
 | Phản hồi tiếng nói | `AndroidTtsSpeaker`, audio focus/ducking |
 | Đo từng chặng | `LatencyTrace`, `VIVA_TRACE`/`VIVA_VOICE` |

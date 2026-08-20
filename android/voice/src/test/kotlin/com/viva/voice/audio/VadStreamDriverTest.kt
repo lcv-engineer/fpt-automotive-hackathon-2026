@@ -1,5 +1,6 @@
 package com.viva.voice.audio
 
+import com.viva.voice.trace.NanoClock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -82,6 +83,33 @@ class VadStreamDriverTest {
         assertEquals(160_000_000L, ended.utterance.speechEndNanos)
         assertEquals(0L, ended.utterance.speechStartNanos)
         assertEquals(160, ended.utterance.durationMs)
+    }
+
+    @Test
+    fun `streaming timing separates acoustic end padding and endpoint decision`() {
+        val driver = VadStreamDriver(ScriptedScorer(oneSentence), tuned)
+
+        val ended = driveOneSentence(driver).filterIsInstance<VadStreamEvent.SpeechEnded>().single()
+
+        // Im lặng bắt đầu ở mẫu 2048 (128ms), audio giữ pad tới mẫu 2560
+        // (160ms), và VAD chỉ đủ 96ms silence ở cuối frame 6 (224ms).
+        assertEquals(128_000_000L, ended.utterance.acousticEndNanos)
+        assertEquals(160_000_000L, ended.utterance.speechEndNanos)
+        assertEquals(224_000_000L, ended.utterance.endpointDecisionNanos)
+    }
+
+    @Test
+    fun `runtime decision clock is sampled after the endpoint is produced`() {
+        val decisionClock = NanoClock { 999_000_000L }
+        val driver = VadStreamDriver(
+            scorer = ScriptedScorer(oneSentence),
+            config = tuned,
+            decisionClock = decisionClock,
+        )
+
+        val ended = driveOneSentence(driver).filterIsInstance<VadStreamEvent.SpeechEnded>().single()
+
+        assertEquals(999_000_000L, ended.utterance.endpointDecisionNanos)
     }
 
     @Test

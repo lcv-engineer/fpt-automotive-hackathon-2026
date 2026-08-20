@@ -6,6 +6,7 @@ import com.viva.voice.audio.SileroVadOnnxScorer
 import com.viva.voice.audio.VadConfig
 import com.viva.voice.audio.VadStreamDriver
 import com.viva.voice.audio.VoiceActivityScorer
+import com.viva.voice.trace.NanoClock
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,17 +26,19 @@ import javax.inject.Singleton
 class SileroVadDriverFactory @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private val scorer: VoiceActivityScorer? by lazy {
-        runCatching { SileroVadOnnxScorer(context) }
-            .onFailure { error -> Log.w(TAG, "Silero VAD unavailable, falling back to ASR endpoint", error) }
-            .getOrNull()
-    }
+    private val reusableFactory = ReusableVadDriverFactory(
+        scorerLoader = {
+            runCatching { SileroVadOnnxScorer(context) }
+                .onFailure { error ->
+                    Log.w(TAG, "Silero VAD unavailable; voice capture cannot start", error)
+                }
+                .getOrNull()
+        },
+        config = VIETNAMESE_CABIN_VAD,
+    )
 
-    fun create(): VadStreamDriver? = scorer?.let { active ->
-        // Scorer mang recurrent state của lượt trước. `reset()` ở đây, không phải ở
-        // cuối lượt trước: một lượt bị hủy giữa chừng sẽ không bao giờ chạy tới cuối.
-        VadStreamDriver(active, config = VIETNAMESE_CABIN_VAD).also { it.reset() }
-    }
+    fun create(decisionClock: NanoClock? = null): VadStreamDriver? =
+        reusableFactory.create(decisionClock)
 
     private companion object {
         const val TAG = "VIVA_VOICE"
@@ -57,6 +60,21 @@ class SileroVadDriverFactory @Inject constructor(
             minSpeechMs = 300,
             minSilenceMs = 800,
             speechPadMs = 300,
+            maxSpeechMs = 12_000,
         )
+    }
+}
+
+/** JVM-testable owner of the one recurrent scorer/session shared across turns. */
+internal class ReusableVadDriverFactory(
+    private val scorerLoader: () -> VoiceActivityScorer?,
+    private val config: VadConfig,
+) {
+    private val scorer: VoiceActivityScorer? by lazy(scorerLoader)
+
+    fun create(decisionClock: NanoClock? = null): VadStreamDriver? = scorer?.let { active ->
+        // Reset at the next session boundary: a cancelled previous turn may never
+        // have reached its normal cleanup path.
+        VadStreamDriver(active, config = config, decisionClock = decisionClock).also { it.reset() }
     }
 }

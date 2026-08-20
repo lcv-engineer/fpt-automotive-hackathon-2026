@@ -62,6 +62,7 @@ data class Utterance(
             sampleRate == other.sampleRate &&
             startNanos == other.startNanos &&
             endNanos == other.endNanos &&
+            acousticEndNanos == other.acousticEndNanos &&
             truncated == other.truncated &&
             tooShort == other.tooShort
     }
@@ -71,6 +72,7 @@ data class Utterance(
         result = 31 * result + sampleRate
         result = 31 * result + startNanos.hashCode()
         result = 31 * result + endNanos.hashCode()
+        result = 31 * result + acousticEndNanos.hashCode()
         result = 31 * result + truncated.hashCode()
         result = 31 * result + tooShort.hashCode()
         return result

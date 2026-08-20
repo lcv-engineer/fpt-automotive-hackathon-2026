@@ -1,5 +1,7 @@
 package com.viva.voice.audio
 
+import com.viva.voice.trace.NanoClock
+
 /** Biên tiếng nói mà [VadStreamDriver] phát ra trong lúc mic đang chạy. */
 sealed interface VadStreamEvent {
     /**
@@ -34,6 +36,7 @@ class VadStreamDriver(
     private val scorer: VoiceActivityScorer,
     private val config: VadConfig = VadConfig(),
     private val trigger: Trigger = Trigger.PUSH_TO_TALK,
+    private val decisionClock: NanoClock? = null,
     /**
      * Bao nhiêu audio giữ lại trước khi tiếng nói được xác nhận.
      *
@@ -102,6 +105,9 @@ class VadStreamDriver(
             is VadEvent.SpeechEnded -> closeSpeech(
                 event.startSample.toLong(),
                 event.endSample.toLong(),
+                event.acousticEndSample.toLong(),
+                truncated = event.endSample - event.startSample >=
+                    config.samplesFor(config.maxSpeechMs),
             )
         }
     }
@@ -116,7 +122,12 @@ class VadStreamDriver(
     fun flush(): VadStreamEvent.SpeechEnded? {
         if (closed) return null
         val ended = endpointer.flush(totalSamples.toIntChecked()) ?: return null
-        return closeSpeech(ended.startSample.toLong(), ended.endSample.toLong())
+        return closeSpeech(
+            ended.startSample.toLong(),
+            ended.endSample.toLong(),
+            ended.acousticEndSample.toLong(),
+            truncated = true,
+        )
     }
 
     /** Xóa recurrent state của scorer và mọi buffer. Gọi khi mở session mới. */
@@ -148,7 +159,12 @@ class VadStreamDriver(
         speechCount = lookBack
     }
 
-    private fun closeSpeech(startSample: Long, endSample: Long): VadStreamEvent.SpeechEnded {
+    private fun closeSpeech(
+        startSample: Long,
+        endSample: Long,
+        acousticEndSample: Long,
+        truncated: Boolean,
+    ): VadStreamEvent.SpeechEnded {
         val buffer = speech
         val from = (startSample - speechStartSample).toInt().coerceIn(0, speechCount)
         val to = (endSample - speechStartSample).toInt().coerceIn(from, speechCount)
@@ -163,6 +179,11 @@ class VadStreamDriver(
                 speechStartNanos = nanosAt(startSample),
                 speechEndNanos = nanosAt(endSample),
                 trigger = trigger,
+                acousticEndNanos = nanosAt(acousticEndSample),
+                // Production supplies the monotonic clock so inference time is
+                // included. Pure tests may omit it and stay on the sample axis.
+                endpointDecisionNanos = decisionClock?.nanos() ?: nanosAt(totalSamples),
+                truncated = truncated,
             ),
         )
     }
