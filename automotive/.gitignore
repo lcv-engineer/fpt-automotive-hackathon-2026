@@ -24,3 +24,8 @@ feature/voice/src/main/assets/embeddings/.source
 # Local Google Speech credentials (mock assets / drop-ins)
 **/secrets/
 fintrack-*.json
+
+# Vosk models — tai boi task downloadVoskEnModel/downloadVoskViModel luc preBuild.
+# ~119 MB, khong commit; xoa di build lai se tu tai tu alphacephei.com.
+feature/voice/src/main/assets/model-en-us/
+feature/voice/src/main/assets/model-vi/

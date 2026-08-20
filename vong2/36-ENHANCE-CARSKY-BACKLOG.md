@@ -24,7 +24,7 @@
 |---|---|---|---|
 | B1 | **Nút `Record`** trên khung IVI Screen. Barem đòi *"output **từ CarSky**"*: video OBS là output của máy mình, video Record là output của nền tảng — khác hạng, chi phí một cú click | ④ Evidence 2/4 | ⬜ 🔴 giá trị cao / công gần 0 |
 | B2 | **SSE `/signals/{room}/{node}/subscribe`** — stream tín hiệu suốt phiên, có timeline đóng dấu bởi nền tảng, ghép với logcat theo mốc giờ | ② observability −1 | ⬜ (tôi viết script được) |
-| B3 | **`POST /deployments/{room}/container-file/{node}`** — đọc/ghi file trong container pod. Nếu đọc được log ASR từ file → **thoát ràng buộc "log chết theo pod"** (F1), ràng buộc cứng nhất của runbook | ④ Evidence | ⬜ route có trong openapi, chưa ai gọi |
+| B3 | `POST /container-file/{node}` để đọc file log trong container | ④ Evidence | ❌ **502 Conduit** — xem mục dưới |
 
 ---
 
@@ -128,9 +128,9 @@ Script gọi nhanh đã lưu ở scratchpad (`mcp.sh <tool> <json-args>`).
 
 | # | Việc | Ăn ô | Trạng thái |
 |---|---|---|---|
-| E1 | **Deploy room thứ hai** (quota cho 2 concurrent) để thử nghiệm an toàn, không đụng room demo. Bản thân việc clone + deploy đã là năng lực nền tảng dùng thực chất (đội mới clone, **chưa deploy** bản clone) | ④ Align | ⬜ |
+| E1 | **Deploy room thứ hai** để thử nghiệm an toàn | ④ Align | ✅ **XONG 20/08** — `VIVA-asr-prompt-0820` trên device `VIVA-AB-prompt`, 22/22 Running ~3 phút; đo A/B xong thì **đã xoá để trả quota**. Đội nay đã **deploy** bản clone chứ không chỉ clone |
 | E2 | Sửa `nydus.kuksa.connect("http://10.99.0.3:55555")` trong IVI Gateway — dọn rác log ERROR vô tận + sửa va chạm địa chỉ (F6 của doc 32). Làm trên room test trước | ④ Ranh giới | ⬜ |
-| E4 | **Domain biasing `ASR_INITIAL_PROMPT`** — chữa lớp lỗi "dừng nhạc"→"dân nhạc", "độ C"→"độ xê" | ③ lợi ích baseline | 🟡 **ĐÃ VÀO BLUEPRINT** (PATCH 20/08) nhưng deployment đang chạy giữ snapshot cũ → chỉ có tác dụng ở lần deploy mới. Xem runbook 37 |
+| E4 | **Domain biasing `ASR_INITIAL_PROMPT`** | ③ lợi ích baseline | ❌ **ĐÃ ĐO → PHẢN TÁC DỤNG, ROLLBACK**. Nhưng lộ ra lỗ hổng `ASR_MAX_NEW_TOKENS=0` (25s → 904ms), đã giữ `=32`. Xem `evidence/c2/voice-ab-prompt-20260820/` |
 | E3 | PATCH pin thêm propId HVAC chuẩn (`358614275`, `356517120`) | ④ Độ sâu | ⏸️ **HOÃN** — fake server còn bật thì thêm vào cũng vô nghĩa. Chờ mentor trả lời image |
 
 ---
@@ -154,3 +154,34 @@ Ba cái độc lập, làm song song được.
 | 19/08 | D0 ✅ MCP server chạy qua HTTP, 44 tool. D1 ❌ tunnel là localhost của server. D2 ❌ 502 Conduit |
 | 19/08 | Sau reboot node skycraft: `eth1` **lại mất IPv4** (nền tảng không tự cấp) · shell **mất root** · app còn cài + `CAR_SPEED` vẫn granted · chuỗi GPIO→CAN→KUKSA vẫn thông |
 | 20/08 | E4: PATCH `ASR_INITIAL_PROMPT` vào blueprint ✅ (đường đúng `/blueprints/nodes/{id}`, openapi ghi sai). Nhưng Redeploy + Restart Node **không** áp dụng được vào deployment đang chạy — deployment giữ snapshot lúc tạo. Kết luận: đổi config node của room đang chạy là không làm được |
+| 20/08 | E1 ✅ deploy blueprint (đã có prompt) sang device `VIVA (Copy)` → room `wcmfnwigjse4hv9r8s0e3`, 22/22 Running ~3 phút. `/health` trả `initial_prompt` đầy đủ ⇒ **xác minh: config chỉ áp dụng khi TẠO deployment mới**. Giờ có hai room song song: cũ (không prompt, có app+evidence) và mới (có prompt, chưa có app) — sẵn cho A/B |
+
+### B3 — đã dò cạn 20/08: KHÔNG có đường API nào đọc được `face-logcat`
+
+`face-logcat` là **log-source part**: sidecar tail `/logcat/logcat.txt` rồi đẩy qua
+**WebSocket của room** tới widget. Không có REST tương ứng.
+
+| Đường thử | Kết quả |
+|---|---|
+| `/deployments/{room}/logs/{node}?container=sidecar` | chỉ log nydus sidecar, **không có logcat** |
+| `?container=user` trên node skycraft | node này không có container `user` |
+| `POST /container-file/{node}?direction=pull&path=/logcat/logcat.txt` | **502 Conduit** (cú pháp đúng là query param `direction=pull\|push` + `path`, không phải body — openapi để requestBody rỗng) |
+| `GET /vms/{room}/{node}/logs` | **502 Conduit** |
+| Loki `/logs/{node}/search?q=VIVA_` | 0 stream |
+| route riêng cho "part" / "log-source" | không tồn tại trong openapi |
+
+**Cách duy nhất: copy tay từ widget.** ⚠️ Icon mũi tên xuống trên widget là
+**scroll-to-bottom**, KHÔNG phải download — widget không có chức năng xuất file.
+
+Quy trình đo thực tế:
+1. **🗑** xoá buffer trước khi nói (log sạch, dễ đọc)
+2. Ô **Filter**: gõ `VIVA_` → chỉ còn dòng của app
+3. Nói các câu cần đo
+4. Bấm icon **↗ (mở cửa sổ riêng)** hoặc **⤢ (phóng to)** → bôi đen → Ctrl+C
+
+⇒ Ràng buộc "log chết theo pod" **vẫn còn** với log container; logcat của guest thì
+**phải copy tay**, không tự động hoá được. Đây là chi phí cố định của mỗi lượt đo —
+tính vào thời gian khi lên kịch bản phiên.
+| 20/08 | B3 ❌ đã dò cạn: không có API nào đọc `face-logcat` (container-file/vms-logs đều 502 Conduit, Loki rỗng, không có route "part"). Chỉ còn nút download trên widget |
+| 20/08 | Đo A/B xong → prompt phản tác dụng, rollback. Xoá room `wcmfnwigjse4hv9r8s0e3` trả quota. Trả `vcu/Speed` room demo về 0 (GPIO); **CAN/KUKSA vẫn 106 vì REST không sinh sự kiện cho VCU — cần kéo slider một nhịp để đồng bộ** |
+| 20/08 | Kéo Vosk về bản demo (nhánh `feat/restore-vosk-offline-asr`, PR #5). Hệ quả: lập luận "bỏ node ASR = app điếc" ở ô ④ Độ sâu không còn dùng được |

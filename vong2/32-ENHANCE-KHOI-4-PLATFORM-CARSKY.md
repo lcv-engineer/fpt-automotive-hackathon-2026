@@ -206,8 +206,15 @@ platform chỉ qua ngưỡng khi capability/contract của nó là điều kiệ
 
 **Thực tế:** đúng vế sau, **sai vế trước theo code hiện tại**.
 `RoutingAsrClient.kt:28` chỉ còn hai nhánh — `AsrEngine.VIVA` (container CarSky,
-**mặc định**) và `AsrEngine.GOOGLE` (cloud). `find -name "Vosk*.kt"` không còn kết
-quả: engine on-device đã bị gỡ khỏi code. Bỏ node ASR = mất luôn đường offline.
+**mặc định**) và `AsrEngine.GOOGLE` (cloud).
+
+> ⚠️ **CẬP NHẬT 20/08 — đoạn dưới đây KHÔNG còn đúng.** Lúc viết (18/08), engine
+> on-device đã bị gỡ nên node ASR là đường duy nhất. Ngày 20/08 **Vosk đã được kéo
+> trở lại** theo quyết định của đội (nhánh `feat/restore-vosk-offline-asr`):
+> `AsrEngine` nay có ba nhánh `VIVA` / `GOOGLE` / `VOSK`, và `VOSK` chạy hoàn toàn
+> trên máy, không cần mạng. Hệ quả: **bỏ node ASR thì app VẪN nghe được** bằng Vosk
+> ⇒ lập luận "platform là điều kiện cần" ở ô ④ Độ sâu **không còn dùng được cho
+> đường ASR**. Xem `evidence/c2/vosk-restored-20260820/` khi có.
 
 Cái thật sự thiếu là **vế ra**: ở flavor `mock`, NLU + SafetyGuard + HVAC + media
 chạy trong APK, đầu kia là `MockVehicleRepository`.

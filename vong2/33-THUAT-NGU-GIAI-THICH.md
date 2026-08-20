@@ -235,7 +235,7 @@ mic → VAD → ASR → NLU → Intent → SafetyGuard → Skill → thực thi 
 | **VAD** | Voice Activity Detection — phát hiện *có người đang nói* | Dùng Silero VAD |
 | **ASR** | Automatic Speech Recognition — âm thanh → chữ | Container `viva-asr` |
 | **PhoWhisper** | Model ASR tiếng Việt (bản Whisper huấn luyện lại) | `phowhisper-tiny-int8` |
-| **Vosk** | Model ASR chạy thẳng trên máy, nhẹ | **Đã gỡ khỏi code** |
+| **Vosk** | Model ASR chạy thẳng trên máy, nhẹ | Gỡ 10/08, **kéo lại 20/08** — nay là engine thứ ba (`VOSK`), chạy offline |
 | **int8** | Nén model xuống số nguyên 8-bit cho nhanh | |
 | **NLU** | Natural Language Understanding — chữ → ý định | |
 | **Intent** | Ý định đã nhận ra, ví dụ `hvac_set_temp` | 10 intent |

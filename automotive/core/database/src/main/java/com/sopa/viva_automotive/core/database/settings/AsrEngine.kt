@@ -8,6 +8,7 @@ package com.sopa.viva_automotive.core.database.settings
 enum class AsrEngine(val storageKey: String) {
     VIVA("viva"),
     GOOGLE("google"),
+    VOSK("vosk"),
     ;
 
     companion object {
