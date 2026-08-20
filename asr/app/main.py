@@ -1,9 +1,12 @@
 """viva-asr — HTTP ASR service for the VIVA voice pipeline.
 
-Contract: `vong2/03-contracts.md` §2. Two routes, nothing else:
+ASR contract: `vong2/03-contracts.md` §2. The ASR routes remain:
 
     POST /asr     raw PCM16 LE mono body, X-Sample-Rate + X-Trace-Id headers
     GET  /health  {"status": "ok", "model": "..."}
+
+The additive `POST /v1/brain/plan` route is an optional, server-side LLM
+gateway. It does not change the ASR request or response contract.
 
 Design notes live in `docs/backend-docs/v6-viva-asr.md`.
 """
@@ -11,6 +14,8 @@ Design notes live in `docs/backend-docs/v6-viva-asr.md`.
 from __future__ import annotations
 
 import logging
+import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 
@@ -19,6 +24,13 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from .audio import InvalidAudioError, duration_ms, pcm16le_to_float32
+from .brain import (
+    BrainPlan,
+    BrainPlanRequest,
+    BrainPlannerDisabledError,
+    BrainProviderError,
+    OpenAiBrainPlanner,
+)
 from .config import REQUIRED_SAMPLE_RATE, Settings
 from .model import ModelHolder, ModelNotReadyError, ModelState
 from .schemas import AsrResponse, HealthResponse
@@ -31,6 +43,8 @@ log = logging.getLogger("viva.asr")
 
 settings = Settings.from_env()
 holder = ModelHolder(settings)
+brain_planner = OpenAiBrainPlanner.from_env()
+brain_auth_token = os.getenv("VIVA_BRAIN_AUTH_TOKEN", "").strip()
 
 
 @asynccontextmanager
@@ -49,6 +63,18 @@ def _error(status_code: int, error: str, detail: str | None = None, **headers: s
     if detail:
         body["detail"] = detail
     return JSONResponse(status_code=status_code, content=body, headers=headers or None)
+
+
+def _valid_brain_authorization(authorization: str | None) -> bool:
+    if not authorization:
+        return False
+    scheme, separator, candidate = authorization.partition(" ")
+    return (
+        separator == " "
+        and scheme.lower() == "bearer"
+        and bool(candidate)
+        and secrets.compare_digest(candidate, brain_auth_token)
+    )
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -72,6 +98,54 @@ def health() -> Response:
     if state is ModelState.FAILED and holder.error:
         payload["detail"] = holder.error
     return JSONResponse(status_code=503, content=payload, headers={"Retry-After": "5"})
+
+
+@app.post("/v1/brain/plan", response_model=BrainPlan)
+async def brain_plan(plan_request: BrainPlanRequest, http_request: Request) -> Response:
+    if not brain_auth_token:
+        return _error(
+            503,
+            "brain planner unavailable",
+            **{"Retry-After": "5"},
+        )
+    if not _valid_brain_authorization(http_request.headers.get("Authorization")):
+        return _error(401, "unauthorized", **{"WWW-Authenticate": "Bearer"})
+
+    trace_id = plan_request.trace_id
+    headers = {"X-Trace-Id": trace_id, "X-Brain-Model": brain_planner.model}
+    try:
+        plan = await brain_planner.plan(plan_request.text, trace_id)
+    except BrainPlannerDisabledError:
+        return _error(
+            503,
+            "brain planner unavailable",
+            **{**headers, "Retry-After": "5"},
+        )
+    except BrainProviderError as exc:
+        log.warning("VIVA_BRAIN|%s|provider_failed|%s", trace_id, type(exc).__name__)
+        return _error(502, "brain provider failed", **headers)
+    except Exception as exc:  # noqa: BLE001 - model failures must not kill ASR service
+        log.exception("VIVA_BRAIN|%s|unexpected_failure|%s", trace_id, type(exc).__name__)
+        return _error(500, "brain planner failed", **headers)
+
+    log.info(
+        "VIVA_BRAIN|%s|ok|model=%s|kind=%s|intent=%s|confidence=%.2f",
+        trace_id,
+        brain_planner.model,
+        plan.kind,
+        plan.intent_name or "-",
+        plan.confidence,
+    )
+    payload = plan.model_dump()
+    # Preserve the original v1 shape for single/non-action responses. The new
+    # field is present only when a bounded multi-action result actually exists,
+    # so an older Android parser keeps accepting the old cases and fails closed
+    # only for the feature it does not understand.
+    if payload["actions"] is None:
+        payload.pop("actions")
+    if payload["resume_prefix"] is None:
+        payload.pop("resume_prefix")
+    return JSONResponse(status_code=200, content=payload, headers=headers)
 
 
 @app.post("/asr", response_model=AsrResponse)

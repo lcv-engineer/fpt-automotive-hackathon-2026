@@ -19,6 +19,28 @@ import org.junit.Test
 
 class VoiceAgentTest {
 
+    private class RecordingPlanner(
+        private val result: AgentPlanResult,
+    ) : AgentPlanner {
+        val received = mutableListOf<String>()
+
+        override suspend fun plan(text: String, traceId: String): AgentPlanResult {
+            received += text
+            return result
+        }
+    }
+
+    private class SequencedPlanner(
+        private val results: List<AgentPlanResult>,
+    ) : AgentPlanner {
+        val received = mutableListOf<String>()
+
+        override suspend fun plan(text: String, traceId: String): AgentPlanResult {
+            received += text
+            return results[received.lastIndex]
+        }
+    }
+
     private class StepClock : NanoClock {
         private var now = 1_000_000_000L
         override fun nanos(): Long = now.also { now += 10_000_000L }
@@ -51,14 +73,22 @@ class VoiceAgentTest {
         }
     }
 
-    private fun trace() = LatencyTrace(
-        traceId = "voice-agent-test",
-        clock = StepClock(),
-        sink = RecordingTraceSink(),
-    )
+    private class SequencedGateway(
+        private val results: List<CommandResult>,
+    ) : CommandGateway {
+        val received = mutableListOf<Intent>()
+
+        override suspend fun execute(intent: Intent, trace: LatencyTrace): CommandResult {
+            received += intent
+            return results[received.lastIndex]
+        }
+    }
+
+    private fun trace(id: String = "t-1") =
+        LatencyTrace(id, StepClock(), RecordingTraceSink())
 
     @Test
-    fun `successful climate command speaks only the verified gateway response`() = runImmediate {
+    fun `happy path handles audio produces spoken response and updates HMI`() = runImmediate {
         val tts = RecordingTts()
         val gateway = FakeGateway(
             CommandResult.Applied(
@@ -67,26 +97,144 @@ class VoiceAgentTest {
             ),
         )
         val agent = VoiceAgent(
-            asr = FakeAsrClient(AsrResult("Viva ơi hạ điều hòa xuống 24 độ", 0.97f, 18)),
+            asr = FakeAsrClient(AsrResult("hạ điều hòa xuống 24 độ", 0.98f, 12)),
             router = GrammarIntentRouter(),
             gateway = gateway,
             tts = tts,
         )
 
-        val result = agent.handleAudio(shortArrayOf(1, 2), 16_000, trace())
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
 
         assertEquals(VoiceTurnStatus.APPLIED, result.status)
-        assertEquals("hvac_set_temp", result.intent?.name)
+        assertEquals("hvac_set_temp", gateway.received?.name)
+        assertEquals(24f, gateway.received?.slots?.get("value"))
+        assertEquals("Đã đặt nhiệt độ mục tiêu 24°C.", result.spokenVi)
         assertEquals(24f, result.hmiPatch["climate.temperatureC"])
         assertEquals(listOf("Đã đặt nhiệt độ mục tiêu 24°C."), tts.spoken)
+    }
+
+    /**
+     * Khoảnh khắc ④ của kịch bản: "nóng quá" → hỏi lại → "hai hai độ" → thực hiện.
+     * Trước đây lượt 2 rơi thẳng xuống `Unsupported` vì `VoiceAgent` không giữ
+     * trạng thái nào, nên câu hỏi lại là một ngõ cụt.
+     */
+    @Test
+    fun `answer to a clarification completes the pending command`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 22°C.", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("", 0f, 0)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val first = agent.handleText("Vivi ơi nóng quá", trace())
+        assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, first.status)
+        assertNull(gateway.received)
+
+        val second = agent.handleText("hai hai độ", trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, second.status)
+        assertEquals("hvac_set_temp", gateway.received?.name)
+        assertEquals(22f, gateway.received?.slots?.get("value"))
+    }
+
+    @Test
+    fun `pending clarification is dropped once it is answered`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("ok", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("", 0f, 0)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        agent.handleText("Vivi ơi nóng quá", trace())
+        agent.handleText("hai hai độ", trace())
+        // Lượt 3 là một con số trần trụi, không còn ngữ cảnh nào để bám vào.
+        val third = agent.handleText("hai tư", trace())
+
+        assertEquals(VoiceTurnStatus.UNSUPPORTED, third.status)
+    }
+
+    /** Một lệnh đầy đủ ở lượt 2 phải thắng ngữ cảnh đang chờ, không bị ghép nhầm. */
+    @Test
+    fun `a complete command overrides a pending clarification`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("ok", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("", 0f, 0)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        agent.handleText("Vivi ơi nóng quá", trace())
+        val second = agent.handleText("Vivi ơi chuyển bài tiếp theo", trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, second.status)
+        assertEquals("media_next", gateway.received?.name)
+    }
+
+    @Test
+    fun `negated command never reaches the gateway or the planner`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Failed("must not execute"))
+        val planner = RecordingPlanner(AgentPlanResult.Unavailable("must not be consulted"))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("Vivi ơi đừng mở cửa", 0.97f, 15)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, result.status)
+        assertNull(gateway.received)
+        assertEquals(emptyList<String>(), planner.received)
+    }
+
+    /** N5 hồi quy: "không" ở vị trí giá trị vẫn phải là quạt mức 0. */
+    @Test
+    fun `N5 fan level zero survives the negation gate`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt quạt mức 0.", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("Vivi ơi quạt mức không", 0.95f, 15)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, result.status)
+        assertEquals("hvac_set_fan", gateway.received?.name)
+        assertEquals(0, gateway.received?.slots?.get("level"))
+    }
+
+    /** Bẫy dấu: "dừng nhạc" là media_pause, không phải "đừng". */
+    @Test
+    fun `dung nhac still pauses media`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đang dừng nhạc", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("Vivi ơi dừng nhạc", 0.95f, 15)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, result.status)
+        assertEquals("media_pause", gateway.received?.name)
     }
 
     @Test
     fun `ambiguous cold complaint asks a question and never reaches the car gateway`() = runImmediate {
         val tts = RecordingTts()
-        val gateway = FakeGateway(CommandResult.Failed("must not execute"))
+        val gateway = FakeGateway(CommandResult.Applied("must not execute"))
         val agent = VoiceAgent(
-            asr = FakeAsrClient(AsrResult("lạnh quá", 0.95f, 12)),
+            asr = FakeAsrClient(AsrResult("lạnh quá", 0.95f, 10)),
             router = GrammarIntentRouter(),
             gateway = gateway,
             tts = tts,
@@ -174,8 +322,6 @@ class VoiceAgentTest {
 
         val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
 
-        // Vosk small không trả confidence. Bắt lượt đó hỏi lại vô điều kiện thì trợ lý
-        // không bao giờ thực thi được lệnh nào trên bản offline.
         assertEquals(VoiceTurnStatus.APPLIED, result.status)
         assertEquals("hvac_set_temp", gateway.received?.name)
     }
@@ -212,8 +358,6 @@ class VoiceAgentTest {
 
         agent.handleAudio(shortArrayOf(1), 16_000, trace())
 
-        // Grammar T0 khớp tất định — độ chắc của NLU là 1.0 và không liên quan tới
-        // việc mic hôm nay ồn tới đâu.
         assertEquals(1f, gateway.received?.confidence)
         assertEquals(Intent.Tier.T0, gateway.received?.tier)
     }
@@ -233,6 +377,219 @@ class VoiceAgentTest {
 
         assertEquals(VoiceTurnStatus.APPLIED, result.status)
         assertEquals("media_next", gateway.received?.name)
+    }
+
+    @Test
+    fun `unsupported grammar falls back to the constrained agent then uses the same gateway`() =
+        runImmediate {
+            val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 22°C."))
+            val planner = RecordingPlanner(
+                AgentPlanResult.Action(
+                    Intent(
+                        name = "hvac_set_temp",
+                        slots = mapOf("value" to 22f),
+                        confidence = 0.91f,
+                        tier = Intent.Tier.T2,
+                    ),
+                ),
+            )
+            val agent = VoiceAgent(
+                asr = FakeAsrClient(),
+                router = GrammarIntentRouter(),
+                gateway = gateway,
+                tts = RecordingTts(),
+                planner = planner,
+            )
+
+            val result = agent.handleText("trong xe ngột ngạt quá, làm mát giúp mình", trace())
+
+            assertEquals(VoiceTurnStatus.APPLIED, result.status)
+            assertEquals(listOf("trong xe ngột ngạt quá, làm mát giúp mình"), planner.received)
+            assertEquals("hvac_set_temp", gateway.received?.name)
+            assertEquals(Intent.Tier.T2, gateway.received?.tier)
+        }
+
+    @Test
+    fun `deterministic compound actions execute in spoken order through the same gateway`() =
+        runImmediate {
+            val tts = RecordingTts()
+            val gateway = SequencedGateway(
+                listOf(
+                    CommandResult.Applied("Đã bật đèn cabin.", mapOf("lights.on" to true)),
+                    CommandResult.Applied("Đã chuyển bài.", mapOf("media.track" to "next")),
+                ),
+            )
+            val agent = VoiceAgent(
+                asr = FakeAsrClient(),
+                router = GrammarIntentRouter(),
+                gateway = gateway,
+                tts = tts,
+            )
+
+            val result = agent.handleText("bật đèn cabin rồi chuyển bài", trace())
+
+            assertEquals(VoiceTurnStatus.APPLIED, result.status)
+            assertEquals(listOf("cabin_lights", "media_next"), gateway.received.map(Intent::name))
+            assertEquals(listOf("Đã bật đèn cabin.", "Đã chuyển bài."), result.spokenSegmentsVi)
+            assertEquals(result.spokenSegmentsVi, tts.spoken)
+            assertEquals(true, result.hmiPatch["lights.on"])
+            assertEquals("next", result.hmiPatch["media.track"])
+        }
+
+    @Test
+    fun `bounded agent action plan uses the same sequential executor`() = runImmediate {
+        val gateway = SequencedGateway(
+            listOf(
+                CommandResult.Applied("Đã bật đèn cabin."),
+                CommandResult.Applied("Đã chuyển bài."),
+            ),
+        )
+        val planner = RecordingPlanner(
+            AgentPlanResult.Actions(
+                listOf(
+                    Intent("cabin_lights", mapOf("on" to true), 0.91f, Intent.Tier.T2),
+                    Intent("media_next", confidence = 0.88f, tier = Intent.Tier.T2),
+                ),
+            ),
+        )
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        val result = agent.handleText("làm cabin dễ chịu rồi đổi bài giúp mình", trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, result.status)
+        assertEquals(listOf("cabin_lights", "media_next"), gateway.received.map(Intent::name))
+    }
+
+    @Test
+    fun `typed agent clarification resumes through the planner on the next turn`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 22°C."))
+        val planner = SequencedPlanner(
+            listOf(
+                AgentPlanResult.Clarification(
+                    "Bạn muốn đặt nhiệt độ bao nhiêu độ?",
+                    AgentResumePrefix.TEMPERATURE,
+                ),
+                AgentPlanResult.Action(
+                    Intent(
+                        "hvac_set_temp",
+                        mapOf("value" to 22f),
+                        0.91f,
+                        Intent.Tier.T2,
+                    ),
+                ),
+            ),
+        )
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        val first = agent.handleText("làm cabin dễ chịu hơn", trace())
+        val second = agent.handleText("hai hai độ", trace())
+
+        assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, first.status)
+        assertEquals(VoiceTurnStatus.APPLIED, second.status)
+        assertEquals(
+            listOf("làm cabin dễ chịu hơn", "nhiệt độ hai hai độ"),
+            planner.received,
+        )
+        assertEquals("hvac_set_temp", gateway.received?.name)
+    }
+
+    @Test
+    fun `agent resume cannot bypass a grammar command that forbids fallback`() = runImmediate {
+        val planner = SequencedPlanner(
+            listOf(
+                AgentPlanResult.Clarification(
+                    "Bạn muốn đặt nhiệt độ bao nhiêu độ?",
+                    AgentResumePrefix.TEMPERATURE,
+                ),
+            ),
+        )
+        val gateway = FakeGateway(CommandResult.Applied("must not execute"))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        agent.handleText("làm cabin dễ chịu hơn", trace())
+        val second = agent.handleText("bật điều hòa", trace())
+
+        assertEquals(VoiceTurnStatus.UNSUPPORTED, second.status)
+        assertEquals(listOf("làm cabin dễ chịu hơn"), planner.received)
+        assertNull(gateway.received)
+    }
+
+    @Test
+    fun `compound execution stops after the first non-applied result without claiming rollback`() =
+        runImmediate {
+            val tts = RecordingTts()
+            val gateway = SequencedGateway(
+                listOf(
+                    CommandResult.Applied("Đã bật đèn cabin.", mapOf("lights.on" to true)),
+                    CommandResult.Denied("G1_SPEED_LOCK", "Xe đang chạy, mình chưa mở cửa được."),
+                    CommandResult.Applied("Đã chuyển bài."),
+                ),
+            )
+            val agent = VoiceAgent(
+                asr = FakeAsrClient(),
+                router = GrammarIntentRouter(),
+                gateway = gateway,
+                tts = tts,
+            )
+
+            val result = agent.handleText(
+                "bật đèn cabin rồi mở cửa rồi chuyển bài",
+                trace(),
+            )
+
+            assertEquals(VoiceTurnStatus.PARTIALLY_APPLIED, result.status)
+            assertEquals(listOf("cabin_lights", "door_lock"), gateway.received.map(Intent::name))
+            assertEquals(
+                listOf("Đã bật đèn cabin.", "Xe đang chạy, mình chưa mở cửa được."),
+                result.spokenSegmentsVi,
+            )
+            assertEquals(true, result.hmiPatch["lights.on"])
+        }
+
+    @Test
+    fun `commands explicitly removed from the demo never reach the agent fallback`() = runImmediate {
+        val planner = RecordingPlanner(
+            AgentPlanResult.Action(
+                Intent(
+                    name = "hvac_set_temp",
+                    slots = mapOf("value" to 22f),
+                    confidence = 0.9f,
+                    tier = Intent.Tier.T2,
+                ),
+            ),
+        )
+        val gateway = FakeGateway(CommandResult.Applied("must not execute"))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        val result = agent.handleText("bật điều hòa", trace())
+
+        assertEquals(VoiceTurnStatus.UNSUPPORTED, result.status)
+        assertTrue(planner.received.isEmpty())
+        assertNull(gateway.received)
     }
 
     @Test

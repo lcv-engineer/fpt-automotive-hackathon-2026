@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="media_title">Media</string>
+    <string name="media_browser_service_label">VIVA Media</string>
     <string name="media_now_playing">Now playing</string>
     <string name="media_idle">Ready to play</string>
     <string name="media_play">Play</string>

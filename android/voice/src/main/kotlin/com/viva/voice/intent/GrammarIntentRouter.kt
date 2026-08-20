@@ -28,11 +28,53 @@ class GrammarIntentRouter(
             )
         }
         val command = normalized.replaceFirst(SUPPORTED_WAKE, "").trim()
+        return routeCommand(command)
+    }
+
+    private fun routeCommand(command: String): RouteResult {
         if (command.isEmpty()) {
             return RouteResult.NeedsClarification(
                 "Mình đang nghe. Bạn muốn điều hòa, cửa, đèn, nhạc hay âm lượng?",
             )
         }
+
+        val clauses = command.split(COMPOUND_CONNECTOR).filter(String::isNotBlank)
+        if (clauses.size > 1) {
+            val clauseResults = clauses.map(::routeSingleCommand)
+            if (clauseResults.all { it is RouteResult.Matched }) {
+                if (clauses.size > RouteResult.MAX_ACTIONS) {
+                    return RouteResult.Unsupported(
+                        promptVi = "Mỗi lượt hỗ trợ tối đa ${RouteResult.MAX_ACTIONS} thao tác. Bạn chia yêu cầu thành hai lượt nhé.",
+                        canFallback = false,
+                    )
+                }
+                return RouteResult.MatchedMany(
+                    clauseResults.map { (it as RouteResult.Matched).intent },
+                )
+            }
+
+            // "phát bài Em và Trịnh" là một media query, không phải hai action.
+            // Chỉ giữ nguyên cả câu khi mọi phần sau đều hoàn toàn không giống lệnh;
+            // một clause đã match/clarify/removed phải khiến cả câu đi slow path.
+            if (isMediaPlayCommand(command) && clauseResults.drop(1).all {
+                    it is RouteResult.Unsupported && it.canFallback
+                }
+            ) {
+                return routeSingleCommand(command)
+            }
+
+            val forbidsFallback = clauseResults.any {
+                it is RouteResult.Unsupported && !it.canFallback
+            }
+            return RouteResult.Unsupported(
+                promptVi = "Mình chưa hiểu đủ các phần của yêu cầu. Bạn nói lại từng thao tác giúp mình nhé.",
+                canFallback = !forbidsFallback,
+            )
+        }
+        return routeSingleCommand(command)
+    }
+
+    private fun routeSingleCommand(command: String): RouteResult {
         if (isRemovedCommand(command)) {
             return RouteResult.Unsupported(
                 promptVi = "Lệnh này chưa có trong bản demo. Bạn thử: đặt điều hòa, mở cửa, bật đèn, phát nhạc, hoặc thích bài này.",
@@ -43,11 +85,13 @@ class GrammarIntentRouter(
         if (command.contains("lanh qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn tăng nhiệt độ điều hòa lên bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         }
         if (command.contains("nong qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn giảm nhiệt độ điều hòa xuống bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         }
 
@@ -84,9 +128,7 @@ class GrammarIntentRouter(
         if (isFavoriteCommand(command)) {
             return matched("media_favorite")
         }
-        if (command.startsWith("phat nhac") || command.startsWith("phat playlist") ||
-            command.startsWith("phat bai")
-        ) {
+        if (isMediaPlayCommand(command)) {
             // Slot `query` is what the player searches for — strip verb + kind words.
             val query = command
                 .removePrefix("phat ")
@@ -110,6 +152,11 @@ class GrammarIntentRouter(
         }
         return RouteResult.Unsupported()
     }
+
+    private fun isMediaPlayCommand(command: String): Boolean =
+        command.startsWith("phat nhac") ||
+            command.startsWith("phat playlist") ||
+            command.startsWith("phat bai")
 
     private fun isCabinLightsOn(command: String): Boolean =
         command.contains("bat den") ||
@@ -145,10 +192,12 @@ class GrammarIntentRouter(
         val value = NUMBER.find(parsed)?.groupValues?.get(1)?.toIntOrNull()
             ?: return RouteResult.NeedsClarification(
                 "Bạn muốn đặt nhiệt độ điều hòa ở bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         if (value !in MIN_TEMPERATURE_C..MAX_TEMPERATURE_C) {
             return RouteResult.NeedsClarification(
                 "Nhiệt độ hỗ trợ từ 16 đến 32 độ C. Bạn muốn đặt bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         }
         return matched("hvac_set_temp", mapOf("value" to value.toFloat()))
@@ -165,9 +214,15 @@ class GrammarIntentRouter(
     private fun routeFan(command: String): RouteResult {
         val parsed = parseVietnameseNumber(command)
         val level = NUMBER.find(parsed)?.groupValues?.get(1)?.toIntOrNull()
-            ?: return RouteResult.NeedsClarification("Bạn muốn đặt quạt ở mức mấy, từ 0 đến 5?")
+            ?: return RouteResult.NeedsClarification(
+                "Bạn muốn đặt quạt ở mức mấy, từ 0 đến 5?",
+                resumePrefix = FAN_PREFIX,
+            )
         if (level !in MIN_FAN_LEVEL..MAX_FAN_LEVEL) {
-            return RouteResult.NeedsClarification("Mức quạt hỗ trợ từ 0 đến 5. Bạn chọn mức nào?")
+            return RouteResult.NeedsClarification(
+                "Mức quạt hỗ trợ từ 0 đến 5. Bạn chọn mức nào?",
+                resumePrefix = FAN_PREFIX,
+            )
         }
         return matched("hvac_set_fan", mapOf("level" to level))
     }
@@ -218,10 +273,13 @@ class GrammarIntentRouter(
         private const val MIN_FAN_LEVEL = 0
         private const val MAX_FAN_LEVEL = 5
         private const val GRAMMAR_CONFIDENCE = 1.0f
+        private const val TEMPERATURE_PREFIX = "nhiệt độ"
+        private const val FAN_PREFIX = "quạt mức"
 
         private val NUMBER = Regex("""(\d{1,2})""")
         private val PUNCTUATION = Regex("""[,.!?;:]""")
         private val WHITESPACE = Regex("""\s+""")
+        private val COMPOUND_CONNECTOR = Regex("""\s+(?:va|roi|sau do)\s+""")
         private val DIACRITICS = Regex("""\p{M}+""")
         // Canonical product wake: “Vi-Vi ơi”; keep Vivi/Viva aliases for PTT/ASR.
         private val SUPPORTED_WAKE =

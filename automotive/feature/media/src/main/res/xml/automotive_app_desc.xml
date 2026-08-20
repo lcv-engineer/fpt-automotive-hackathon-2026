@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Khai báo để AAOS nhận diện app là nguồn nhạc và cho nó xuất hiện trong media
+  switcher của xe. Không có tệp này thì VivaMediaBrowserService vẫn chạy được
+  khi app tự gọi, nhưng System UI của xe không liệt kê nó ra.
+
+  Cố ý KHÔNG khai báo com.google.android.gms.car.application ở đây: đó là
+  metadata của Android Auto chiếu từ điện thoại, không dùng cho app AAOS chạy
+  độc lập trên xe.
+-->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>

@@ -2,7 +2,9 @@ package com.viva.voice.audio
 
 import com.viva.voice.trace.NanoClock
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.takeWhile
 
 /**
  * Điểm vào duy nhất của âm thanh trong pipeline (28-PIPELINE §0, quyết định 1).
@@ -53,7 +55,9 @@ enum class Trigger { PUSH_TO_TALK, WAKE_WORD }
  * Đoạn tiếng nói đã được đóng biên, kèm pre-roll (28-PIPELINE §4).
  *
  * [speechStartNanos]/[speechEndNanos] là thời điểm thật của biên tiếng nói, đã
- * back-date; chúng là hai mốc `speech_start`/`speech_end` trên `VIVA_TRACE`.
+ * back-date. [acousticEndNanos] là lúc người nói dứt câu; [endpointDecisionNanos]
+ * là lúc VAD đã quan sát đủ silence để đóng lượt. [speechEndNanos] vẫn là cuối
+ * đoạn PCM có padding và không được dùng thay cho hai mốc trace kia.
  */
 class AudioUtterance(
     val pcm16: ShortArray,
@@ -61,6 +65,9 @@ class AudioUtterance(
     val speechStartNanos: Long,
     val speechEndNanos: Long,
     val trigger: Trigger,
+    val acousticEndNanos: Long = speechEndNanos,
+    val endpointDecisionNanos: Long = speechEndNanos,
+    val truncated: Boolean = false,
 ) {
     val durationMs: Int get() = (pcm16.size * 1_000L / sampleRate).toInt()
 }
@@ -71,6 +78,45 @@ sealed interface VoiceSessionOutcome {
 
     /** VAD không thấy tiếng nói nào cho tới khi hết thời gian chờ. */
     data object NoSpeech : VoiceSessionOutcome
+}
+
+/**
+ * Điều phối đúng một lượt streaming VAD trên [AudioCapture].
+ *
+ * Timeout chỉ áp dụng trước `SpeechStarted`; sau khi đã có tiếng nói, endpointer
+ * được quyền chờ silence hoặc chạm `maxSpeechMs`. `takeWhile` hủy upstream ngay
+ * khi endpoint đóng, vì vậy `PcmSourceAudioCapture` luôn chạy `finally` và nhả mic.
+ */
+suspend fun captureVadSession(
+    audioCapture: AudioCapture,
+    driver: VadStreamDriver,
+    maxWaitForSpeechMs: Long,
+    clock: NanoClock,
+): VoiceSessionOutcome {
+    require(maxWaitForSpeechMs > 0) { "maxWaitForSpeechMs must be positive" }
+    val waitStartedNanos = clock.nanos()
+    val maxWaitNanos = maxWaitForSpeechMs * 1_000_000L
+    var speechStarted = false
+    var completed: VadStreamEvent.SpeechEnded? = null
+
+    audioCapture.frames()
+        .takeWhile { frame ->
+            if (!speechStarted && clock.nanos() - waitStartedNanos >= maxWaitNanos) {
+                false
+            } else {
+                when (val event = driver.accept(frame)) {
+                    is VadStreamEvent.SpeechStarted -> speechStarted = true
+                    is VadStreamEvent.SpeechEnded -> completed = event
+                    null -> Unit
+                }
+                completed == null
+            }
+        }
+        .collect()
+
+    val ended = completed ?: driver.flush()
+    return ended?.let { VoiceSessionOutcome.Speech(it.utterance) }
+        ?: VoiceSessionOutcome.NoSpeech
 }
 
 /**

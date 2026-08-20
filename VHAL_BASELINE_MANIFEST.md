@@ -47,6 +47,26 @@ Room VIVA có **8 Script Node, tất cả do nền tảng viết**:
 > tìm `process_vhal_set_property`, `check_safety_guard`, `"VHAL SERVER"` trong
 > blueprint export → không có kết quả.
 
+> 🔴 **ĐÍNH CHÍNH 12/08/2026 — câu trên chỉ còn đúng tới hết ngày 08/08.**
+> Commit `c255ccc` (**09/08**, có trên `origin/main`) đưa 8 script Lua vào [`GATEWAY/`](GATEWAY/),
+> trong đó **2 file đã bị sửa thật**. So từng byte với blueprint export:
+>
+> | File | Khác | Nội dung |
+> |---|---|---|
+> | [`GATEWAY/IVI_GATEWAY.lua`](GATEWAY/IVI_GATEWAY.lua) | **+19 thêm / 4 thay** | Khối guard 17 dòng: **G1.1** (từ chối mở khoá cửa khi `Vehicle.Speed > 0`) và **G1.2** (chặn nhiệt độ ngoài 16–32 °C) đặt tại đường `pins.vhal → actuate_kuksa`; sửa property ID sai của bản gốc: `EV_BATTERY_LEVEL` `0x11600204` → `0x11600600` |
+> | [`GATEWAY/BCM_GATEWAY.lua`](GATEWAY/BCM_GATEWAY.lua) | **+33 thêm / 4 thay** | **G1.1/G1.2/G1.3** ở lớp CAN; thêm `current_vehicle_speed` và `bind_door_actuate` (thay `bind_bool_actuate`) để chặn mở cửa **trước khi** publish khung `DoorCommand` |
+> | `VCU.lua` | 16 dòng | Chỉ khác dấu tiếng Việt trong comment/log — **không có thay đổi chức năng**, không khai là đóng góp |
+> | 5 file còn lại | 0 dòng | Giữ nguyên của nền tảng |
+>
+> Nhãn đúng cho 2 file đầu là **`modified` — chưa xác nhận runtime**: mới xác nhận
+> được phần source nằm trong commit đã nộp, **chưa** có log từ nền tảng in ra
+> `[SAFETY GUARD G1.1 BLOCKED]`. Không được viết là "đã chạy trên CarSky".
+>
+> Bản 08/08 khai thiếu cột `modified` có thể đã góp phần khiến phần sửa gateway
+> không hiện rõ trong feedback BTC. Việc này không thay đổi khoảng trống runtime
+> mà mentor nêu. Xem
+> [`vong2/31-BO-SUNG-EVIDENCE-3-TIEU-CHI.md`](vong2/31-BO-SUNG-EVIDENCE-3-TIEU-CHI.md) §③.2a.
+
 ---
 
 ## 2. Phần đội tự xây — chỉ liệt kê thứ mở được trong repo này
@@ -55,18 +75,20 @@ Room VIVA có **8 Script Node, tất cả do nền tảng viết**:
 |---|---|---|---|
 | **SafetyGuard** — bộ luật G1/G2/G3 | [`vehicle-service/api/.../SafetyGuard.kt`](automotive/vehicle-service/api/src/main/java/com/sopa/viva_automotive/vehicleservice/api/SafetyGuard.kt) + [`impl/.../DefaultSafetyGuard.kt`](automotive/vehicle-service/impl/src/main/java/com/sopa/viva_automotive/vehicleservice/impl/DefaultSafetyGuard.kt) | `new` ⭐ | `SafetyGuardTest.kt`, `GuardedVehicleRepositoryTest.kt`, và ablation A1 |
 | **Cưỡng chế guard ở biên repository** | [`GuardedVehicleRepository.kt`](automotive/vehicle-service/impl/src/main/java/com/sopa/viva_automotive/vehicleservice/impl/GuardedVehicleRepository.kt) | `new` ⭐ | Chặn **cả** đường giọng nói lẫn đường chạm — A1-02 |
-| **Ablation A1** — counterfactual bỏ guard | [`SafetyGuardAblationTest.kt`](automotive/vehicle-service/impl/src/test/java/com/sopa/viva_automotive/vehicleservice/impl/ablation/SafetyGuardAblationTest.kt) | `new` ⭐ | [`evidence/ablation/a1-safety-guard-ablation.csv`](evidence/ablation/a1-safety-guard-ablation.csv) — **6/9 lệnh nguy hiểm ghi được xuống xe khi bỏ guard** |
+| **Ablation A1** — counterfactual bỏ guard | [`SafetyGuardAblationTest.kt`](automotive/vehicle-service/impl/src/test/java/com/sopa/viva_automotive/vehicleservice/impl/ablation/SafetyGuardAblationTest.kt) | `new` ⭐ | [`evidence/ablation/a1-safety-guard-ablation.csv`](evidence/ablation/a1-safety-guard-ablation.csv) — trong bộ 9 ca, **6/6 ca nguy hiểm ghi được vào `MockVehicleRepository` khi bỏ guard; 3/3 ca đối chứng hợp lệ không đổi** |
 | Lớp truy cập Vehicle Property | [`RealVehicleRepository.kt`](automotive/vehicle-service/impl/src/main/java/com/sopa/viva_automotive/vehicleservice/impl/RealVehicleRepository.kt), [`AreaIdResolver.kt`](automotive/vehicle-service/impl/src/main/java/com/sopa/viva_automotive/vehicleservice/impl/AreaIdResolver.kt) | `new` | `AreaIdResolver` xử lý mask area chồng nhau — lý do app khớp được với `seat.ROW_1_LEFT` của nền tảng |
 | Allowlist quyền privileged | [`privapp-permissions-com.sopa.viva_automotive.xml`](automotive/app/privapp-permissions-com.sopa.viva_automotive.xml) | `new` | ⚠️ mới có 4/7 quyền manifest xin — xem mục 4 |
 | Bảng đối chiếu property ↔ signal | [`docs/dbc/README.md`](docs/dbc/README.md) | `new` | Dữ liệu đầu vào là `provided`, bảng là sản phẩm của đội |
-| UDS DTC Simulator | [`uds_dtc_simulator.py`](uds_dtc_simulator.py) | `new` | ⚠️ **Không dùng ở Vòng 2** (cắt 29/07, T10). Giữ cho Vòng 3 — barem Vòng 3 có dòng `(+05) Tích hợp đa dạng bài tập` |
-| Safety scenario pack (Python) | [`test_safety_scenario_pack.py`](test_safety_scenario_pack.py) | `new` | 8 kịch bản. ⚠️ 4/8 (S5 quạt, S6 âm lượng, S7/S8 số) kiểm luật ở tầng Luau **ngoài đường sản phẩm** — xem mục 4 |
+| UDS DTC Simulator | [`uds_dtc_simulator.py`](embedded/uds_dtc_simulator.py) | `new` | ⚠️ **Không dùng ở Vòng 2** (cắt 29/07, T10). Giữ cho Vòng 3 — barem Vòng 3 có dòng `(+05) Tích hợp đa dạng bài tập` |
+| Safety scenario pack (Python) | [`test_safety_scenario_pack.py`](embedded/test_safety_scenario_pack.py) | `new` | 8 kịch bản. ⚠️ 4/8 (S5 quạt, S6 âm lượng, S7/S8 số) kiểm luật ở tầng Luau **ngoài đường sản phẩm** — xem mục 4 |
 
 ### VHAL Script Node của đội — trạng thái thật
 
 | Thành phần | Đường dẫn | Nhãn | Ghi chú |
 |---|---|---|---|
-| `vhal_server.luau` | [`vhal_server.luau`](vhal_server.luau) | **KẾ HOẠCH — chưa từng chạy trên CarSky** | Không có trong blueprint; 8 script-node đang chạy đều là của nền tảng. Chức năng VHAL ↔ CAN mà nó nhắm tới **đã được `infotainment_gateway.lua` + `body_gateway.lua` cung cấp sẵn** |
+| `vhal_server.luau` | [`vhal_server.luau`](embedded/vhal_server.luau) | **KẾ HOẠCH — chưa từng chạy trên CarSky** | Không có trong blueprint; 8 script-node đang chạy đều là của nền tảng. Chức năng VHAL ↔ CAN mà nó nhắm tới **đã được `infotainment_gateway.lua` + `body_gateway.lua` cung cấp sẵn** |
+| Guard G1 tại lớp gateway VHAL↔KUKSA | [`GATEWAY/IVI_GATEWAY.lua`](GATEWAY/IVI_GATEWAY.lua) | **`modified` — chưa xác nhận runtime** | +17 dòng trên bản `provided`: G1.1 chặn mở khoá cửa khi `Speed > 0`, G1.2 chặn nhiệt độ ngoài 16–32 °C, sửa `EV_BATTERY_LEVEL` `0x11600204` → `0x11600600`. Commit `c255ccc` 09/08. Chưa có pod log chứng minh đã chạy |
+| Guard G1 tại lớp gateway CAN | [`GATEWAY/BCM_GATEWAY.lua`](GATEWAY/BCM_GATEWAY.lua) | **`modified` — chưa xác nhận runtime** | +33 dòng thêm / 4 dòng thay trên bản `provided`: G1.1/G1.2/G1.3 và `bind_door_actuate` chặn trước khi publish `DoorCommand`. Cùng commit |
 
 > Thể lệ ghi rõ: *"Chạy lại hoặc đóng gói lại capability sẵn có không tự tạo
 > Added Value cao"* và *"tự xây lại những gì đã có sẵn trong starter pack… không
@@ -136,7 +158,7 @@ tại trong repo này**, và mọi đường dẫn trỏ sang một thư mục l
 | `IVivaVendorCarService.aidl` | ❌ không tồn tại |
 | `privapp_permissions_viva.xml` | ❌ không tồn tại (file thật tên khác, package khác) |
 | `SafetyGuard.kt` @ `com/viva/cockpit/` | ❌ sai đường — file thật ở `automotive/vehicle-service/api/` |
-| `embedded/test_safety_scenario_pack.py` | ❌ thư mục `embedded/` không tồn tại; file ở thư mục gốc |
+| `embedded/test_safety_scenario_pack.py` | ✅ đúng từ 20/08 — bốn script Python đã được gom về `embedded/`. Trước đó chúng nằm ở thư mục gốc nên đường dẫn này sai |
 | DBC = `car_signals.dbc` | ⚠️ file placeholder đã chết (giả định `EngineData` cho xe EV). DBC thật là `body_can.dbc` / `powertrain_can.dbc` |
 | `HVAC_TEMPERATURE_SET` Area ID = `0` | ❌ contract và code dùng `49` |
 | VHAL Native Server = `modified` | ❌ chưa từng chạy trên CarSky; nền tảng đã có cầu VHAL↔KUKSA riêng |
@@ -148,8 +170,16 @@ nhận có thật.
 
 Hai artifact mà nhật ký 04/08 khai là bằng chứng —
 `viva_safety_scenario_report.csv` và `viva_ablation_a1_report.csv` — là **output
-sinh ra khi chạy test**, chưa bao giờ được commit, nên không có trong bài nộp.
-Bản A1 chính thức của đội là [`evidence/ablation/`](evidence/ablation/).
+sinh ra khi chạy test**. Chúng **không có trong bài nộp Vòng 2** vì thời điểm đó
+chưa từng được commit. Từ 20/08 chúng được lưu lại dưới
+[`evidence/ablation/safety-scenario-pack-report.csv`](evidence/ablation/safety-scenario-pack-report.csv)
+và [`evidence/ablation/safety-scenario-pack-a1-python.csv`](evidence/ablation/safety-scenario-pack-a1-python.csv),
+tái lập byte-for-byte bằng lệnh ở mục 6.
+
+Bản A1 **chính thức** của đội vẫn là
+[`evidence/ablation/a1-safety-guard-ablation.csv`](evidence/ablation/a1-safety-guard-ablation.csv)
+— sinh từ đường sản phẩm Kotlin, không phải từ bộ Python này. Hai nguồn đó
+**không được trộn vào nhau** khi trích dẫn số liệu.
 
 ---
 
@@ -164,9 +194,10 @@ cd automotive
 .\gradlew test
 
 # Safety scenario pack (Python) — CAN ep UTF-8 tren Windows
+cd ..\embedded    # dang o automotive/ tu buoc tren
 $env:PYTHONIOENCODING="utf-8"; python test_safety_scenario_pack.py
 ```
 
-⚠️ Bốn script Python ở thư mục gốc **vỡ trên console Windows mặc định** (cp1258)
+⚠️ Bốn script Python trong [`embedded/`](embedded/) **vỡ trên console Windows mặc định** (cp1258)
 vì in emoji/dấu; phải đặt `PYTHONIOENCODING=utf-8`. Chúng cũng **chưa nằm trong
 workflow CI nào** — CI hiện chỉ có `android-ci`, `asr-ci`, `backend-ci`.

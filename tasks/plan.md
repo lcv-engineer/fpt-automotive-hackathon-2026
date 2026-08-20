@@ -1,137 +1,115 @@
-# Implementation Plan: SafetyGuard integration readiness
+# Implementation Plan: VIVA Brain next-step hardening
 
 ## Overview
 
-Turn the existing `feature/safety-guard` policy classes into an actually enforced vehicle-write boundary without claiming Device evidence. The first slice covers the safety-critical door-unlock path only: obtain current speed from the underlying repository, deny before any setter at unsafe speed, and fail closed when speed cannot be read.
+Extend the existing single constrained planner without adding agents. The change fixes silently
+swallowed compound commands, lets LLM clarifications resume through a typed enum, protects the
+public Brain route with a deployment-provided bearer token, and puts the runtime microphone path on
+the existing streaming VAD architecture with one lazily loaded Silero ONNX session.
 
-## Architecture Decisions
+The published trace summary contract, `minSilenceMs=800`, and both 30-second ASR client timeouts stay
+unchanged until Device/Vĩ decisions are available.
 
-- Keep `SafetyGuard` in `vehicle-service` and preserve the repository decorator boundary so all vehicle writes share one enforcement point.
-- Read safety state inside the suspend write operation instead of accepting a synchronous caller-provided snapshot that production DI cannot currently supply.
-- Treat missing/invalid speed as a denial for door unlock; do not block unrelated HVAC or cabin-light writes on speed availability.
-- Keep confirmation UX and voice confidence propagation out of this slice. They need an explicit command context/two-turn contract and must not be implied by wiring alone.
+## Architecture decisions
 
-## Task List
+- A deterministic compound command whose clauses all match grammar stays on T0; otherwise the whole
+  utterance falls back to the constrained planner instead of executing only the first clause.
+- A plan contains at most three actions. Actions execute sequentially in spoken order and stop at the
+  first deny, confirmation, or failure. Already-applied actions are not rolled back.
+- Every action is validated independently, stays inside the T2 allowlist, and traverses the existing
+  `CommandGateway -> SafetyGuard` path. `door_lock` remains unavailable to T2.
+- LLM clarification state is an enum on the wire and maps to locally owned canonical text. Arbitrary
+  model-provided resume text is never concatenated into a later command.
+- `/v1/brain/plan` requires `Authorization: Bearer <VIVA_BRAIN_AUTH_TOKEN>`. Missing server or Android
+  configuration fails closed; token values are never logged or committed.
+- `PcmSourceAudioCapture`, `VadStreamDriver`, and `SileroVadDriverFactory` become the only runtime VAD
+  path. The scorer remains stateful but is reset before every session and one voice session runs at a
+  time.
 
-### Phase 1: Safety-critical repository path
+## Dependency graph
 
-- [x] Add failing tests for live speed lookup and fail-closed behavior.
-- [x] Make `GuardedVehicleRepository` build its door safety snapshot from the delegate.
-- [x] Verify focused vehicle-service tests.
+```text
+Typed core results
+  -> deterministic compound routing
+  -> sequential VoiceAgent execution
+  -> Brain wire schema + Android parser
+  -> typed LLM clarification resume
 
-### Checkpoint: Repository boundary
+Server auth contract
+  -> Android auth header
 
-- [x] Unsafe or unknown-speed door unlock never reaches the delegate setter.
-- [x] Safe unrelated property writes still reach the delegate.
+Streaming VAD timing model
+  -> runtime capture migration
+  -> single lazy ONNX session
+```
 
-### Phase 2: Production wiring
+## Task list
 
-- [x] Provide the decorated repository in both `real` and `mock` app variants.
-- [x] Verify Hilt compilation and the full JVM test suite.
+### Phase 1: Multi-action core
+
+- [x] Add a failing grammar test proving a compound command is not reduced to its first action.
+- [x] Add typed multi-action route/plan results with a hard limit of three actions.
+- [x] Add failing agent tests for ordered execution, stop-on-first-failure, merged HMI state, and
+      per-action spoken segments.
+- [x] Implement sequential execution through the existing gateway.
+
+### Checkpoint: Core
+
+- [x] `:voice-core:testDebugUnitTest` passes.
+- [x] Single-action behavior and negation tests remain green.
+
+### Phase 2: Planner wire and dialogue resume
+
+- [x] Add failing Python contract tests for two-action plans, size bounds, invalid member actions,
+      and continued rejection of `door_lock`.
+- [x] Extend strict Structured Outputs and semantic validation without weakening single-action checks.
+- [x] Add failing Android parser tests for action arrays and typed `resume_prefix`.
+- [x] Add typed LLM clarification resume tests and implementation in `VoiceAgent`.
+- [x] Update ADR/architecture contract documentation.
+
+### Checkpoint: Planner
+
+- [x] Focused Python Brain tests pass.
+- [x] Android Brain parser and VoiceAgent tests pass.
+
+### Phase 3: Endpoint authentication
+
+- [x] Add failing endpoint tests for missing, malformed, and valid bearer credentials.
+- [x] Implement constant-time token comparison and fail-closed configuration.
+- [x] Add the Android header/configuration and document secret injection.
+
+### Checkpoint: Security
+
+- [x] No token value appears in logs, tracked files, or staged diff.
+- [x] Brain tests pass; ASR and health routes remain unchanged.
+
+### Phase 4: One runtime VAD architecture
+
+- [x] Add timing fields/tests so streaming VAD preserves acoustic end and endpoint-decision time.
+- [x] Add a construction-count regression test proving repeated captures reuse one scorer/session.
+- [x] Migrate `VadUtteranceCapture` to `PcmSourceAudioCapture + VadStreamDriver` and remove its manual
+      frame/endpointer/session loop.
+- [x] Keep the 800 ms cabin configuration and existing felt-latency measurement intact.
 
 ### Checkpoint: Complete
 
-- [x] APK code path resolves `VehicleRepository` to the guarded decorator.
-- [x] All automated tests pass.
-- [x] Remaining confirmation/confidence limitations are documented without overclaiming.
+- [x] Full `pytest` suite passes (59 tests).
+- [x] Full `gradlew test` suite passes (350 tests, 0 failed/skipped).
+- [x] Five-axis review finds no unresolved correctness, architecture, security, or performance issue.
+- [x] Each logical increment is committed atomically; unrelated untracked directories are untouched.
 
-## Risks and Mitigations
-
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Speed unit mismatch | Unsafe command allowed or denied incorrectly | Convert repository m/s value to km/h in one tested location |
-| Vehicle speed unavailable | Door unlock could fail open | Deny with `G1_STALE_STATE` before setter |
-| Decorator not selected by Hilt | No runtime behavior change | Replace direct variant bindings with explicit provider tests/build verification |
-| Confirmation loops | Door unlock unusable after prompt | Do not claim confirmation complete; leave explicit follow-up task |
-
-## Open Questions
-
-- Which UI/voice component will own the confirmation token for `G2_CONFIRM_DOOR`?
-- How will ASR confidence be carried across the existing `VehicleRepository` API?
-
----
-
-# Implementation Plan: Voice-to-media completion (09/08/2026)
-
-## Overview
-
-Close the three-command product slice requested in the mentor feedback: the live
-voice pipeline must route `media_play`, `media_pause`, and `media_next`, then
-control the existing media player through the AAOS-compatible
-`MediaBrowserCompat` / `MediaControllerCompat` boundary. Keep voice and media in
-one APK for the submission build; do not claim separate-APK or CarSky execution
-without runtime evidence.
-
-## Architecture Decisions
-
-- Model play, pause, and next as one typed media-command family rather than
-  preserving `MediaNext` as a one-off special case.
-- Keep `:feature:voice` independent from `:feature:media` implementation types;
-  the Android adapter connects to the exported media-browser service by
-  `ComponentName`, which is the boundary that can survive a later APK split.
-- Prepare the demo queue when the media session token is exposed so a transport
-  `play` or `skipToNext` command cannot target an empty player.
-- Treat a missing/suspended media service as an execution failure with an honest
-  Vietnamese response. Do not turn a one-way command dispatch into a stronger
-  playback-success claim than the available evidence supports.
-
-## Task List
-
-### Phase 1: NLU contract
-
-- [x] Add failing mapper and process-use-case tests for all three media intents.
-- [x] Introduce the typed media command and make all three intents cross the
-      voice-core/app boundary.
-
-### Checkpoint: NLU
-
-- [x] Focused voice tests pass and B13/B14/B15 no longer stop at `NotWired`.
-
-### Phase 2: Media transport
-
-- [x] Add a testable media-control port to `:feature:voice`.
-- [x] Implement and bind the Android `MediaBrowserCompat` client.
-- [x] Dispatch media commands from `ExecuteVehicleControlUseCase`.
-- [x] Ensure the media session has a prepared queue before exposing its token.
-
-### Checkpoint: Integration
-
-- [x] Voice and media modules compile through Hilt for mock and real variants.
-- [x] Full JVM tests pass with no skipped tests.
-- [x] Both debug APK variants assemble; lint remains green.
-
-### Phase 3: Evidence-safe handoff
-
-- [x] Review the diff for correctness, simplicity, architecture, security, and
-      performance.
-- [x] Update submission Markdown only to the level proven by tests/build and
-      any runtime capture obtained in this workspace.
-
-### Phase 4: CarSky Device runtime — 09/08
-
-- [x] Upload private artifact `viva-apk` `0.0.1` and verify its byte count.
-- [x] Download on Device, match SHA-256, replace the conflicting old mock
-      package signature, and launch the exact verified APK.
-- [x] Run `phát nhạc`, `dừng nhạc`, `chuyển bài` through the mock/debug text
-      injection hook and capture `VIVA_TRACE_SUMMARY` plus MediaSession state.
-- [x] Prove play (`PLAYING`), pause (`PAUSED`) and next (active item `0 → 1`).
-- [x] Save evidence under `evidence/c2/carsky-runtime-20260809/` and update
-      claims without merging mic/ASR/TTS/VHAL into the proven scope.
-
-## Risks and Mitigations
+## Risks and mitigations
 
 | Risk | Impact | Mitigation |
-|---|---|---|
-| Media session exposes an empty queue | Play/next is accepted but produces no audio | Prepare the demo queue before returning the session token |
-| Browser service cannot connect | Voice turn hangs or falsely succeeds | Bound connection time and return an explicit failure |
-| Exported browser service accepts an arbitrary package | Another installed app could obtain the session token and send transport commands | Keep as an explicit pre-production risk; add a signature/caller allowlist before a split APK or production release, after the CarSky host package is known |
-| Compile-time dependency on media implementation | Later APK split requires rewriting voice | Connect through `ComponentName` and media-session APIs only |
-| Dirty team worktree is overwritten | Evidence or teammate work is lost | Do not switch/reset; touch only planned tracked files |
-| Text-injection runtime is described as full voice E2E | Submission overclaims mic/ASR/TTS | Claim only CarSky Device NLU → media; keep mic/VAD/ASR and audio-focus separate |
+| --- | --- | --- |
+| One failed action leaves earlier state applied | Medium | Explicit partial-success status/copy; stop immediately; no false rollback claim |
+| Compound splitter mistakes text inside a media query for another command | High | Accept a split only when every clause independently produces a matched action |
+| Old client sees a multi-action response | Low | It fails closed; retain the old single-action wire shape for single plans |
+| Shared scorer state leaks between turns | High | Reset at session creation; serialize voice sessions; regression-test reuse/reset |
+| Bearer token is extracted from an APK | Medium | Treat as room/deployment access control, use TLS, rotate per deployment; never confuse it with the server-side OpenAI key |
 
-## Open Questions
+## Open questions deliberately not guessed
 
-- Which Vietnamese TTS/pre-rendered prompts should cover the media dispatch
-  responses observed as degraded on the Device?
-- When will the team capture a real microphone turn and TTS duck/release on the
-  same Device so the remaining half of C-MEDIA/E11 can move beyond yellow?
+- Device A/B must choose `minSilenceMs` 450 vs 600; current value remains 800.
+- Product/device measurements must choose the ASR deadline replacing both 30-second client constants.
+- Vĩ must approve adding `feltLatencyMs` to the published summary line.

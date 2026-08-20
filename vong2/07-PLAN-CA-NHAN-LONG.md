@@ -199,7 +199,7 @@ thiếu 10h — hai người đó cần chẻ task của mình y hệt cách b�
 ### ⚫ T7 08/08 — 10h · **C3**
 
 > ⏩ **L12 và L15 đã kéo lên trước:** write-up hoàn chỉnh ở `20-WRITE-UP-AI-VONG-2.md`; deck 10 slide ở
-> `docs/VIVA_Pitch_Vong2.pptx`. Cả hai khóa claim Device/p95/SafetyGuard đúng theo N1, nên chỉ cần thay
+> `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx`. Cả hai khóa claim Device/p95/SafetyGuard đúng theo N1, nên chỉ cần thay
 > evidence khi integration gate mở, không phải viết lại narrative.
 >
 > ⏩ **N7-Q&A cũng đã kéo phần chuẩn bị độc lập lên trước:** `21-QA-BGK-VONG-2.md` có 16 câu hỏi khó,
@@ -249,7 +249,7 @@ thiếu 10h — hai người đó cần chẻ task của mình y hệt cách b�
 | L11 | README kiến trúc + voice + extension point | 3h | 🟡 06/08 | Vĩ (lắp ghép) |
 | L12 | ✅ Write-up câu chuyện AI + cross-vertical tại `20-WRITE-UP-AI-VONG-2.md` | ~~5h~~ **3h** | ✅ hoàn tất bản claim-gated | — |
 | L13 | Dẫn chuyện + tự demo phần voice, 2 video | 4h | 🔴 08–09/08 | Dương |
-| L15 | ✅ **Slide pitch cho C3** tại `docs/VIVA_Pitch_Vong2.pptx` | 3h | ✅ hoàn tất bản claim-gated | — |
+| L15 | ✅ **Slide pitch cho C3** tại `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx` | 3h | ✅ hoàn tất bản claim-gated | — |
 | L14 | Checklist nộp + push cuối | 2h | 🔴 10/08 11:00 | — |
 | | *— dưới đây là task sinh ra từ barem mới, xem `08` —* | | | |
 | **N1** | 🆕 **Claim–Evidence Map** | 3.5h | 🔴 07/08 | **cả đội** (dùng cho slide + Q&A) |
@@ -480,7 +480,7 @@ Chỉ có **một** thứ chặn bạn thật sự, và 31/07 nó **vẫn là D�
 - [ ] ② **Source snapshot hoặc commit reference** theo hướng dẫn nộp bài BTC — *Long, L14*
 - [ ] ③ Documentation / README — *Long L11 · Vĩ V13 · Tùng T11*
 - [x] ④ **Write-up** — *Long, L12* · `20-WRITE-UP-AI-VONG-2.md`
-- [x] ⑤ **Slide thuyết trình** — *Long, L15* · `docs/VIVA_Pitch_Vong2.pptx`
+- [x] ⑤ **Slide thuyết trình** — *Long, L15* · `docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx`
 - [ ] ⑥ **Video demo** theo format BTC — *Dương D13, backup D14*
 - [ ] ⑦ 🆕 **Claim–Evidence Map** — claim ↔ baseline ↔ team-owned ↔ expected result ↔ evidence ID — *Long, N1*
 - [ ] ⑧ 🆕 **Product & Integration Card** — offering · user · buyer/process owner · dependency · next validation step — *Long, N2*

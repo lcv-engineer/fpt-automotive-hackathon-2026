@@ -61,6 +61,12 @@ class IntentAccuracyScorer(private val router: IntentRouter) {
                 .joinToString(",") { "${it.key}=${it.value}" }
             "matched:${result.intent.name}($slots)"
         }
+        is RouteResult.MatchedMany -> result.intents.joinToString("+") { intent ->
+            val slots = intent.slots.entries
+                .sortedBy { it.key }
+                .joinToString(",") { "${it.key}=${it.value}" }
+            "${intent.name}($slots)"
+        }
         is RouteResult.NeedsClarification -> "clarify:${result.rule}"
         is RouteResult.Unsupported -> "unsupported:${result.rule}:canFallback=${result.canFallback}"
     }

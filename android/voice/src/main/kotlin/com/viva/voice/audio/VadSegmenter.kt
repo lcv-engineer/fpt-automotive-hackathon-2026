@@ -35,7 +35,12 @@ interface VoiceActivityScorer {
 
 sealed interface VadEvent {
     data class SpeechStarted(val startSample: Int) : VadEvent
-    data class SpeechEnded(val startSample: Int, val endSample: Int) : VadEvent
+    data class SpeechEnded(
+        val startSample: Int,
+        val endSample: Int,
+        /** Mẫu nơi im lặng bắt đầu — xấp xỉ lúc người nói dứt câu. */
+        val acousticEndSample: Int = 0,
+    ) : VadEvent
 }
 
 data class VadSegment(
@@ -82,13 +87,15 @@ class VadEndpointer(
 
         val maxSpeechSamples = config.samplesFor(config.maxSpeechMs)
         if (frameEnd - currentStart >= maxSpeechSamples) {
-            return listOf(endSpeech(minOf(frameEnd, currentStart + maxSpeechSamples)))
+            // Cắt vì quá dài, không phải vì im lặng: mốc âm học chính là chỗ cắt.
+            val cut = minOf(frameEnd, currentStart + maxSpeechSamples)
+            return listOf(endSpeech(cut, acousticEnd = cut))
         }
 
         val silence = silenceStart
         if (silence != null && frameEnd - silence >= config.samplesFor(config.minSilenceMs)) {
             val paddedEnd = minOf(frameEnd, silence + config.samplesFor(config.speechPadMs))
-            return listOf(endSpeech(maxOf(paddedEnd, currentStart)))
+            return listOf(endSpeech(maxOf(paddedEnd, currentStart), acousticEnd = silence))
         }
         return emptyList()
     }
@@ -98,7 +105,9 @@ class VadEndpointer(
         val start = activeStart ?: return null
         val end = maxOf(start, totalSamples)
         reset()
-        return VadEvent.SpeechEnded(start, end)
+        // flush() là cắt cưỡng bức khi hết audio, không có khoảng im lặng nào
+        // để suy ra mốc âm học — dùng luôn điểm cắt.
+        return VadEvent.SpeechEnded(start, end, acousticEndSample = end)
     }
 
     fun reset() {
@@ -107,10 +116,10 @@ class VadEndpointer(
         silenceStart = null
     }
 
-    private fun endSpeech(endSample: Int): VadEvent.SpeechEnded {
+    private fun endSpeech(endSample: Int, acousticEnd: Int): VadEvent.SpeechEnded {
         val start = checkNotNull(activeStart)
         reset()
-        return VadEvent.SpeechEnded(start, endSample)
+        return VadEvent.SpeechEnded(start, endSample, acousticEndSample = acousticEnd)
     }
 }
 

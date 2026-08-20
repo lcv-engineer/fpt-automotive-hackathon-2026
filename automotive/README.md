@@ -1,16 +1,19 @@
-# Viva Automotive — Offline Voice Assistant for AAOS
+# Viva Automotive — Vietnamese Voice Assistant for AAOS
 
 A native Android Automotive OS (AAOS) app that controls vehicle features (HVAC, doors,
-vehicle status) through a fully **offline** voice assistant. Speech-to-text runs
-on-device with [Vosk](https://alphacephei.com/vosk/) (English + Vietnamese models).
-NLU uses a Room keyword vocabulary first, then on-device MiniLM embedding /
-cosine similarity for paraphrases. Vehicle signals go through `CarPropertyManager`
-(VHAL) or an in-memory simulator.
+vehicle status) and media through a Vietnamese voice assistant. The active ASR binding is
+`RoutingAsrClient`, which selects viva-asr HTTP or Google Cloud Speech from Settings. The
+active intent binding is the deterministic `GrammarIntentRouter`. Vehicle signals go through
+`CarPropertyManager` (VHAL) or an in-memory simulator.
 
 ## Architecture
 
 Clean Architecture + MVVM + unidirectional data flow, Kotlin Coroutines/Flow
 throughout, Hilt for DI.
+
+The product-level architecture is documented as
+[`VIVA Voice · Brain · Body`](../docs/architecture/VIVA-VOICE-BRAIN-BODY.md). These are logical
+boundaries; the physical Gradle modules have not been renamed before the final round.
 
 ```text
 app/                      Entry point: MainActivity, NavGraph, flavor DI wiring
@@ -19,7 +22,7 @@ core/
   ui/                     Automotive design system (Compose, dark, large targets)
   database/               Room (command vocabulary) + DataStore (settings)
 feature/
-  voice/                  STT (Vosk EN/VI), keyword + embedding NLU, service, overlay UI
+  voice/                  ASR adapters, deterministic routing, orchestration, service, overlay UI
   hvac/                   Climate control screen
   vehicle-status/         Speed / fuel / battery / doors screen
   settings/               Voice & unit settings
@@ -28,9 +31,9 @@ vehicle-service/
   impl/                   RealVehicleRepository (android.car) + MockVehicleRepository (simulator)
 ```
 
-Voice pipeline: `AudioRecord` → Vosk (language from Settings) →
-`ProcessVoiceCommandUseCase` (keywords, then MiniLM vector match → `VehicleIntent`) →
-`ExecuteVehicleControlUseCase` → `VehicleRepository`.
+Active voice pipeline: `AudioRecord` → Silero VAD → `RoutingAsrClient` → `VoiceAgent` →
+`GrammarIntentRouter` → `AppCommandGateway`/`CoreIntentMapper` →
+`ExecuteVehicleControlUseCase` → guarded `VehicleRepository`.
 Runs in `VoiceAssistantService` (mic foreground service) via
 `VoiceAssistantStateManager`
 (IDLE → LISTENING → PROCESSING → EXECUTING → SUCCESS/ERROR).
@@ -191,6 +194,23 @@ Embedding NLU uses multilingual ONNX under `feature/voice/src/main/assets/embedd
 .\gradlew :app:assembleMockDebug `
   -PvivaAsrBaseUrl=http://127.0.0.1:8080
 ```
+
+Optional VIVA Brain LLM slow path (off by default):
+
+```powershell
+.\gradlew.bat :app:assembleMockDebug `
+  -PvivaBrainAgentEnabled=true `
+  -PvivaBrainBaseUrl=http://127.0.0.1:8080 `
+  -PvivaBrainAuthToken=<same-room-token-as-server>
+```
+
+The URL points to the trusted VIVA server route `/v1/brain/plan`; it is not an OpenAI URL and the APK
+must not contain an OpenAI key. `vivaBrainAuthToken` is a rotatable room/deployment credential and can
+be extracted from an APK, so it limits accidental or cross-room use rather than replacing HTTPS,
+APK signing, server-side rate limits, or token rotation. A blank token fails closed before any HTTP
+request. Grammar remains the first route. Only
+`Unsupported(canFallback=true)` reaches the remote planner, and every returned intent still passes
+through `CoreIntentMapper`, `AppCommandGateway` and Body `SafetyGuard`.
 
 On emulator, the app rewrites `127.0.0.1`/`localhost` to `10.0.2.2` automatically (no
 `adb reverse` required). The adapter posts raw PCM16 LE mono to `/asr` with

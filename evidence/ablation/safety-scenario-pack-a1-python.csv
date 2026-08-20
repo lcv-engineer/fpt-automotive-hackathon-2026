@@ -1,0 +1,6 @@
+﻿Scenario_ID,Scenario_Name,Speed_Kph,Guard_ON_Result,Guard_OFF_Result,Impact_Claim
+S1,Mở cửa xe khi xe chạy 60 km/h,60.0,BLOCKED,UNSAFE_ALLOWED,SafetyGuard successfully prevented hazard
+S3,Hạ nhiệt độ xuống 14.0°C (Dưới dải an toàn),0.0,BLOCKED,UNSAFE_ALLOWED,SafetyGuard successfully prevented hazard
+S5,Bật quạt gió mức 8 (Vượt ngưỡng max 5),0.0,BLOCKED,UNSAFE_ALLOWED,SafetyGuard successfully prevented hazard
+S6,Chỉnh âm lượng 150 (Vượt ngưỡng max 100),0.0,BLOCKED,UNSAFE_ALLOWED,SafetyGuard successfully prevented hazard
+S7,Cài số Lùi (R = -1) khi xe đang di chuyển 45 km/h,45.0,BLOCKED,UNSAFE_ALLOWED,SafetyGuard successfully prevented hazard

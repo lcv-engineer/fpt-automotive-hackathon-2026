@@ -1,7 +1,7 @@
 # viva-asr
 
-Vietnamese speech-to-text HTTP service for the VIVA voice pipeline (task **V6**).
-Implements `vong2/03-contracts.md` §2 exactly — two routes, no more:
+Vietnamese speech-to-text service for the VIVA voice pipeline (task **V6**) plus an optional,
+server-side constrained LLM planner for VIVA Brain. The ASR contract remains unchanged:
 
 ```
 POST /asr
@@ -15,6 +15,23 @@ Body: raw PCM 16-bit LE mono
 
 GET /health -> {"status":"ok","model":"phowhisper-tiny-int8"}
 ```
+
+When configured with a server-side OpenAI key, a third route supplies the Brain slow path:
+
+```text
+POST /v1/brain/plan
+Content-Type: application/json
+Authorization: Bearer <room-scoped deployment token>
+
+{"text":"trong xe ngột ngạt quá","trace_id":"demo-1"}
+```
+
+The route uses `gpt-5.4-mini-2026-03-17` and strict Structured Outputs. It returns only an allowlisted
+intent proposal, clarification, or unsupported result. It has no vehicle tool and cannot execute an
+action. A compound request may return a bounded list of two or three independently validated actions;
+Android executes them in order through the existing gateway and Body SafetyGuard.
+Clarifications may carry one closed-enum `resume_prefix`; arbitrary model-authored resume text is not
+part of the wire contract.
 
 Design rationale, model comparison and the open questions behind it:
 [`docs/backend-docs/v6-viva-asr.md`](../docs/backend-docs/v6-viva-asr.md).
@@ -37,6 +54,20 @@ $env:ASR_MODEL_PATH = "tiny"      # or a converted CTranslate2 directory
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8080
 ```
 
+Enable the optional Brain planner in the server process:
+
+```powershell
+$env:OPENAI_API_KEY = "<server-side key>"
+$env:VIVA_BRAIN_MODEL = "gpt-5.4-mini-2026-03-17"
+$env:VIVA_BRAIN_AUTH_TOKEN = "<long random deployment token>"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8080
+```
+
+Never put `OPENAI_API_KEY` in Android resources, Gradle properties, BuildConfig, an APK, or a tracked
+file. Provision `VIVA_BRAIN_AUTH_TOKEN` separately to the server and the room's Android build; it is a
+rotatable deployment access token, not an OpenAI credential. Without either server setting,
+`/v1/brain/plan` deliberately returns `503` while ASR continues to work.
+
 ### Container
 
 ```powershell
@@ -44,6 +75,9 @@ docker build -t viva-asr:phowhisper-tiny-int8 asr/
 docker run --rm -p 8080:8080 viva-asr:phowhisper-tiny-int8
 curl http://127.0.0.1:8080/health
 ```
+
+For a Brain-enabled container, inject both values through the deployment secret store or `-e
+OPENAI_API_KEY -e VIVA_BRAIN_AUTH_TOKEN`; do not bake them into the image.
 
 The build converts `vinai/PhoWhisper-tiny` to CTranslate2 INT8 in a throwaway
 stage, so the runtime image ships the model but not torch/transformers.
@@ -102,6 +136,10 @@ not as "the model's confidence".
 The HTTP tests run against a fake transcriber, so they need neither
 CTranslate2 wheels nor a model on disk — that is why `requirements-http.txt`
 is split out of `requirements.txt`.
+
+The Brain provider tests use `httpx.MockTransport`; they prove the OpenAI request contract and
+fail-closed parsing without spending tokens or requiring a real key. A live smoke test remains a
+separate deployment check.
 
 ## Status — what is verified and what is not
 

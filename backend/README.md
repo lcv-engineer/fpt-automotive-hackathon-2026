@@ -108,7 +108,7 @@ concatenate the three `summary.csv` files.
 ### `viva-tools carsky ...`
 
 Thin wrapper over the confirmed CarSky REST endpoints
-(`docs/Car-Sky-Platform.html`, base path `/api/v1`, auth
+(`docs/platform/Car-Sky-Platform.html`, base path `/api/v1`, auth
 `Authorization: Bearer <token>`):
 
 ```

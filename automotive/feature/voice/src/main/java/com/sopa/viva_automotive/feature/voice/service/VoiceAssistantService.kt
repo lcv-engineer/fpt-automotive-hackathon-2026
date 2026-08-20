@@ -177,6 +177,10 @@ class VoiceAssistantService : LifecycleService() {
             }
 
             val trace = startVoiceTrace(captured.startNanos)
+            // Hai mốc, không phải một: ACOUSTIC_END là lúc tài xế dứt câu,
+            // SPEECH_END là lúc VAD quyết định. Hiệu số giữa chúng chính là
+            // giá phải trả cho `minSilenceMs` — trước đây nó vô hình.
+            trace.markAt(Stage.ACOUSTIC_END, captured.acousticEndNanos)
             trace.markAt(Stage.SPEECH_END, captured.endNanos)
             stateManager.transitionToProcessing("…")
             val result = voiceAgent.handleAudio(captured.pcm, captured.sampleRate, trace)

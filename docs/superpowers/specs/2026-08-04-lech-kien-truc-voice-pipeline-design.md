@@ -88,7 +88,7 @@ vong2/25-LECH-KIEN-TRUC-VOICE-PIPELINE.md   ← nguồn sự thật, lập luậ
         ├─► vong2/15-QUYET-DINH-BENCHMARK-ASR.md    tiền đề hợp lệ của trục so sánh
         ├─► vong2/23-N4-ABLATION.md                 tiền đề chưa thoả của A1, A2
         ├─► android/voice/README.md                 cột "nằm trên đường chạy app?"
-        └─► docs/VIVA_Pitch_Vong2.pptx              1 dòng trên slide kiến trúc
+        └─► docs/bai-nop/vong2/VIVA_Pitch_Vong2.pptx              1 dòng trên slide kiến trúc
 ```
 
 File 25 viết một lần và dài. Bảy chỗ còn lại mỗi chỗ 2–5 dòng, chỉ mang kết luận và

@@ -50,10 +50,13 @@ evidence/asr/corpus-human/highway/**/*.wav
 __pycache__/
 *.pyc
 
-# Bao cao do test_safety_scenario_pack.py / ablation sinh ra khi chay.
-# Giu lai duoi evidence/ neu can lam bang chung, khong de o thu muc goc.
+# Bao cao do embedded/test_safety_scenario_pack.py sinh ra vao CWD khi chay.
+# Ban duoc giu lam bang chung nam o evidence/ablation/safety-scenario-pack-*.csv,
+# tai lap byte-for-byte bang: cd embedded && python test_safety_scenario_pack.py
 /viva_safety_scenario_report.csv
 /viva_ablation_a1_report.csv
+/embedded/viva_safety_scenario_report.csv
+/embedded/viva_ablation_a1_report.csv
 
 # Google Cloud service-account keys (never commit)
 **/secrets/
