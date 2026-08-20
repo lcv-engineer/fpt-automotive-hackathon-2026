@@ -72,7 +72,8 @@ POST /v1/brain/plan
   "order_id": null,
   "prompt_vi": null,
   "confidence": 0.91,
-  "actions": null
+  "actions": null,
+  "resume_prefix": null
 }
 ```
 
@@ -85,6 +86,10 @@ heuristic chứ không được claim là xác suất đã hiệu chuẩn.
 riêng; các field action đơn ở top-level phải `null`. Android thực thi tuần tự theo thứ tự danh sách,
 dừng ở deny/confirmation/failure đầu tiên và không tuyên bố rollback những action đã áp dụng. Với các
 kind khác server bỏ field `actions=null` khỏi HTTP response để giữ shape v1 cũ cho client hiện hữu.
+Clarification có thể mang `resume_prefix` thuộc enum `temperature | fan_level | media_query | order_id`;
+Android ánh xạ enum sang tiền tố canonical do app sở hữu rồi gọi lại planner đúng một lượt. Model không
+được gửi chuỗi prefix tự do, và một lệnh mà grammar đặt `canFallback=false` không thể bị context này
+đẩy vòng qua slow path.
 
 ## Các phương án đã cân nhắc
 

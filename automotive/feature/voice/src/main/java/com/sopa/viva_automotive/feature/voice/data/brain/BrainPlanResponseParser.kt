@@ -2,6 +2,7 @@ package com.sopa.viva_automotive.feature.voice.data.brain
 
 import com.sopa.viva_automotive.feature.voice.integration.CoreIntentMapper
 import com.viva.voice.agent.AgentPlanResult
+import com.viva.voice.agent.AgentResumePrefix
 import com.viva.voice.intent.Intent
 import org.json.JSONObject
 
@@ -10,8 +11,13 @@ internal object BrainPlanResponseParser {
     fun parse(body: String): AgentPlanResult = runCatching {
         val json = JSONObject(body)
         val kind = json.getString("kind")
-        val requiredFields = if (kind == "actions") MULTI_REQUIRED_FIELDS else REQUIRED_FIELDS
-        require(json.keys().asSequence().toSet() == requiredFields) {
+        val fields = json.keys().asSequence().toSet()
+        val requiredFields = when {
+            kind == "actions" -> MULTI_REQUIRED_FIELDS
+            kind == "clarification" && "resume_prefix" in fields -> RESUMABLE_REQUIRED_FIELDS
+            else -> REQUIRED_FIELDS
+        }
+        require(fields == requiredFields) {
             "brain response fields do not match the contract"
         }
         val confidence = requiredFloat(json, "confidence")
@@ -24,6 +30,7 @@ internal object BrainPlanResponseParser {
             "actions" -> parseActions(json)
             "clarification" -> AgentPlanResult.Clarification(
                 requiredText(json, "prompt_vi", MAX_PROMPT_CHARS),
+                json.optResumePrefix(),
             )
             "unsupported" -> AgentPlanResult.Unsupported(
                 requiredText(json, "prompt_vi", MAX_PROMPT_CHARS),
@@ -131,10 +138,22 @@ internal object BrainPlanResponseParser {
     private fun requiredBoolean(json: JSONObject, name: String): Boolean =
         json.get(name) as? Boolean ?: error("$name must be boolean")
 
+    private fun JSONObject.optResumePrefix(): AgentResumePrefix? {
+        if (!has("resume_prefix") || isNull("resume_prefix")) return null
+        return when (requiredText(this, "resume_prefix", MAX_RESUME_PREFIX_CHARS)) {
+            "temperature" -> AgentResumePrefix.TEMPERATURE
+            "fan_level" -> AgentResumePrefix.FAN_LEVEL
+            "media_query" -> AgentResumePrefix.MEDIA_QUERY
+            "order_id" -> AgentResumePrefix.ORDER_ID
+            else -> error("resume prefix is outside the allowlist")
+        }
+    }
+
     private const val MIN_ACTION_CONFIDENCE = 0.75f
     private const val MAX_PROMPT_CHARS = 180
     private const val MAX_QUERY_CHARS = 100
     private const val MAX_INTENT_NAME_CHARS = 40
+    private const val MAX_RESUME_PREFIX_CHARS = 20
 
     private val SLOT_FIELDS = setOf("value", "level", "lock", "on", "delta", "query", "order_id")
     private val REQUIRED_FIELDS = SLOT_FIELDS + setOf(
@@ -145,6 +164,7 @@ internal object BrainPlanResponseParser {
     )
     private val ACTION_FIELDS = SLOT_FIELDS + setOf("intent_name", "confidence")
     private val MULTI_REQUIRED_FIELDS = REQUIRED_FIELDS + "actions"
+    private val RESUMABLE_REQUIRED_FIELDS = REQUIRED_FIELDS + "resume_prefix"
     private val OPTIONAL_TEXT_SLOT_INTENTS = setOf(
         "media_play",
         "delivery_order_status",

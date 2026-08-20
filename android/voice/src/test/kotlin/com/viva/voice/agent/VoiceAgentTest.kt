@@ -30,6 +30,17 @@ class VoiceAgentTest {
         }
     }
 
+    private class SequencedPlanner(
+        private val results: List<AgentPlanResult>,
+    ) : AgentPlanner {
+        val received = mutableListOf<String>()
+
+        override suspend fun plan(text: String, traceId: String): AgentPlanResult {
+            received += text
+            return results[received.lastIndex]
+        }
+    }
+
     private class StepClock : NanoClock {
         private var now = 1_000_000_000L
         override fun nanos(): Long = now.also { now += 10_000_000L }
@@ -453,6 +464,72 @@ class VoiceAgentTest {
 
         assertEquals(VoiceTurnStatus.APPLIED, result.status)
         assertEquals(listOf("cabin_lights", "media_next"), gateway.received.map(Intent::name))
+    }
+
+    @Test
+    fun `typed agent clarification resumes through the planner on the next turn`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 22°C."))
+        val planner = SequencedPlanner(
+            listOf(
+                AgentPlanResult.Clarification(
+                    "Bạn muốn đặt nhiệt độ bao nhiêu độ?",
+                    AgentResumePrefix.TEMPERATURE,
+                ),
+                AgentPlanResult.Action(
+                    Intent(
+                        "hvac_set_temp",
+                        mapOf("value" to 22f),
+                        0.91f,
+                        Intent.Tier.T2,
+                    ),
+                ),
+            ),
+        )
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        val first = agent.handleText("làm cabin dễ chịu hơn", trace())
+        val second = agent.handleText("hai hai độ", trace())
+
+        assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, first.status)
+        assertEquals(VoiceTurnStatus.APPLIED, second.status)
+        assertEquals(
+            listOf("làm cabin dễ chịu hơn", "nhiệt độ hai hai độ"),
+            planner.received,
+        )
+        assertEquals("hvac_set_temp", gateway.received?.name)
+    }
+
+    @Test
+    fun `agent resume cannot bypass a grammar command that forbids fallback`() = runImmediate {
+        val planner = SequencedPlanner(
+            listOf(
+                AgentPlanResult.Clarification(
+                    "Bạn muốn đặt nhiệt độ bao nhiêu độ?",
+                    AgentResumePrefix.TEMPERATURE,
+                ),
+            ),
+        )
+        val gateway = FakeGateway(CommandResult.Applied("must not execute"))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        agent.handleText("làm cabin dễ chịu hơn", trace())
+        val second = agent.handleText("bật điều hòa", trace())
+
+        assertEquals(VoiceTurnStatus.UNSUPPORTED, second.status)
+        assertEquals(listOf("làm cabin dễ chịu hơn"), planner.received)
+        assertNull(gateway.received)
     }
 
     @Test

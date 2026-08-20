@@ -13,6 +13,14 @@ fun interface AgentPlanner {
     suspend fun plan(text: String, traceId: String): AgentPlanResult
 }
 
+/** Closed set of locally owned prefixes that may resume one LLM clarification. */
+enum class AgentResumePrefix(val canonicalText: String) {
+    TEMPERATURE("nhiệt độ"),
+    FAN_LEVEL("quạt mức"),
+    MEDIA_QUERY("phát nhạc"),
+    ORDER_ID("đơn hàng"),
+}
+
 sealed interface AgentPlanResult {
     /** A normalized proposal that must still pass through CommandGateway and Body SafetyGuard. */
     data class Action(val intent: Intent) : AgentPlanResult
@@ -25,7 +33,10 @@ sealed interface AgentPlanResult {
         }
     }
 
-    data class Clarification(val promptVi: String) : AgentPlanResult {
+    data class Clarification(
+        val promptVi: String,
+        val resumePrefix: AgentResumePrefix? = null,
+    ) : AgentPlanResult {
         init {
             require(promptVi.isNotBlank()) { "Clarification prompt must not be blank" }
         }

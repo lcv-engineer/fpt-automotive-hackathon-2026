@@ -119,6 +119,8 @@ async def brain_plan(request: BrainPlanRequest) -> Response:
     # only for the feature it does not understand.
     if payload["actions"] is None:
         payload.pop("actions")
+    if payload["resume_prefix"] is None:
+        payload.pop("resume_prefix")
     return JSONResponse(status_code=200, content=payload, headers=headers)
 
 

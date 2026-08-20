@@ -61,6 +61,8 @@ repo có thêm constrained LLM slow path thật được bind vào `VoiceAgent`,
 Planner hiện có thể trả tối đa ba proposal có kiểu cho một câu ghép. Mỗi proposal vẫn đi qua gateway
 và SafetyGuard riêng, theo thứ tự người dùng nói; không có model/agent thứ hai và không có quyền thực
 thi trực tiếp trong Brain.
+Clarification từ slow path chỉ giữ một `resume_prefix` dạng enum trong đúng lượt kế tiếp; app sở hữu
+chuỗi canonical dùng để gọi lại planner, nên model không thể cài một tiền tố lệnh tùy ý vào context.
 Keyword mapping và ONNX semantic matcher vẫn không nằm trên active path này, vì vậy không gọi runtime là
 “ba tầng NLU”. Không được claim live latency/accuracy của LLM cho tới khi có smoke/benchmark bằng key và
 thiết bị thật.

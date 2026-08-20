@@ -78,7 +78,12 @@ class VoiceAgent(
      * lượt đó ra quyết định, nên không có trạng thái nào tồn đọng giữa các
      * phiên nói để đẻ ra lệnh bất ngờ.
      */
-    private var pendingResumePrefix: String? = null
+    private sealed interface PendingResume {
+        data class Grammar(val prefix: String) : PendingResume
+        data class Agent(val prefix: AgentResumePrefix) : PendingResume
+    }
+
+    private var pendingResume: PendingResume? = null
 
     suspend fun handleAudio(
         pcm16: ShortArray,
@@ -136,6 +141,12 @@ class VoiceAgent(
         text: String,
         trace: LatencyTrace,
     ): VoiceTurnResult {
+        // Context is one-shot even when this turn is negated or unsupported.
+        // Keeping it after a consumed reply could make a later bare number
+        // execute against stale context.
+        val pending = pendingResume
+        pendingResume = null
+
         // Cổng phủ định đứng trước router: router khớp bằng `contains()` nên
         // "đừng mở cửa" chứa "mo cua" và mở khóa cửa thật. Đứng sau router là
         // đã muộn — lệnh đã thành `Matched`. Planner cũng không được hỏi: câu
@@ -162,16 +173,29 @@ class VoiceAgent(
         // văn bản người dùng nói trước — một lệnh đầy đủ luôn thắng ngữ cảnh
         // đang chờ. Chỉ khi nó không tự đứng được mới ghép tiền tố rồi cho
         // chạy lại qua CHÍNH router đó: không có bộ phân tích số thứ hai.
-        val pending = pendingResumePrefix
         val direct = router.route(text)
-        val route = if (direct is RouteResult.Unsupported && pending != null) {
-            router.route("$pending $text").takeIf {
+        if (direct is RouteResult.Unsupported && direct.canFallback && pending is PendingResume.Agent) {
+            return handleAgentFallback(
+                text = text,
+                grammarResult = direct,
+                trace = trace,
+                plannerText = "${pending.prefix.canonicalText} $text",
+            )
+        }
+        val route = if (
+            direct is RouteResult.Unsupported &&
+            direct.canFallback &&
+            pending is PendingResume.Grammar
+        ) {
+            router.route("${pending.prefix} $text").takeIf {
                 it is RouteResult.Matched || it is RouteResult.MatchedMany
             } ?: direct
         } else {
             direct
         }
-        pendingResumePrefix = (route as? RouteResult.NeedsClarification)?.resumePrefix
+        pendingResume = (route as? RouteResult.NeedsClarification)
+            ?.resumePrefix
+            ?.let { PendingResume.Grammar(it) }
 
         return when (route) {
             is RouteResult.NeedsClarification -> {
@@ -221,9 +245,10 @@ class VoiceAgent(
         text: String,
         grammarResult: RouteResult.Unsupported,
         trace: LatencyTrace,
+        plannerText: String = text,
     ): VoiceTurnResult {
         val plan = try {
-            planner.plan(text, trace.traceId)
+            planner.plan(plannerText, trace.traceId)
         } catch (error: Exception) {
             AgentPlanResult.Unavailable(error.message ?: "agent planner failed")
         }
@@ -245,16 +270,19 @@ class VoiceAgent(
                 }
             }
 
-            is AgentPlanResult.Clarification -> finish(
-                VoiceTurnResult(
-                    transcript = text,
-                    intent = null,
-                    status = VoiceTurnStatus.NEEDS_CLARIFICATION,
-                    spokenVi = plan.promptVi,
-                ),
-                TraceVerdict.Confirm(AGENT_CLARIFICATION_RULE),
-                trace,
-            )
+            is AgentPlanResult.Clarification -> {
+                pendingResume = plan.resumePrefix?.let { PendingResume.Agent(it) }
+                finish(
+                    VoiceTurnResult(
+                        transcript = text,
+                        intent = null,
+                        status = VoiceTurnStatus.NEEDS_CLARIFICATION,
+                        spokenVi = plan.promptVi,
+                    ),
+                    TraceVerdict.Confirm(AGENT_CLARIFICATION_RULE),
+                    trace,
+                )
+            }
 
             is AgentPlanResult.Unsupported ->
                 finishUnsupported(text, plan.promptVi, AGENT_UNSUPPORTED_RULE, trace)

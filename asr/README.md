@@ -29,6 +29,8 @@ The route uses `gpt-5.4-mini-2026-03-17` and strict Structured Outputs. It retur
 intent proposal, clarification, or unsupported result. It has no vehicle tool and cannot execute an
 action. A compound request may return a bounded list of two or three independently validated actions;
 Android executes them in order through the existing gateway and Body SafetyGuard.
+Clarifications may carry one closed-enum `resume_prefix`; arbitrary model-authored resume text is not
+part of the wire contract.
 
 Design rationale, model comparison and the open questions behind it:
 [`docs/backend-docs/v6-viva-asr.md`](../docs/backend-docs/v6-viva-asr.md).

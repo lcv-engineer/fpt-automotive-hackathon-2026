@@ -47,6 +47,7 @@ def test_brain_plan_returns_a_strict_typed_proposal(client, monkeypatch):
     assert response.headers["X-Trace-Id"] == "trace-123"
     expected = VALID_PLAN.model_dump()
     expected.pop("actions")
+    expected.pop("resume_prefix")
     assert response.json() == expected
     assert planner.calls == [("trong xe ngột ngạt quá", "trace-123")]
 
@@ -158,3 +159,31 @@ def test_brain_endpoint_returns_a_bounded_action_list(client, monkeypatch):
         "cabin_lights",
         "media_next",
     ]
+
+
+def test_brain_endpoint_returns_typed_resume_prefix_only_for_clarification(client, monkeypatch):
+    clarification = BrainPlan.model_validate(
+        {
+            "kind": "clarification",
+            "intent_name": None,
+            "value": None,
+            "level": None,
+            "lock": None,
+            "on": None,
+            "delta": None,
+            "query": None,
+            "order_id": None,
+            "prompt_vi": "Bạn muốn đặt nhiệt độ bao nhiêu độ?",
+            "confidence": 0.7,
+            "resume_prefix": "temperature",
+        }
+    )
+    monkeypatch.setattr(app_main, "brain_planner", FakeBrainPlanner(clarification))
+
+    response = client.post(
+        "/v1/brain/plan",
+        json={"text": "làm mát giúp mình", "trace_id": "trace-resume"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["resume_prefix"] == "temperature"
