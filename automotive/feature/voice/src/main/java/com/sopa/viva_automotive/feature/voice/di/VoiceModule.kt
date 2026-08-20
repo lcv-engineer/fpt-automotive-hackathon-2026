@@ -3,6 +3,7 @@ package com.sopa.viva_automotive.feature.voice.di
 import android.content.Context
 import com.sopa.viva_automotive.feature.voice.data.audio.AndroidVolumeController
 import com.sopa.viva_automotive.feature.voice.data.asr.RoutingAsrClient
+import com.sopa.viva_automotive.feature.voice.data.brain.RemoteLlmAgentPlanner
 import com.sopa.viva_automotive.feature.voice.data.embedding.OnnxEmbeddingIntentMatcher
 import com.sopa.viva_automotive.feature.voice.data.media.AndroidMediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.domain.audio.VolumeController
@@ -14,6 +15,7 @@ import com.sopa.viva_automotive.feature.voice.integration.AppCommandGateway
 import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
 import com.sopa.viva_automotive.feature.voice.via.RecognitionResultHub
 import com.viva.voice.agent.CommandGateway
+import com.viva.voice.agent.AgentPlanner
 import com.viva.voice.agent.VoiceAgent
 import com.viva.voice.agent.VoiceTurnResult
 import com.viva.voice.agent.VoiceTurnStatus
@@ -45,6 +47,12 @@ abstract class VoiceModule {
     abstract fun bindCommandGateway(
         impl: AppCommandGateway,
     ): CommandGateway
+
+    @Binds
+    @Singleton
+    abstract fun bindAgentPlanner(
+        impl: RemoteLlmAgentPlanner,
+    ): AgentPlanner
 
     @Binds
     @Singleton
@@ -98,6 +106,7 @@ abstract class VoiceModule {
             asr: AsrClient,
             gateway: CommandGateway,
             router: IntentRouter,
+            planner: AgentPlanner,
             tts: TtsSpeaker,
             stateManager: VoiceAssistantStateManager,
             recognitionResultHub: RecognitionResultHub,
@@ -106,6 +115,7 @@ abstract class VoiceModule {
             router = router,
             gateway = gateway,
             tts = tts,
+            planner = planner,
             onResultReady = { result ->
                 if (result.transcript.isNotBlank()) {
                     recognitionResultHub.publishPartial(result.transcript)

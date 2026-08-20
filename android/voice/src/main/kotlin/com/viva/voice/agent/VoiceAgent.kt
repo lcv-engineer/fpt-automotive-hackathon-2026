@@ -53,6 +53,9 @@ class VoiceAgent(
     private val router: IntentRouter,
     private val gateway: CommandGateway,
     private val tts: TtsSpeaker,
+    private val planner: AgentPlanner = AgentPlanner { _, _ ->
+        AgentPlanResult.Unavailable("agent planner disabled")
+    },
     /** Invoked after the turn is decided and before TTS, so HMI can show spoken copy with audio. */
     private val onResultReady: suspend (VoiceTurnResult) -> Unit = {},
 ) {
@@ -123,7 +126,8 @@ class VoiceAgent(
     ): VoiceTurnResult {
         // Cổng phủ định đứng trước router: router khớp bằng `contains()` nên
         // "đừng mở cửa" chứa "mo cua" và mở khóa cửa thật. Đứng sau router là
-        // đã muộn — lệnh đã thành `Matched`.
+        // đã muộn — lệnh đã thành `Matched`. Planner cũng không được hỏi: câu
+        // phủ định không phải câu cần suy luận thêm.
         when (val negation = NegationGate.inspect(text)) {
             is NegationVerdict.Negated -> {
                 trace.mark(Stage.NLU_DONE)
@@ -155,41 +159,99 @@ class VoiceAgent(
         }
         pendingResumePrefix = (route as? RouteResult.NeedsClarification)?.resumePrefix
 
-        trace.mark(Stage.NLU_DONE)
         return when (route) {
-            is RouteResult.NeedsClarification -> finish(
-                VoiceTurnResult(
-                    transcript = text,
-                    intent = null,
-                    status = VoiceTurnStatus.NEEDS_CLARIFICATION,
-                    spokenVi = route.promptVi,
-                ),
-                TraceVerdict.Confirm(route.rule),
-                trace,
-            )
+            is RouteResult.NeedsClarification -> {
+                trace.mark(Stage.NLU_DONE)
+                finish(
+                    VoiceTurnResult(
+                        transcript = text,
+                        intent = null,
+                        status = VoiceTurnStatus.NEEDS_CLARIFICATION,
+                        spokenVi = route.promptVi,
+                    ),
+                    TraceVerdict.Confirm(route.rule),
+                    trace,
+                )
+            }
 
-            is RouteResult.Unsupported -> finish(
-                VoiceTurnResult(
-                    transcript = text,
-                    intent = null,
-                    status = VoiceTurnStatus.UNSUPPORTED,
-                    spokenVi = route.promptVi,
-                ),
-                TraceVerdict.Deny(route.rule),
-                trace,
-            )
+            is RouteResult.Unsupported -> {
+                if (route.canFallback) {
+                    handleAgentFallback(text, route, trace)
+                } else {
+                    trace.mark(Stage.NLU_DONE)
+                    finishUnsupported(text, route.promptVi, route.rule, trace)
+                }
+            }
 
             // `route.intent.confidence` là độ chắc của NLU và được giữ nguyên. Bản cũ
             // nhân nó với confidence của ASR, biến một trường thành hai ý nghĩa: sau
             // đó không ai đọc được con số trên trace là router thiếu chắc hay mic ồn.
             // §4: không dùng cùng một trường confidence cho cả ASR và NLU.
-            is RouteResult.Matched -> execute(
-                transcript = text,
-                intent = route.intent,
-                trace = trace,
-            )
+            is RouteResult.Matched -> {
+                trace.mark(Stage.NLU_DONE)
+                execute(
+                    transcript = text,
+                    intent = route.intent,
+                    trace = trace,
+                )
+            }
         }
     }
+
+    private suspend fun handleAgentFallback(
+        text: String,
+        grammarResult: RouteResult.Unsupported,
+        trace: LatencyTrace,
+    ): VoiceTurnResult {
+        val plan = try {
+            planner.plan(text, trace.traceId)
+        } catch (error: Exception) {
+            AgentPlanResult.Unavailable(error.message ?: "agent planner failed")
+        }
+        trace.mark(Stage.NLU_DONE)
+        return when (plan) {
+            is AgentPlanResult.Action -> {
+                if (plan.intent.tier != Intent.Tier.T2) {
+                    finishUnsupported(text, grammarResult.promptVi, grammarResult.rule, trace)
+                } else {
+                    execute(text, plan.intent, trace)
+                }
+            }
+
+            is AgentPlanResult.Clarification -> finish(
+                VoiceTurnResult(
+                    transcript = text,
+                    intent = null,
+                    status = VoiceTurnStatus.NEEDS_CLARIFICATION,
+                    spokenVi = plan.promptVi,
+                ),
+                TraceVerdict.Confirm(AGENT_CLARIFICATION_RULE),
+                trace,
+            )
+
+            is AgentPlanResult.Unsupported ->
+                finishUnsupported(text, plan.promptVi, AGENT_UNSUPPORTED_RULE, trace)
+
+            is AgentPlanResult.Unavailable ->
+                finishUnsupported(text, grammarResult.promptVi, grammarResult.rule, trace)
+        }
+    }
+
+    private suspend fun finishUnsupported(
+        transcript: String,
+        promptVi: String,
+        rule: String,
+        trace: LatencyTrace,
+    ): VoiceTurnResult = finish(
+        VoiceTurnResult(
+            transcript = transcript,
+            intent = null,
+            status = VoiceTurnStatus.UNSUPPORTED,
+            spokenVi = promptVi,
+        ),
+        TraceVerdict.Deny(rule),
+        trace,
+    )
 
     private suspend fun execute(
         transcript: String,
@@ -272,5 +334,7 @@ class VoiceAgent(
     companion object {
         private const val MIN_ASR_CONFIDENCE = 0.6f
         private const val NEGATION_RULE = "N1_NEGATION"
+        private const val AGENT_CLARIFICATION_RULE = "G3_AGENT_CLARIFY"
+        private const val AGENT_UNSUPPORTED_RULE = "G3_AGENT_UNSUPPORTED"
     }
 }

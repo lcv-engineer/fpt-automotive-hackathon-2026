@@ -19,6 +19,17 @@ import org.junit.Test
 
 class VoiceAgentTest {
 
+    private class RecordingPlanner(
+        private val result: AgentPlanResult,
+    ) : AgentPlanner {
+        val received = mutableListOf<String>()
+
+        override suspend fun plan(text: String, traceId: String): AgentPlanResult {
+            received += text
+            return result
+        }
+    }
+
     private class StepClock : NanoClock {
         private var now = 1_000_000_000L
         override fun nanos(): Long = now.also { now += 10_000_000L }
@@ -143,19 +154,22 @@ class VoiceAgentTest {
     }
 
     @Test
-    fun `negated command never reaches the gateway`() = runImmediate {
+    fun `negated command never reaches the gateway or the planner`() = runImmediate {
         val gateway = FakeGateway(CommandResult.Failed("must not execute"))
+        val planner = RecordingPlanner(AgentPlanResult.Unavailable("must not be consulted"))
         val agent = VoiceAgent(
             asr = FakeAsrClient(AsrResult("Vivi ơi đừng mở cửa", 0.97f, 15)),
             router = GrammarIntentRouter(),
             gateway = gateway,
             tts = RecordingTts(),
+            planner = planner,
         )
 
         val result = agent.handleAudio(shortArrayOf(1), 16_000, trace())
 
         assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, result.status)
         assertNull(gateway.received)
+        assertEquals(emptyList<String>(), planner.received)
     }
 
     /** N5 hồi quy: "không" ở vị trí giá trị vẫn phải là quạt mức 0. */
@@ -341,6 +355,64 @@ class VoiceAgentTest {
 
         assertEquals(VoiceTurnStatus.APPLIED, result.status)
         assertEquals("media_next", gateway.received?.name)
+    }
+
+    @Test
+    fun `unsupported grammar falls back to the constrained agent then uses the same gateway`() =
+        runImmediate {
+            val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 22°C."))
+            val planner = RecordingPlanner(
+                AgentPlanResult.Action(
+                    Intent(
+                        name = "hvac_set_temp",
+                        slots = mapOf("value" to 22f),
+                        confidence = 0.91f,
+                        tier = Intent.Tier.T2,
+                    ),
+                ),
+            )
+            val agent = VoiceAgent(
+                asr = FakeAsrClient(),
+                router = GrammarIntentRouter(),
+                gateway = gateway,
+                tts = RecordingTts(),
+                planner = planner,
+            )
+
+            val result = agent.handleText("trong xe ngột ngạt quá, làm mát giúp mình", trace())
+
+            assertEquals(VoiceTurnStatus.APPLIED, result.status)
+            assertEquals(listOf("trong xe ngột ngạt quá, làm mát giúp mình"), planner.received)
+            assertEquals("hvac_set_temp", gateway.received?.name)
+            assertEquals(Intent.Tier.T2, gateway.received?.tier)
+        }
+
+    @Test
+    fun `commands explicitly removed from the demo never reach the agent fallback`() = runImmediate {
+        val planner = RecordingPlanner(
+            AgentPlanResult.Action(
+                Intent(
+                    name = "hvac_set_temp",
+                    slots = mapOf("value" to 22f),
+                    confidence = 0.9f,
+                    tier = Intent.Tier.T2,
+                ),
+            ),
+        )
+        val gateway = FakeGateway(CommandResult.Applied("must not execute"))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        val result = agent.handleText("bật điều hòa", trace())
+
+        assertEquals(VoiceTurnStatus.UNSUPPORTED, result.status)
+        assertTrue(planner.received.isEmpty())
+        assertNull(gateway.received)
     }
 
     @Test

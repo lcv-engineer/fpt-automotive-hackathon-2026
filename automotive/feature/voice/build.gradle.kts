@@ -72,6 +72,20 @@ android {
             "ASR_BASE_URL",
             "\"" + (project.findProperty("vivaAsrBaseUrl") ?: "http://127.0.0.1:8080") + "\"",
         )
+        buildConfigField(
+            "String",
+            "BRAIN_BASE_URL",
+            "\"" + (
+                project.findProperty("vivaBrainBaseUrl")
+                    ?: project.findProperty("vivaAsrBaseUrl")
+                    ?: "http://127.0.0.1:8080"
+                ) + "\"",
+        )
+        buildConfigField(
+            "boolean",
+            "BRAIN_AGENT_ENABLED",
+            (project.findProperty("vivaBrainAgentEnabled") ?: "false").toString(),
+        )
     }
 
     compileOptions {

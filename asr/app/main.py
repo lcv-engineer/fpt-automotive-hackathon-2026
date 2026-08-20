@@ -1,9 +1,12 @@
 """viva-asr — HTTP ASR service for the VIVA voice pipeline.
 
-Contract: `vong2/03-contracts.md` §2. Two routes, nothing else:
+ASR contract: `vong2/03-contracts.md` §2. The ASR routes remain:
 
     POST /asr     raw PCM16 LE mono body, X-Sample-Rate + X-Trace-Id headers
     GET  /health  {"status": "ok", "model": "..."}
+
+The additive `POST /v1/brain/plan` route is an optional, server-side LLM
+gateway. It does not change the ASR request or response contract.
 
 Design notes live in `docs/backend-docs/v6-viva-asr.md`.
 """
@@ -19,6 +22,13 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from .audio import InvalidAudioError, duration_ms, pcm16le_to_float32
+from .brain import (
+    BrainPlan,
+    BrainPlanRequest,
+    BrainPlannerDisabledError,
+    BrainProviderError,
+    OpenAiBrainPlanner,
+)
 from .config import REQUIRED_SAMPLE_RATE, Settings
 from .model import ModelHolder, ModelNotReadyError, ModelState
 from .schemas import AsrResponse, HealthResponse
@@ -31,6 +41,7 @@ log = logging.getLogger("viva.asr")
 
 settings = Settings.from_env()
 holder = ModelHolder(settings)
+brain_planner = OpenAiBrainPlanner.from_env()
 
 
 @asynccontextmanager
@@ -72,6 +83,36 @@ def health() -> Response:
     if state is ModelState.FAILED and holder.error:
         payload["detail"] = holder.error
     return JSONResponse(status_code=503, content=payload, headers={"Retry-After": "5"})
+
+
+@app.post("/v1/brain/plan", response_model=BrainPlan)
+async def brain_plan(request: BrainPlanRequest) -> Response:
+    trace_id = request.trace_id
+    headers = {"X-Trace-Id": trace_id, "X-Brain-Model": brain_planner.model}
+    try:
+        plan = await brain_planner.plan(request.text, trace_id)
+    except BrainPlannerDisabledError:
+        return _error(
+            503,
+            "brain planner unavailable",
+            **{**headers, "Retry-After": "5"},
+        )
+    except BrainProviderError as exc:
+        log.warning("VIVA_BRAIN|%s|provider_failed|%s", trace_id, type(exc).__name__)
+        return _error(502, "brain provider failed", **headers)
+    except Exception as exc:  # noqa: BLE001 - model failures must not kill ASR service
+        log.exception("VIVA_BRAIN|%s|unexpected_failure|%s", trace_id, type(exc).__name__)
+        return _error(500, "brain planner failed", **headers)
+
+    log.info(
+        "VIVA_BRAIN|%s|ok|model=%s|kind=%s|intent=%s|confidence=%.2f",
+        trace_id,
+        brain_planner.model,
+        plan.kind,
+        plan.intent_name or "-",
+        plan.confidence,
+    )
+    return JSONResponse(status_code=200, content=plan.model_dump(), headers=headers)
 
 
 @app.post("/asr", response_model=AsrResponse)

@@ -48,15 +48,19 @@ Vosk client được bind vào `VoiceAgent`.
 |---|---|
 | Điều phối một lượt | `VoiceAgent.handleAudio/handleText` |
 | Intent router active | `GrammarIntentRouter` được Hilt bind trong `VoiceModule` |
+| LLM slow path tùy chọn | `RemoteLlmAgentPlanner` -> `/v1/brain/plan` -> `gpt-5.4-mini-2026-03-17`; build flag mặc định tắt |
 | Hỏi lại/từ chối/thực thi | `RouteResult` và `VoiceTurnStatus` |
 | Ánh xạ action có kiểu | `CoreIntentMapper` -> `VehicleIntent`/media/delivery command |
 | Điều phối thực thi | `AppCommandGateway` -> `ExecuteVehicleControlUseCase` |
 | Ngữ cảnh ngắn nhiều lượt | pending confirmation cho mở cửa và delivery |
 
-Brain hiện tại là **orchestrator tất định**, không phải LLM và chưa phải hệ multi-agent. Repo có
-`ProcessVoiceCommandUseCase`, keyword mapping và ONNX semantic matcher, nhưng chúng không nằm trên active
-path `VoiceAgent -> GrammarIntentRouter` của bản build hiện tại. Vì vậy chỉ được nói “đã có code/thử
-nghiệm”, không nói “runtime đang chạy ba tầng NLU”.
+Brain vẫn lấy **orchestrator tất định làm fast path** và chưa phải hệ multi-agent. Từ ngày 20/08/2026,
+repo có thêm constrained LLM slow path thật được bind vào `VoiceAgent`, nhưng mặc định tắt. Khi build với
+`vivaBrainAgentEnabled=true` và server có `OPENAI_API_KEY`, chỉ kết quả
+`Unsupported(canFallback=true)` mới gọi model; proposal T2 hợp lệ quay lại cùng `AppCommandGateway`.
+Keyword mapping và ONNX semantic matcher vẫn không nằm trên active path này, vì vậy không gọi runtime là
+“ba tầng NLU”. Không được claim live latency/accuracy của LLM cho tới khi có smoke/benchmark bằng key và
+thiết bị thật.
 
 ### 2.3 VIVA Body
 
@@ -85,6 +89,8 @@ Wake/PTT
   -> RoutingAsrClient [viva-asr HTTP | Google]
   -> VoiceAgent
   -> GrammarIntentRouter
+       -> [nếu Unsupported + canFallback] RemoteLlmAgentPlanner
+          -> viva server /v1/brain/plan -> OpenAI Responses API
   -> AppCommandGateway
   -> CoreIntentMapper
   -> ExecuteVehicleControlUseCase
@@ -133,7 +139,8 @@ Ràng buộc cứng:
 
 ## 5. GenAI/agent nên được thêm ở đâu
 
-GenAI nằm trong Brain dưới dạng **planner bị giới hạn**, không thay Grammar router cho lệnh lõi:
+GenAI nằm trong Brain dưới dạng **planner bị giới hạn**, không thay Grammar router cho lệnh lõi. Lát cắt
+cloud đầu tiên đã có code và feature flag; on-device SLM, RAG và multi-agent vẫn là roadmap:
 
 ```text
 core vehicle intent ──> deterministic local route ──> Body
@@ -145,8 +152,8 @@ Roadmap hợp lý:
 
 1. Giữ toàn bộ lệnh xe lõi local và tất định.
 2. Thêm context store/pending clarification để hoàn thành hội thoại nhiều lượt.
-3. Thêm cloud fallback chỉ cho hội thoại/tri thức không điều khiển xe.
-4. Sau khi có contract test, cho LLM đề xuất tool trong allowlist; Body vẫn tái kiểm tra.
+3. Đã thêm cloud fallback có contract test để LLM đề xuất intent trong allowlist; Body vẫn tái kiểm tra.
+4. Benchmark live, hoàn thiện consent/privacy và mở rộng QA/RAG sau khi slow path ổn định.
 5. Chỉ gọi là “multi-agent” khi thực sự có nhiều agent có vai trò, tool và hand-off quan sát được.
 
 ## 6. Học từ ViVi, nhưng không sao chép claim chưa có nguồn
