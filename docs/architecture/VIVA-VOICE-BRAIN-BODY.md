@@ -58,6 +58,9 @@ Brain vẫn lấy **orchestrator tất định làm fast path** và chưa phải
 repo có thêm constrained LLM slow path thật được bind vào `VoiceAgent`, nhưng mặc định tắt. Khi build với
 `vivaBrainAgentEnabled=true` và server có `OPENAI_API_KEY`, chỉ kết quả
 `Unsupported(canFallback=true)` mới gọi model; proposal T2 hợp lệ quay lại cùng `AppCommandGateway`.
+Planner hiện có thể trả tối đa ba proposal có kiểu cho một câu ghép. Mỗi proposal vẫn đi qua gateway
+và SafetyGuard riêng, theo thứ tự người dùng nói; không có model/agent thứ hai và không có quyền thực
+thi trực tiếp trong Brain.
 Keyword mapping và ONNX semantic matcher vẫn không nằm trên active path này, vì vậy không gọi runtime là
 “ba tầng NLU”. Không được claim live latency/accuracy của LLM cho tới khi có smoke/benchmark bằng key và
 thiết bị thật.

@@ -145,4 +145,52 @@ class BrainPlanResponseParserTest {
         assertTrue(result is AgentPlanResult.Unavailable)
     }
 
+    @Test
+    fun `bounded action array becomes an ordered T2 plan`() {
+        val result = BrainPlanResponseParser.parse(
+            """
+            {
+              "kind":"actions","intent_name":null,"value":null,"level":null,
+              "lock":null,"on":null,"delta":null,"query":null,"order_id":null,
+              "prompt_vi":null,"confidence":0.88,
+              "actions":[
+                {"intent_name":"cabin_lights","value":null,"level":null,"lock":null,
+                 "on":true,"delta":null,"query":null,"order_id":null,"confidence":0.91},
+                {"intent_name":"media_next","value":null,"level":null,"lock":null,
+                 "on":null,"delta":null,"query":null,"order_id":null,"confidence":0.88}
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertTrue(result is AgentPlanResult.Actions)
+        assertEquals(
+            listOf("cabin_lights", "media_next"),
+            (result as AgentPlanResult.Actions).intents.map(Intent::name),
+        )
+    }
+
+    @Test
+    fun `action array fails closed when it is too large or contains a forbidden member`() {
+        val item =
+            """{"intent_name":"media_next","value":null,"level":null,"lock":null,"on":null,"delta":null,"query":null,"order_id":null,"confidence":0.9}"""
+        val tooMany = BrainPlanResponseParser.parse(
+            """{"kind":"actions","intent_name":null,"value":null,"level":null,"lock":null,"on":null,"delta":null,"query":null,"order_id":null,"prompt_vi":null,"confidence":0.9,"actions":[$item,$item,$item,$item]}""",
+        )
+        val forbidden = BrainPlanResponseParser.parse(
+            """
+            {"kind":"actions","intent_name":null,"value":null,"level":null,"lock":null,
+             "on":null,"delta":null,"query":null,"order_id":null,"prompt_vi":null,
+             "confidence":0.99,"actions":[
+               {"intent_name":"door_lock","value":null,"level":null,"lock":false,"on":null,
+                "delta":null,"query":null,"order_id":null,"confidence":0.99},
+               $item
+             ]}
+            """.trimIndent(),
+        )
+
+        assertTrue(tooMany is AgentPlanResult.Unavailable)
+        assertTrue(forbidden is AgentPlanResult.Unavailable)
+    }
+
 }

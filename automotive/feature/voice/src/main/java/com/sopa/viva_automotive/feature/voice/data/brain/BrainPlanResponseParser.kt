@@ -9,7 +9,9 @@ import org.json.JSONObject
 internal object BrainPlanResponseParser {
     fun parse(body: String): AgentPlanResult = runCatching {
         val json = JSONObject(body)
-        require(json.keys().asSequence().toSet() == REQUIRED_FIELDS) {
+        val kind = json.getString("kind")
+        val requiredFields = if (kind == "actions") MULTI_REQUIRED_FIELDS else REQUIRED_FIELDS
+        require(json.keys().asSequence().toSet() == requiredFields) {
             "brain response fields do not match the contract"
         }
         val confidence = requiredFloat(json, "confidence")
@@ -17,8 +19,9 @@ internal object BrainPlanResponseParser {
             "brain confidence must be between 0 and 1"
         }
 
-        when (json.getString("kind")) {
-            "action" -> parseAction(json, confidence)
+        when (kind) {
+            "action" -> AgentPlanResult.Action(parseAction(json, confidence))
+            "actions" -> parseActions(json)
             "clarification" -> AgentPlanResult.Clarification(
                 requiredText(json, "prompt_vi", MAX_PROMPT_CHARS),
             )
@@ -31,7 +34,30 @@ internal object BrainPlanResponseParser {
         AgentPlanResult.Unavailable(error.message ?: "invalid brain response")
     }
 
-    private fun parseAction(json: JSONObject, confidence: Float): AgentPlanResult {
+    private fun parseActions(json: JSONObject): AgentPlanResult {
+        require(json.isNull("intent_name") && json.isNull("prompt_vi")) {
+            "multi-action plan must not contain singular intent or prompt"
+        }
+        require(SLOT_FIELDS.all(json::isNull)) {
+            "multi-action plan must not contain singular slots"
+        }
+        val actions = json.getJSONArray("actions")
+        require(actions.length() in 2..AgentPlanResult.MAX_ACTIONS) {
+            "multi-action plan is outside the size bound"
+        }
+        val intents = (0 until actions.length()).map { index ->
+            val action = actions.getJSONObject(index)
+            require(action.keys().asSequence().toSet() == ACTION_FIELDS) {
+                "action member fields do not match the contract"
+            }
+            val confidence = requiredFloat(action, "confidence")
+            require(confidence.isFinite() && confidence in 0f..1f)
+            parseAction(action, confidence)
+        }
+        return AgentPlanResult.Actions(intents)
+    }
+
+    private fun parseAction(json: JSONObject, confidence: Float): Intent {
         require(confidence >= MIN_ACTION_CONFIDENCE) {
             "agent action confidence below threshold"
         }
@@ -67,7 +93,7 @@ internal object BrainPlanResponseParser {
         require(CoreIntentMapper.map(intent) != null) {
             "agent proposal cannot be mapped to an application action"
         }
-        return AgentPlanResult.Action(intent)
+        return intent
     }
 
     private fun optionalTextSlot(
@@ -117,6 +143,8 @@ internal object BrainPlanResponseParser {
         "prompt_vi",
         "confidence",
     )
+    private val ACTION_FIELDS = SLOT_FIELDS + setOf("intent_name", "confidence")
+    private val MULTI_REQUIRED_FIELDS = REQUIRED_FIELDS + "actions"
     private val OPTIONAL_TEXT_SLOT_INTENTS = setOf(
         "media_play",
         "delivery_order_status",

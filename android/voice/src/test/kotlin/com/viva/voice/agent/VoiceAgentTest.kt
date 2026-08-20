@@ -426,6 +426,36 @@ class VoiceAgentTest {
         }
 
     @Test
+    fun `bounded agent action plan uses the same sequential executor`() = runImmediate {
+        val gateway = SequencedGateway(
+            listOf(
+                CommandResult.Applied("Đã bật đèn cabin."),
+                CommandResult.Applied("Đã chuyển bài."),
+            ),
+        )
+        val planner = RecordingPlanner(
+            AgentPlanResult.Actions(
+                listOf(
+                    Intent("cabin_lights", mapOf("on" to true), 0.91f, Intent.Tier.T2),
+                    Intent("media_next", confidence = 0.88f, tier = Intent.Tier.T2),
+                ),
+            ),
+        )
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+            planner = planner,
+        )
+
+        val result = agent.handleText("làm cabin dễ chịu rồi đổi bài giúp mình", trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, result.status)
+        assertEquals(listOf("cabin_lights", "media_next"), gateway.received.map(Intent::name))
+    }
+
+    @Test
     fun `compound execution stops after the first non-applied result without claiming rollback`() =
         runImmediate {
             val tts = RecordingTts()

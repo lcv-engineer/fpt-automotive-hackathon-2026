@@ -61,7 +61,7 @@ POST /v1/brain/plan
 
 200
 {
-  "kind": "action | clarification | unsupported",
+  "kind": "action | actions | clarification | unsupported",
   "intent_name": "hvac_set_temp | ... | null",
   "value": 22.0,
   "level": null,
@@ -71,13 +71,20 @@ POST /v1/brain/plan
   "query": null,
   "order_id": null,
   "prompt_vi": null,
-  "confidence": 0.91
+  "confidence": 0.91,
+  "actions": null
 }
 ```
 
-Tất cả field luôn hiện diện để strict schema ổn định. Semantic validator quy định field nào được khác
-`null` cho từng intent. Action confidence dưới `0.75` bị từ chối; đây là safety heuristic chứ không được
-claim là xác suất đã hiệu chuẩn.
+Các field legacy luôn hiện diện. Structured Output phía provider còn luôn mang field `actions` để schema
+strict ổn định; HTTP response chỉ thêm field đó khi thật sự là multi-action. Semantic validator quy định
+field nào được khác `null` cho từng intent. Action confidence dưới `0.75` bị từ chối; đây là safety
+heuristic chứ không được claim là xác suất đã hiệu chuẩn.
+
+`kind="actions"` dùng `actions` là danh sách 2–3 object action có cùng slot allowlist và confidence
+riêng; các field action đơn ở top-level phải `null`. Android thực thi tuần tự theo thứ tự danh sách,
+dừng ở deny/confirmation/failure đầu tiên và không tuyên bố rollback những action đã áp dụng. Với các
+kind khác server bỏ field `actions=null` khỏi HTTP response để giữ shape v1 cũ cho client hiện hữu.
 
 ## Các phương án đã cân nhắc
 
@@ -116,4 +123,3 @@ claim là xác suất đã hiệu chuẩn.
   slow path được bật; đây phải là điều kiện consent/privacy khi sản phẩm hóa.
 - Server `viva-asr` nay đồng thời làm gateway thử nghiệm cho Brain. Nếu scale độc lập, tách endpoint sang
   service riêng nhưng giữ nguyên wire contract.
-

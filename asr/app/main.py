@@ -112,7 +112,14 @@ async def brain_plan(request: BrainPlanRequest) -> Response:
         plan.intent_name or "-",
         plan.confidence,
     )
-    return JSONResponse(status_code=200, content=plan.model_dump(), headers=headers)
+    payload = plan.model_dump()
+    # Preserve the original v1 shape for single/non-action responses. The new
+    # field is present only when a bounded multi-action result actually exists,
+    # so an older Android parser keeps accepting the old cases and fails closed
+    # only for the feature it does not understand.
+    if payload["actions"] is None:
+        payload.pop("actions")
+    return JSONResponse(status_code=200, content=payload, headers=headers)
 
 
 @app.post("/asr", response_model=AsrResponse)
