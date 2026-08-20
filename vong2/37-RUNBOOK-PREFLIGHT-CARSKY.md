@@ -153,6 +153,19 @@ run-as com.sopa.viva_automotive sh -c 'curl -sm 8 http://10.99.0.3:8080/health'
 Đã xác minh 19/08: sau flush, ping 0.6 ms và `/health` trả lời ngay. **Luôn chạy bước
 này sau mỗi lần restart node ASR**, nếu không sẽ tưởng nhầm là node hỏng.
 
+### 3.2c USB image: `Transport endpoint is not connected`
+
+**Triệu chứng:** `ls /sdcard/Music/usb_1/` trả `Transport endpoint is not connected`,
+dù panel USB Device vẫn hiện **`Attached (1)`**.
+
+**Nguyên nhân:** guest reboot (hoặc restart node skycraft) trong khi image vẫn đang
+gắn → mount FUSE trong guest chết, nhưng phía nền tảng không biết nên vẫn báo attached.
+
+**Xử lý:** panel **USB Device** → **Unplug** → **Plug** lại. Không cần upload lại image.
+
+⚠️ **Luôn Unplug trước khi restart node `IVI - Android`**, và Plug lại sau khi guest
+boot xong — nếu không sẽ gặp đúng lỗi này và dễ tưởng nhầm là image hỏng.
+
 ### 3.3 Web ADB shell đứt (`Connection closed (code 1006)`)
 
 1. Bấm **Reconnect** 2–3 lần, cách nhau ~10 s (`adbd` là service của init, thường tự lên)
