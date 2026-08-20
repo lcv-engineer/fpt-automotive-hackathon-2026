@@ -57,6 +57,14 @@ class VoiceAgent(
     private val onResultReady: suspend (VoiceTurnResult) -> Unit = {},
 ) {
 
+    /**
+     * Ngữ cảnh hội thoại duy nhất được giữ: tiền tố để nối câu trả lời của
+     * lượt sau. Cố ý hẹp — nó chỉ sống đúng một lượt và bị xoá ngay khi
+     * lượt đó ra quyết định, nên không có trạng thái nào tồn đọng giữa các
+     * phiên nói để đẻ ra lệnh bất ngờ.
+     */
+    private var pendingResumePrefix: String? = null
+
     suspend fun handleAudio(
         pcm16: ShortArray,
         sampleRate: Int,
@@ -134,7 +142,19 @@ class VoiceAgent(
             NegationVerdict.None -> Unit
         }
 
-        val route = router.route(text)
+        // Lượt trước đã hỏi lại và câu này có thể là câu trả lời. Thử đúng
+        // văn bản người dùng nói trước — một lệnh đầy đủ luôn thắng ngữ cảnh
+        // đang chờ. Chỉ khi nó không tự đứng được mới ghép tiền tố rồi cho
+        // chạy lại qua CHÍNH router đó: không có bộ phân tích số thứ hai.
+        val pending = pendingResumePrefix
+        val direct = router.route(text)
+        val route = if (direct is RouteResult.Unsupported && pending != null) {
+            router.route("$pending $text").takeIf { it is RouteResult.Matched } ?: direct
+        } else {
+            direct
+        }
+        pendingResumePrefix = (route as? RouteResult.NeedsClarification)?.resumePrefix
+
         trace.mark(Stage.NLU_DONE)
         return when (route) {
             is RouteResult.NeedsClarification -> finish(

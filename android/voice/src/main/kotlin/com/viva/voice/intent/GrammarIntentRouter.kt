@@ -43,11 +43,13 @@ class GrammarIntentRouter(
         if (command.contains("lanh qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn tăng nhiệt độ điều hòa lên bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         }
         if (command.contains("nong qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn giảm nhiệt độ điều hòa xuống bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         }
 
@@ -145,10 +147,12 @@ class GrammarIntentRouter(
         val value = NUMBER.find(parsed)?.groupValues?.get(1)?.toIntOrNull()
             ?: return RouteResult.NeedsClarification(
                 "Bạn muốn đặt nhiệt độ điều hòa ở bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         if (value !in MIN_TEMPERATURE_C..MAX_TEMPERATURE_C) {
             return RouteResult.NeedsClarification(
                 "Nhiệt độ hỗ trợ từ 16 đến 32 độ C. Bạn muốn đặt bao nhiêu độ?",
+                resumePrefix = TEMPERATURE_PREFIX,
             )
         }
         return matched("hvac_set_temp", mapOf("value" to value.toFloat()))
@@ -165,9 +169,15 @@ class GrammarIntentRouter(
     private fun routeFan(command: String): RouteResult {
         val parsed = parseVietnameseNumber(command)
         val level = NUMBER.find(parsed)?.groupValues?.get(1)?.toIntOrNull()
-            ?: return RouteResult.NeedsClarification("Bạn muốn đặt quạt ở mức mấy, từ 0 đến 5?")
+            ?: return RouteResult.NeedsClarification(
+                "Bạn muốn đặt quạt ở mức mấy, từ 0 đến 5?",
+                resumePrefix = FAN_PREFIX,
+            )
         if (level !in MIN_FAN_LEVEL..MAX_FAN_LEVEL) {
-            return RouteResult.NeedsClarification("Mức quạt hỗ trợ từ 0 đến 5. Bạn chọn mức nào?")
+            return RouteResult.NeedsClarification(
+                "Mức quạt hỗ trợ từ 0 đến 5. Bạn chọn mức nào?",
+                resumePrefix = FAN_PREFIX,
+            )
         }
         return matched("hvac_set_fan", mapOf("level" to level))
     }
@@ -218,6 +228,8 @@ class GrammarIntentRouter(
         private const val MIN_FAN_LEVEL = 0
         private const val MAX_FAN_LEVEL = 5
         private const val GRAMMAR_CONFIDENCE = 1.0f
+        private const val TEMPERATURE_PREFIX = "nhiệt độ"
+        private const val FAN_PREFIX = "quạt mức"
 
         private val NUMBER = Regex("""(\d{1,2})""")
         private val PUNCTUATION = Regex("""[,.!?;:]""")

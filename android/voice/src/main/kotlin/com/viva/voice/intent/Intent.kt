@@ -17,6 +17,16 @@ sealed class RouteResult {
     data class NeedsClarification(
         val promptVi: String,
         val rule: String = "G3_MISSING_SLOT",
+        /**
+         * Tiền tố để ghép vào câu trả lời ở lượt sau, ví dụ `"nhiệt độ"`.
+         *
+         * Cố ý là **văn bản** chứ không phải tên slot: lượt sau được ghép lại
+         * thành một câu đầy đủ rồi cho chạy qua đúng router cũ. Nhờ vậy không
+         * có bộ phân tích số thứ hai để lệch khỏi bộ thứ nhất.
+         *
+         * `null` nghĩa là câu hỏi lại không nối tiếp được — hỏi xong là hết.
+         */
+        val resumePrefix: String? = null,
     ) : RouteResult()
 
     data class Unsupported(

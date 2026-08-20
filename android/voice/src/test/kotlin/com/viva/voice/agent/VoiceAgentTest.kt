@@ -80,6 +80,68 @@ class VoiceAgentTest {
         assertEquals(listOf("Đã đặt nhiệt độ mục tiêu 24°C."), tts.spoken)
     }
 
+    /**
+     * Khoảnh khắc ④ của kịch bản: "nóng quá" → hỏi lại → "hai hai độ" → thực hiện.
+     * Trước đây lượt 2 rơi thẳng xuống `Unsupported` vì `VoiceAgent` không giữ
+     * trạng thái nào, nên câu hỏi lại là một ngõ cụt.
+     */
+    @Test
+    fun `answer to a clarification completes the pending command`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("Đã đặt nhiệt độ mục tiêu 22°C.", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("", 0f, 0)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        val first = agent.handleText("Vivi ơi nóng quá", trace())
+        assertEquals(VoiceTurnStatus.NEEDS_CLARIFICATION, first.status)
+        assertNull(gateway.received)
+
+        val second = agent.handleText("hai hai độ", trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, second.status)
+        assertEquals("hvac_set_temp", gateway.received?.name)
+        assertEquals(22f, gateway.received?.slots?.get("value"))
+    }
+
+    @Test
+    fun `pending clarification is dropped once it is answered`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("ok", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("", 0f, 0)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        agent.handleText("Vivi ơi nóng quá", trace())
+        agent.handleText("hai hai độ", trace())
+        // Lượt 3 là một con số trần trụi, không còn ngữ cảnh nào để bám vào.
+        val third = agent.handleText("hai tư", trace())
+
+        assertEquals(VoiceTurnStatus.UNSUPPORTED, third.status)
+    }
+
+    /** Một lệnh đầy đủ ở lượt 2 phải thắng ngữ cảnh đang chờ, không bị ghép nhầm. */
+    @Test
+    fun `a complete command overrides a pending clarification`() = runImmediate {
+        val gateway = FakeGateway(CommandResult.Applied("ok", emptyMap()))
+        val agent = VoiceAgent(
+            asr = FakeAsrClient(AsrResult("", 0f, 0)),
+            router = GrammarIntentRouter(),
+            gateway = gateway,
+            tts = RecordingTts(),
+        )
+
+        agent.handleText("Vivi ơi nóng quá", trace())
+        val second = agent.handleText("Vivi ơi chuyển bài tiếp theo", trace())
+
+        assertEquals(VoiceTurnStatus.APPLIED, second.status)
+        assertEquals("media_next", gateway.received?.name)
+    }
+
     @Test
     fun `negated command never reaches the gateway`() = runImmediate {
         val gateway = FakeGateway(CommandResult.Failed("must not execute"))
