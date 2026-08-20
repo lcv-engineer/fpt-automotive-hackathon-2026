@@ -47,8 +47,11 @@ local fan_dir = vhal.fan_direction
 prop.VENDOR_ENGINE_RPM = 0x21400020
 
 -- Standard AOSP propIds VA app reads:
--- EV_BATTERY_LEVEL (current %). Standard AOSP ID from VehiclePropertyIds.
+-- EV_BATTERY_LEVEL (current %). AAOS 14 (0x11600600) and VIVA Android app (0x11600309 = 291504905).
 prop.EV_BATTERY_LEVEL           = 0x11600600
+prop.EV_BATTERY_LEVEL_LEGACY    = 0x11600309
+prop.FUEL_LEVEL                 = 0x11600307
+prop.HVAC_POWER_ON              = 0x15200510
 
 -- DOOR_LOCK propId — FAuto Trout AAOS ships an android.car.jar where
 -- VehiclePropertyIds.DOOR_LOCK = 0x16200B02 (the older AOSP value).
@@ -215,6 +218,7 @@ local mappings = {
         consumers = {
             { prop = prop.HVAC_AC_ON,                      area = seat.ROW_1_LEFT },
             { prop = prop.HU_HVAC_POWER_STATE_CONDITIONER, area = 0 },
+            { prop = prop.HVAC_POWER_ON,                   area = 0 },
         },
     },
     {
@@ -301,10 +305,14 @@ local mappings = {
         consumers = { { prop = prop.VENDOR_ENGINE_RPM, area = 0 } },
     },
 
-    -- ── Battery: current SoC (%) ──
+    -- ── Battery: current SoC (%) & Fuel level mirror ──
     {
         sig = vss_battery.StateOfCharge.Current, read_only = true,
-        consumers = { { prop = prop.EV_BATTERY_LEVEL, area = 0 } },
+        consumers = {
+            { prop = prop.EV_BATTERY_LEVEL,        area = 0 },
+            { prop = prop.EV_BATTERY_LEVEL_LEGACY, area = 0 },
+            { prop = prop.FUEL_LEVEL,              area = 0 },
+        },
     },
 }
 
