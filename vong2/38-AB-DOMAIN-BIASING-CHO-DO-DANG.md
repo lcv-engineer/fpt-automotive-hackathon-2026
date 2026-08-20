@@ -19,7 +19,7 @@ Hai câu sau là trọng tâm: ở room cũ chúng bị nghe sai và không ra �
 
 | | **Room CŨ** (baseline) | **Room MỚI** (có prompt) |
 |---|---|---|
-| Device | `VIVA` | `VIVA (Copy)` |
+| Device | `VIVA` | **`VIVA-AB-prompt`** (đổi tên 20/08 từ `VIVA (Copy)` cho khỏi nhầm) |
 | roomId | `v37aa3knc6t1embelr5yi` | `wcmfnwigjse4hv9r8s0e3` |
 | Deployment | `VIVA-demo-0808` | `VIVA-asr-prompt-0820` |
 | namespace | `room-z0as6abg` | `room-9pjsm4pz` |
@@ -58,7 +58,7 @@ Prompt được soạn để chữa đúng lớp lỗi này — chứa sẵn `ph
 
 ### 4.1 Kiểm room mới còn sống (~1 phút)
 
-Trong ADB shell của device **`VIVA (Copy)`**:
+Trong ADB shell của device **`VIVA-AB-prompt`** (bấm **Connect** ở sidebar trước, widget mới hiện):
 ```
 run-as com.sopa.viva_automotive sh -c 'curl -sm 8 http://10.99.0.3:8080/health'
 ```
@@ -66,7 +66,7 @@ Phải thấy `initial_prompt` có nội dung. Nếu lỗi → xem mục 5.
 
 ### 4.2 Bật mic
 
-Widget **IVI Screen** của `VIVA (Copy)` → **Recorder Part** → `Client Microphone`,
+Widget **IVI Screen** của `VIVA-AB-prompt` → **Recorder Part** → `Client Microphone`,
 chấm xanh, không Mute. Giữ app ở **foreground** (app không có foreground service).
 
 ### 4.3 Nói ba câu
@@ -135,6 +135,8 @@ Hash phải là `48f9830f6230c03a66f8b36e9c26c2448fdfc99028e5e0a00e93cec23677ea7
    (`VIVA`, `VIVA (Copy)`, `Gemini`, `Gemini 2`) ⇒ luôn dựng được room thử nghiệm
    song song mà không đụng room demo.
 4. Thời gian deploy: container ~1 phút, `IVI - Android` (skycraft) thêm ~2 phút.
+4b. Đổi tên device được qua `PATCH /api/v1/devices/{id}` với `{"name":"..."}` — id (roomId)
+   giữ nguyên nên không ảnh hưởng deployment hay evidence đang trỏ theo id.
 5. **Đừng tin mã trả về, tin hệ quả quan sát được**: `restart` trả 500 mà vẫn chạy;
    `Redeploy` báo *"4 node failed"* mà API cho 22/22 `Running`.
 
