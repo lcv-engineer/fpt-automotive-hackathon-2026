@@ -298,35 +298,32 @@ class GrammarIntentRouterTest {
     }
 
     @Test
-    fun `negation blocks door unlock instead of matching mo cua`() {
+    fun `negation is owned by NegationGate not the folded router`() {
+        // Router folds "đừng"/"dừng" to the same token; VoiceAgent runs NegationGate first.
         val cases = listOf(
             "đừng mở cửa",
             "không mở cửa",
             "đừng mở khóa cửa",
             "thôi khỏi mở cửa",
-        )
-
-        cases.forEach { text ->
-            val result = router.route(text) as RouteResult.Unsupported
-            assertEquals("Unexpected execute for '$text'", false, result.canFallback)
-            assertEquals("N1_NEGATION", result.rule)
-            assertTrue(result.promptVi.contains("không mở"))
-        }
-    }
-
-    @Test
-    fun `negation blocks climate and lights writes`() {
-        val cases = listOf(
             "em ơi đừng mở máy lạnh nha",
             "đừng bật đèn",
             "không tắt đèn cabin",
         )
 
         cases.forEach { text ->
-            val result = router.route(text) as RouteResult.Unsupported
-            assertEquals("N1_NEGATION", result.rule)
-            assertEquals(false, result.canFallback)
+            assertTrue(
+                "Expected NegationGate to block '$text'",
+                NegationGate.inspect(text) is NegationVerdict.Negated,
+            )
         }
+    }
+
+    @Test
+    fun `fan level khong is zero not a negation in the router`() {
+        val result = router.route("quạt mức không") as RouteResult.Matched
+
+        assertEquals("hvac_set_fan", result.intent.name)
+        assertEquals(0, result.intent.slots["level"])
     }
 
     @Test

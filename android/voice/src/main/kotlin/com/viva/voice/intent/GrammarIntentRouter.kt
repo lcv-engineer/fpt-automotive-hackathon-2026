@@ -15,7 +15,8 @@ import java.util.Locale
  * (temperature, fan, order id) — media query text is left alone.
  *
  * Sentence-type guards run before write rules: questions map to read-only
- * status intents when possible; negations abort without proposing writes.
+ * status intents when possible. Negation is owned by [NegationGate] in
+ * VoiceAgent (accent-aware) so "quạt mức không" stays fan level 0.
  */
 class GrammarIntentRouter(
     extensionRules: List<GrammarRule> = emptyList(),
@@ -105,15 +106,10 @@ class GrammarIntentRouter(
             )
         }
 
-        // Question before negation: "... chưa / ... không" is interrogative, not a write.
+        // Question before write rules: "... chưa / ... không" is interrogative.
+        // Negation is handled upstream by NegationGate (not here): folding would
+        // make "không" (number 0) look like a negation marker (N5 regression).
         routeQuestion(cleaned)?.let { return it }
-        if (isNegation(cleaned)) {
-            return RouteResult.Unsupported(
-                promptVi = "Mình hiểu bạn không muốn làm lệnh đó. Mình không mở hay đổi gì trên xe.",
-                rule = "N1_NEGATION",
-                canFallback = false,
-            )
-        }
 
         return routeAffirmative(cleaned)
     }
@@ -214,23 +210,10 @@ class GrammarIntentRouter(
     }
 
     private fun isQuestion(command: String): Boolean {
+        // Trailing "không" after "mức" is the numeral 0 (N5), not a yes/no tag.
+        if (MUCN_KHONG_VALUE.containsMatchIn(command)) return false
         if (QUESTION_TAILS.any { command == it || command.endsWith(" $it") }) return true
         return QUESTION_CUES.any(command::contains)
-    }
-
-    /**
-     * Folded-text negation backup. Primary gate is [NegationGate] (accent-aware)
-     * in VoiceAgent; this still blocks write cues that slip past after folding.
-     * "dừng nhạc" is pause, not negation.
-     */
-    private fun isNegation(command: String): Boolean {
-        if (command.contains("dung nhac") || command.contains("tam dung nhac")) return false
-        val hasMarker = NEGATION_MARKERS.any { marker ->
-            if (marker.contains(' ')) command.contains(marker)
-            else containsWord(command, marker)
-        }
-        if (!hasMarker) return false
-        return WRITE_CUES.any(command::contains)
     }
 
     private fun stripFillers(command: String): String {
@@ -409,23 +392,8 @@ class GrammarIntentRouter(
             "cho minh biet",
             "hoi xem",
         )
-        private val NEGATION_MARKERS = listOf("khong", "dung", "cho", "cha", "thoi khoi", "thoi")
-        private val WRITE_CUES = listOf(
-            "mo cua",
-            "mo khoa cua",
-            "khoa cua",
-            "bat den",
-            "mo den",
-            "tat den",
-            "may lanh",
-            "dieu hoa",
-            "quat",
-            "nhiet do",
-            "am luong",
-            "phat nhac",
-            "phat playlist",
-            "phat bai",
-        )
+        /** Folded: "quạt mức không" → level 0, must not hit question tails. */
+        private val MUCN_KHONG_VALUE = Regex("""\bmuc\s+khong$""")
 
         private val NUMBER_WORDS = mapOf(
             "khong" to "0",
