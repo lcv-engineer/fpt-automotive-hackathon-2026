@@ -142,6 +142,76 @@ huỷ chính nó**, và log báo `failure` nên trông như nền tảng hỏng.
 > **Quy tắc:** với CarSky, phán xét bằng **hệ quả quan sát được** (phase của node
 > đổi), không bằng mã HTTP.
 
+### 3.1 🔴 Restart một script-node làm KẸT nó ở `AlreadyExists`, và restart lại KHÔNG cứu được
+
+Ghi nhận 21/08 trên IVI Gateway + BCM Gateway. Sau khi restart, node lên `Running`
+nhưng BCM Gateway quay vòng vô hạn ~2 lần/giây:
+
+```
+[kuksa-grpc] opening provider stream for 13 actuators
+[kuksa-grpc] provider registered for 13 actuator(s)
+[kuksa-grpc] provider stream error: status: AlreadyExists,
+  "Providers for the following vss_ids already registered: [179 190 201 212 225 …]"
+[kuksa-grpc] provider reconnecting in 500ms
+```
+
+Đọc kỹ: nó **đăng ký được rồi mới bị đá ra**. Nghĩa là bản đăng ký cũ vẫn còn sống
+trong broker. Bản sót nằm phía broker, **không** phía node — nên restart node thêm
+lần nữa cho ra đúng kết quả đó (đã thử, 11 phút sau vẫn loop).
+
+Hậu quả: node `phase=Running` nhưng **chiều VSS → CAN chết**. Lệnh khoá cửa và
+điều hoà không tới nơi. Đây lại đúng cái bẫy §3 ở dạng ngược: HTTP đẹp, phase đẹp,
+chức năng hỏng.
+
+**Cách gỡ — restart node Central Broker (VSS):**
+
+```
+POST /api/v1/deployments/{room}/restart/{broker-node}
+```
+
+Broker lên lại là xoá sạch mọi provider registration. Node đang loop tự chen vào
+được ngay (nó vẫn retry 2 lần/giây), **không cần restart nó lần nữa**. Đo thật:
+broker restart 03:32:58Z → 03:33:12Z BCM in `provider registration acknowledged`
+— dòng chưa từng xuất hiện trước đó — rồi log dừng hẳn. 22/22 node vẫn `Running`,
+không node nào rơi.
+
+### 3.2 🔴 Restart broker XOÁ SẠCH kho giá trị — và guard của gateway *fail-open*
+
+Broker lên lại với kho rỗng. Đọc ngay sau đó:
+
+```
+Vehicle.Speed                                      = null   ts <lúc restart>
+Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature = null
+Vehicle.Cabin.Door.Row1.DriverSide.IsLocked        = null
+```
+
+Provider chỉ ghi khi giá trị **đổi**, nên xe đứng yên thì mọi thứ ở `null` vô thời
+hạn. Phải huých một cái (kéo slider Drive Controls, đổi nhiệt độ) mới đầy lại.
+Không biết điều này sẽ tưởng app hỏng.
+
+⚠️ **Phần nguy hiểm** — AI Safety Guard đọc tốc độ từ chính kho vừa bị xoá:
+
+```lua
+-- IVI_GATEWAY.lua
+local speed_kph = vss_root.Speed:get() or 0     -- null → 0
+if is_unlock and speed_kph > 0 then … end       -- 0 → KHÔNG chặn
+
+-- BCM_GATEWAY.lua
+local current_vehicle_speed = 0.0               -- giá trị khởi tạo
+if is_unlocking and current_vehicle_speed > 0 then … end
+```
+
+Cả hai đều `or 0` / khởi tạo `0`. Nên **trong khoảng từ lúc broker (hoặc node)
+lên lại cho tới lần cập nhật tốc độ đầu tiên, guard G1.1 im lặng cho mọi lệnh mở
+khoá đi qua**, kể cả khi xe đang chạy thật.
+
+Đối chiếu: guard phía app (`DefaultSafetyGuard.doorDenyRules`) làm **ngược lại** —
+đọc không được tốc độ thì từ chối bằng `G1_STALE_STATE`, kèm câu *"Mình chưa đọc
+được tốc độ hiện tại nên chưa thể mở khoá cửa."* Fail-closed.
+
+Hai lớp guard đang có hai triết lý trái ngược nhau. Lớp Lua nên đổi sang fail-closed
+cho khớp: `local speed = vss_root.Speed:get()` rồi chặn khi `speed == nil`.
+
 ---
 
 ## 4. 🟡 Khi Redeploy hỏng, API KHÔNG cho biết vì sao
@@ -202,6 +272,33 @@ bridge silkit, upstream tunnel) — đây là cách **lấy IP thật** của m�
 > Đây là **đường duy nhất nhìn được vào trong container** khi `container-exec`
 > còn chết vì Conduit. Giới hạn: chỉ đọc được **pod đang chạy**; pod chết lúc
 > redeploy không để lại dòng nào.
+
+### 5.1 🔴 Với `script-node` thì tên container là `script-node` — và bỏ qua nó KHÔNG báo lỗi
+
+Đây là bẫy nguy hiểm hơn hẳn §5, vì nó **không trả 502**. Gọi thiếu `?container`
+trên một script-node trả **HTTP 200** với nội dung hợp lệ — nhưng đó là log của
+**init container**, đúng hai dòng:
+
+```json
+{"lines":["[dbc] Downloading http://…/body_can.dbc -> /dbc/can.dbc ...","[dbc] Done"],
+ "node":"n-20f50062-…","pod":"n-20f50062-…-55f7946f8b-l25h8"}
+```
+
+Không có `error`, không có gợi ý container nào. Code nào bắt lỗi rồi mới fallback
+sang `?container=…` sẽ **không bao giờ chạy nhánh fallback** và âm thầm phân tích
+nhầm file. Đã dẫm 21/08: script chẩn đoán in ra `AlreadyExists = 0` trong khi node
+đang loop lỗi đó 2 lần/giây, và `dòng cuối = dbc]` suốt 12 vòng theo dõi.
+
+Pod của script-node có hai container — `script-node` và `sidecar`:
+
+```bash
+GET /api/v1/deployments/{room}/logs/{node}?container=script-node
+→ 200 {"lines":["[2026-08-21T03:33:12Z INFO …kuksa_grpc] provider registration acknowledged", …]}
+```
+
+> **Quy tắc:** luôn truyền `?container` tường minh. `script-node` cho node script,
+> `user` cho container node. Đừng bao giờ dựa vào mã lỗi để dò tên container —
+> với script-node thì không có mã lỗi nào để dò.
 
 ---
 
