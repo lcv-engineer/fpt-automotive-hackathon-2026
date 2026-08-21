@@ -24,10 +24,36 @@ class VadEndpointerTest {
         assertEquals(
             listOf(
                 VadEvent.SpeechStarted(startSample = 0),
-                VadEvent.SpeechEnded(startSample = 0, endSample = 2_560),
+                VadEvent.SpeechEnded(
+                    startSample = 0,
+                    endSample = 2_560,
+                    acousticEndSample = 2_048,
+                ),
             ),
             events,
         )
+    }
+
+    /**
+     * `endSample` là mốc đã cộng pad, và event chỉ bắn ra sau khi đã trôi hết
+     * `minSilenceMs`. Cả hai đều KHÔNG phải lúc tài xế dứt câu. Trace đang đóng
+     * dấu `speech_end` tại thời điểm bắn event, nên toàn bộ `minSilenceMs` nằm
+     * ngoài số độ trễ công bố. Endpointer phải trả thêm mốc âm học để tính lại.
+     */
+    @Test
+    fun `speech ended reports where silence actually began`() {
+        val endpointer = VadEndpointer(tuned)
+        val ended = probabilities(0.1f, 0.7f, 0.8f, 0.9f, 0.2f, 0.1f, 0.1f)
+            .flatMapIndexed { index, probability ->
+                endpointer.accept(probability, index * tuned.frameSamples)
+            }
+            .filterIsInstance<VadEvent.SpeechEnded>()
+            .single()
+
+        // Im lặng bắt đầu ở frame 4 (sample 2048); pad đẩy endSample tới 2560.
+        assertEquals(2_048, ended.acousticEndSample)
+        assertEquals(2_560, ended.endSample)
+        assertTrue("mốc âm học phải sớm hơn mốc đã pad", ended.acousticEndSample < ended.endSample)
     }
 
     @Test

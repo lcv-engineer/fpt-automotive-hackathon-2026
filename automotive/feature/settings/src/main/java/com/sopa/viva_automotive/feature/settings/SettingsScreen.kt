@@ -368,6 +368,7 @@ private fun asrEngineLabel(engine: AsrEngine): String = stringResource(
     when (engine) {
         AsrEngine.VIVA -> R.string.settings_asr_viva
         AsrEngine.GOOGLE -> R.string.settings_asr_google
+        AsrEngine.VOSK -> R.string.settings_asr_vosk
     },
 )
 

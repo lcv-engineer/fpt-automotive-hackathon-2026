@@ -101,6 +101,42 @@ class GrammarIntentRouterTest {
     }
 
     @Test
+    fun `compound commands keep every independently matched action in spoken order`() {
+        val result = router.route("Vivi ơi bật đèn cabin rồi chuyển bài")
+
+        assertTrue(result is RouteResult.MatchedMany)
+        assertEquals(
+            listOf("cabin_lights", "media_next"),
+            (result as RouteResult.MatchedMany).intents.map(Intent::name),
+        )
+    }
+
+    @Test
+    fun `an unresolved compound clause cannot silently execute only the first clause`() {
+        val result = router.route("bật đèn cabin và kể chuyện cười")
+
+        assertTrue(result is RouteResult.Unsupported)
+        assertEquals(true, (result as RouteResult.Unsupported).canFallback)
+    }
+
+    @Test
+    fun `a conjunction inside a media title remains one media query`() {
+        val result = router.route("phát bài Em và Trịnh") as RouteResult.Matched
+
+        assertEquals("media_play", result.intent.name)
+        assertEquals("em va trinh", result.intent.slots["query"])
+    }
+
+    @Test
+    fun `compound commands are bounded before they reach execution`() {
+        val result = router.route(
+            "bật đèn rồi chuyển bài rồi tăng âm lượng rồi quạt mức 2",
+        )
+
+        assertTrue(result is RouteResult.Unsupported)
+    }
+
+    @Test
     fun `media play keeps an optional query without normalizing numbers inside it`() {
         val result = router.route("phát playlist một ngày mới") as RouteResult.Matched
 

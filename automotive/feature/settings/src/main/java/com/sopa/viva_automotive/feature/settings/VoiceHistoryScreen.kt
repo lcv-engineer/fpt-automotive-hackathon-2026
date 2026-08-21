@@ -124,6 +124,7 @@ private fun VoiceHistoryRow(
     val engineLabel = when (entry.asrEngine) {
         "google" -> stringResource(R.string.settings_asr_google)
         "viva" -> stringResource(R.string.settings_asr_viva)
+        "vosk" -> stringResource(R.string.settings_asr_vosk)
         else -> stringResource(R.string.settings_voice_history_asr_none)
     }
     val spoken = entry.transcript.ifBlank {

@@ -90,8 +90,9 @@ Các file Gateway tích hợp sẵn các quy tắc **AI Safety Guard G1** để 
 -----------------------------------------------------------------------------------------
 DOOR_LOCK (0x16200B02)      <---> Vehicle.Cabin.Door.Row1.DriverSide.IsLocked  <---> DoorCommand.Row1Driver_IsLocked
 HVAC_TEMPERATURE_SET        <---> Vehicle.Cabin.HVAC.Station.Row1.Driver.Temp  <---> HvacCommand.Driver_Temperature
+HVAC_POWER_ON (0x15200510)  <---> Vehicle.Cabin.HVAC.IsAirConditioningActive   <---> HvacCommand.IsAirConditioningActive
 PERF_VEHICLE_SPEED          <---> Vehicle.Speed                                <---> PWT_VehicleSpeed.Speed_kph
-EV_BATTERY_LEVEL (0x11600600)<---> Vehicle.Powertrain.TractionBattery.SoC.Current<---> PWT_BatteryStatus.SoC_pct
+EV_BATTERY_LEVEL (0x11600309)<---> Vehicle.Powertrain.TractionBattery.SoC.Current<---> PWT_BatteryStatus.SoC_pct
 VENDOR_ENGINE_RPM(0x21400020)<---> Vehicle.Powertrain.CombustionEngine.Speed   <---> PWT_MotorSpeed.Speed_rpm
 ```
 

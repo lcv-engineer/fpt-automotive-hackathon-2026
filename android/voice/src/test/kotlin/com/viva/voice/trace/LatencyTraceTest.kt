@@ -54,8 +54,8 @@ class LatencyTraceTest {
         val stageIds = sink.lines.map { it.split("|")[2] }
         assertEquals(
             listOf(
-                "speech_start", "speech_end", "asr_sent", "asr_done", "nlu_done",
-                "guard_done", "exec_done", "render_done", "tts_start",
+                "speech_start", "acoustic_end", "speech_end", "asr_sent", "asr_done",
+                "nlu_done", "guard_done", "exec_done", "render_done", "tts_start",
             ),
             stageIds,
         )
@@ -85,6 +85,22 @@ class LatencyTraceTest {
         assertEquals(1_000_000_000L, second)
         assertEquals(1, sink.lines.size)
         assertEquals(1, warnings.size)
+    }
+
+    @Test
+    fun `multiple spoken segments keep the first tts start without a false duplicate warning`() {
+        val sink = RecordingTraceSink()
+        val warnings = mutableListOf<String>()
+        val clock = FakeClock(1_000_000_000L)
+        val t = trace(clock, sink) { warnings += it }
+
+        t.mark(Stage.TTS_START)
+        clock.advanceMs(500)
+        val secondSegment = t.mark(Stage.TTS_START)
+
+        assertEquals(1_000_000_000L, secondSegment)
+        assertEquals(1, sink.lines.size)
+        assertTrue(warnings.isEmpty())
     }
 
     // --- summary line ------------------------------------------------------
@@ -306,4 +322,48 @@ class LatencyTraceTest {
         assertEquals("Deny:G1_SPEED_LOCK", TraceVerdict.Deny(" g1|speed lock ").wire)
         assertEquals("Deny:UNSPECIFIED", TraceVerdict.Deny("").wire)
     }
+    /**
+     * `speech_end` được đóng dấu tại lúc VAD *quyết định* endpoint, tức là sau
+     * khi đã trôi hết `minSilenceMs` (800 ms ở cấu hình cabin). Nên `e2eMs()`
+     * bỏ sót đúng khoảng đó. `feltLatencyMs()` đo từ mốc âm học — thời điểm tài
+     * xế thật sự dứt câu — và phải lớn hơn `e2eMs()` đúng bằng khoảng chờ VAD.
+     */
+    @Test
+    fun `felt latency measures from the acoustic end not the endpoint decision`() {
+        val clock = ScriptedClock(
+            listOf(
+                0L,                    // ACOUSTIC_END  t=0
+                800_000_000L,          // SPEECH_END    t=800ms (VAD quyet dinh)
+                2_136_000_000L,        // TTS_START     t=2136ms
+            ),
+        )
+        val trace = LatencyTrace("felt", clock, RecordingTraceSink())
+        trace.mark(Stage.ACOUSTIC_END)
+        trace.mark(Stage.SPEECH_END)
+        trace.mark(Stage.TTS_START)
+
+        assertEquals(1336.0, trace.e2eMs()!!, 0.5)
+        assertEquals(2136.0, trace.feltLatencyMs()!!, 0.5)
+    }
+
+    /** Không có mốc âm học thì suy biến về `e2eMs()`, không trả null. */
+    @Test
+    fun `felt latency falls back to the endpoint mark when acoustic end is absent`() {
+        val clock = ScriptedClock(listOf(0L, 1_336_000_000L))
+        val trace = LatencyTrace("felt-fallback", clock, RecordingTraceSink())
+        trace.mark(Stage.SPEECH_END)
+        trace.mark(Stage.TTS_START)
+
+        assertEquals(trace.e2eMs()!!, trace.feltLatencyMs()!!, 0.001)
+    }
+
+    private class ScriptedClock(times: List<Long>) : NanoClock {
+        private val remaining = ArrayDeque(times)
+        private var last = 0L
+        override fun nanos(): Long {
+            last = remaining.removeFirstOrNull() ?: last
+            return last
+        }
+    }
+
 }

@@ -9,6 +9,7 @@
     <string name="settings_asr_engine">Speech-to-text engine</string>
     <string name="settings_asr_viva">VIVA ASR</string>
     <string name="settings_asr_google">Google STT</string>
+    <string name="settings_asr_vosk">Vosk (offline)</string>
     <string name="settings_asr_engine_hint">VIVA ASR uses the local viva-asr container (emulator → 10.0.2.2:8080). Google STT sends each VAD utterance to Cloud Speech (vi-VN) with the mock service-account secret.</string>
     <string name="settings_voice_history">Voice usage history</string>
     <string name="settings_voice_history_open">View assistant history</string>

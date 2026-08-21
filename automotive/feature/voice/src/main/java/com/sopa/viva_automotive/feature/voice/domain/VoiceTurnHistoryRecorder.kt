@@ -24,7 +24,8 @@ class VoiceTurnHistoryRecorder @Inject constructor(
                     ?.joinToString("; ") { (k, v) -> "$k=$v" }
                     ?.takeIf { it.isNotBlank() },
                 status = result.status.name,
-                succeeded = result.status == VoiceTurnStatus.APPLIED,
+                succeeded = result.status == VoiceTurnStatus.APPLIED ||
+                    result.status == VoiceTurnStatus.PARTIALLY_APPLIED,
                 note = result.spokenVi,
             )
         }.onFailure { error ->

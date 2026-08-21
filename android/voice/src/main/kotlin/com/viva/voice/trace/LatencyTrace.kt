@@ -36,10 +36,11 @@ class LatencyTrace(
      * Records [stage] at the current clock reading and emits its trace line.
      * Returns the nanosecond value recorded.
      *
-     * First write wins. A stage marked twice is a bug in the caller (a retry
-     * that forgot to open a new trace, usually); overwriting would quietly
-     * shrink the measured segment and flatter the p95, so the first value
-     * stands and the duplicate is reported on the diagnostics channel.
+     * First write wins. A stage marked twice is normally a bug in the caller
+     * (a retry that forgot to open a new trace); overwriting would quietly
+     * shrink the measured segment and flatter the p95. `TTS_START` is the one
+     * exception: a bounded multi-action response intentionally speaks several
+     * segments, while latency still measures the first audible response.
      */
     fun mark(stage: Stage): Long = markAt(stage, clock.nanos())
 
@@ -52,7 +53,9 @@ class LatencyTrace(
     fun markAt(stage: Stage, nanos: Long): Long {
         val existing = marks[stage]
         if (existing != null) {
-            diagnostics.warn("duplicate mark ${stage.id} on trace $traceId, keeping first")
+            if (stage != Stage.TTS_START) {
+                diagnostics.warn("duplicate mark ${stage.id} on trace $traceId, keeping first")
+            }
             return existing
         }
         marks[stage] = nanos
@@ -105,6 +108,24 @@ class LatencyTrace(
      * [summary] calls it exactly once, at the end, which is when that is the
      * number wanted.
      */
+    /**
+     * Độ trễ tài xế **thật sự cảm nhận**: từ lúc dứt câu tới lúc nghe tiếng.
+     *
+     * Khác [e2eMs] ở điểm đầu. [Stage.SPEECH_END] được đóng dấu khi VAD quyết
+     * định endpoint, tức là sau khi đã chờ hết `minSilenceMs` — với cấu hình
+     * cabin hiện tại là 800 ms. Khoảng chờ đó tài xế phải ngồi im chịu, nên nó
+     * thuộc về độ trễ cảm nhận dù không thuộc về thời gian xử lý.
+     *
+     * [e2eMs] được giữ nguyên định nghĩa cũ vì `03-contracts.md` §1.3 và
+     * backend đang chốt trên nó; đây là số thứ hai, không phải số thay thế.
+     */
+    fun feltLatencyMs(): Double? {
+        val start = marks[Stage.ACOUSTIC_END] ?: return e2eMs()
+        val end = marks[Stage.TTS_START] ?: clock.nanos()
+        if (end < start) return null
+        return (end - start) / 1_000_000.0
+    }
+
     fun e2eMs(): Double? {
         val start = marks[Stage.SPEECH_END] ?: marks[Stage.SPEECH_START] ?: return null
         val end = marks[Stage.TTS_START] ?: clock.nanos()

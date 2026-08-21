@@ -41,6 +41,10 @@ class ProcessVoiceCommandUseCase @Inject constructor(
                     VehicleIntent.NotWired(coreRoute.intent.name)
                 }
             }
+            is RouteResult.MatchedMany ->
+                return VehicleIntent.Clarification(
+                    "Yêu cầu có nhiều thao tác; vui lòng dùng luồng VoiceAgent.",
+                )
             is RouteResult.NeedsClarification ->
                 return VehicleIntent.Clarification(coreRoute.promptVi)
             is RouteResult.Unsupported ->

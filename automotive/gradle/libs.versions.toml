@@ -20,6 +20,7 @@ datastore = "1.2.1"
 coroutines = "1.11.0"
 appcompat = "1.7.1"
 onnxruntime = "1.20.0"
+vosk = "0.3.75"
 media = "1.7.1"
 media3 = "1.9.0"
 mediarouter = "1.7.0"
@@ -85,6 +86,7 @@ play-services-cast-framework = { group = "com.google.android.gms", name = "play-
 
 # Voice (embedding NLU; STT is viva-asr over HTTP)
 onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
+vosk-android = { group = "com.alphacephei", name = "vosk-android", version.ref = "vosk" }
 
 # Lottie (home weather card animation)
 lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }

@@ -11,7 +11,9 @@ object VoiceIntentNavigator {
     fun routeFor(intentName: String?, status: VoiceTurnStatus): String? {
         if (intentName.isNullOrBlank()) return null
         return when (status) {
-            VoiceTurnStatus.APPLIED -> routeForApplied(intentName)
+            VoiceTurnStatus.APPLIED,
+            VoiceTurnStatus.PARTIALLY_APPLIED,
+            -> routeForApplied(intentName)
             // Door unlock / delivery confirm: show context while the driver answers.
             VoiceTurnStatus.NEEDS_CONFIRMATION -> routeForConfirmation(intentName)
             // HVAC "nóng quá / lạnh quá" asks for a value — open climate to edit.

@@ -201,6 +201,23 @@ Embedding NLU uses multilingual ONNX under `feature/voice/src/main/assets/embedd
   -PvivaAsrBaseUrl=http://127.0.0.1:8080
 ```
 
+Optional VIVA Brain LLM slow path (off by default):
+
+```powershell
+.\gradlew.bat :app:assembleMockDebug `
+  -PvivaBrainAgentEnabled=true `
+  -PvivaBrainBaseUrl=http://127.0.0.1:8080 `
+  -PvivaBrainAuthToken=<same-room-token-as-server>
+```
+
+The URL points to the trusted VIVA server route `/v1/brain/plan`; it is not an OpenAI URL and the APK
+must not contain an OpenAI key. `vivaBrainAuthToken` is a rotatable room/deployment credential and can
+be extracted from an APK, so it limits accidental or cross-room use rather than replacing HTTPS,
+APK signing, server-side rate limits, or token rotation. A blank token fails closed before any HTTP
+request. Grammar remains the first route. Only
+`Unsupported(canFallback=true)` reaches the remote planner, and every returned intent still passes
+through `CoreIntentMapper`, `AppCommandGateway` and Body `SafetyGuard`.
+
 On emulator, the app rewrites `127.0.0.1`/`localhost` to `10.0.2.2` automatically (no
 `adb reverse` required). The adapter posts raw PCM16 LE mono to `/asr` with
 `X-Sample-Rate` and `X-Trace-Id`. Cleartext is allowed for loopback / `10.0.2.2` in

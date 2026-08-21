@@ -11,7 +11,6 @@ import com.viva.voice.agent.CommandGateway
 import com.viva.voice.agent.CommandResult
 import com.viva.voice.intent.Intent
 import com.viva.voice.trace.LatencyTrace
-import com.viva.voice.trace.Stage
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,7 +32,6 @@ class AppCommandGateway @Inject constructor(
 
         return executeVehicleControl(vehicleIntent).fold(
             onSuccess = { spoken ->
-                trace.mark(Stage.EXEC_DONE)
                 CommandResult.Applied(spokenVi = spoken)
             },
             onFailure = { error ->
