@@ -47,8 +47,13 @@ local fan_dir = vhal.fan_direction
 prop.VENDOR_ENGINE_RPM = 0x21400020
 
 -- Standard AOSP propIds VA app reads:
--- EV_BATTERY_LEVEL (current %). Standard AOSP ID from VehiclePropertyIds.
-prop.EV_BATTERY_LEVEL           = 0x11600600
+-- EV_BATTERY_LEVEL (current %). Must match what the VA app subscribes to:
+-- VehicleProperties.kt declares EV_BATTERY_LEVEL = 291504905 = 0x11600309,
+-- and that id IS bridged by the pin. The two earlier values here
+-- (0x11600204 = 291504644, then 0x11600600 = 291505664) were both absent
+-- from the pin, so SoC pushes landed on an id nobody was listening to and
+-- the app's battery question answered null on the `real` flavor.
+prop.EV_BATTERY_LEVEL           = 0x11600309
 
 -- DOOR_LOCK propId — FAuto Trout AAOS ships an android.car.jar where
 -- VehiclePropertyIds.DOOR_LOCK = 0x16200B02 (the older AOSP value).
@@ -437,8 +442,23 @@ local function actuate_kuksa(prop_id, area_id, raw_from_vhal)
 
     -- 🛡️ AI Safety Guard G1 checks in IVI Gateway (Zonal Architecture)
     if prop_id == prop.DOOR_LOCK then
-        local speed_kph = vss_root.Speed:get() or 0
+        -- FAIL-CLOSED. `:get()` returns nil when the value is simply not there,
+        -- which is NOT the same as "the car is stopped". A restarted KUKSA comes
+        -- back with an EMPTY value store and providers only write on change, so
+        -- the nil window is real: measured 21/08, the broker came back at
+        -- 03:33:08Z and Vehicle.Speed stayed nil until 03:39:22Z. Coercing with
+        -- `or 0` would have read "stopped" and passed every unlock for those
+        -- ~6 minutes. body_gateway hit exactly that: its Speed handler fired at
+        -- 03:33:10Z with a nil and its `or 0` logged it as 0.0 km/h.
+        -- The app-side guard already fails closed here
+        -- (DefaultSafetyGuard.doorDenyRules -> G1_STALE_STATE); the two layers
+        -- must not disagree about what "unknown speed" means.
+        local speed_kph = vss_root.Speed:get()
         local is_unlock = (value == false or value == 0)
+        if is_unlock and speed_kph == nil then
+            log("[SAFETY GUARD G1.1 BLOCKED] Vehicle Speed unreadable (nil). REFUSING DOOR UNLOCK!")
+            return
+        end
         if is_unlock and speed_kph > 0 then
             log(string.format("[SAFETY GUARD G1.1 BLOCKED] Vehicle Speed = %.1f km/h > 0. REFUSING DOOR UNLOCK!", speed_kph))
             return

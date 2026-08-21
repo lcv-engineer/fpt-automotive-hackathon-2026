@@ -62,7 +62,12 @@ local POWER_STATE = {
 local SEATBELT_READY = 1
 local SEATBELT_INIT  = 0
 
-local current_vehicle_speed = 0.0
+-- nil = speed not known yet (nothing has published since this node started, or
+-- since the broker was restarted and came back with an empty value store).
+-- Initialising to 0.0 would make the G1.1 check below read "stopped" and wave
+-- every unlock through until the first Speed event arrives. Keep it nil and
+-- fail closed — see the guard in bind_door_actuate.
+local current_vehicle_speed = nil
 
 -- ── KUKSA → CAN ───────────────────────────────────────
 
@@ -110,8 +115,13 @@ end
 
 local function bind_door_actuate(vss_sig, can_sig, label)
     vss_sig:on_actuate(function(v)
-        -- Safety Guard G1.1: Block unlocking doors when vehicle is moving
+        -- Safety Guard G1.1: Block unlocking doors when vehicle is moving,
+        -- and equally when the speed is not known (fail-closed).
         local is_unlocking = (v == false or v == 0)
+        if is_unlocking and current_vehicle_speed == nil then
+            log(string.format("[SAFETY GUARD G1.1 BLOCKED] Vehicle speed unknown (no Speed event yet). DENIED UNLOCK DOOR for %s!", label))
+            return
+        end
         if is_unlocking and current_vehicle_speed > 0 then
             log(string.format("[SAFETY GUARD G1.1 BLOCKED] Vehicle is moving at %.1f km/h. DENIED UNLOCK DOOR for %s!", current_vehicle_speed, label))
             return
@@ -190,7 +200,9 @@ end)
 -- NOT_READY_2 (speed>20) state, so the Body Gateway re-emits Vehicle.Speed
 -- here as PWT_VehicleSpeed 0x460. DBC cyclic (100ms) keeps the vECU fresh.
 Vehicle.Speed:on_change(function(v)
-    current_vehicle_speed = v or 0
+    -- Store v as-is: a nil here means the broker handed us "no value", and the
+    -- guard must keep treating the speed as unknown rather than as zero.
+    current_vehicle_speed = v
     can_pwt_speed.Speed_kph:publish(v or 0)
     log(string.format("[bgw] vss→can PWT_VehicleSpeed = %.1f km/h", v or 0))
 end)
