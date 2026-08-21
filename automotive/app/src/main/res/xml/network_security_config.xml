@@ -7,7 +7,7 @@
          khi thiếu nó (NetworkSecurityConfig), và với một địa chỉ IP thì "false" mới
          đúng nghĩa — không có subdomain nào của 127.0.0.1 để mà nới cleartext cho.
 
-         Vì sao phải khai ở ĐÂY nữa, dù `HttpRemoteAsrTransport.validatedEndpoint`
+         Vì sao phải khai ở ĐÂY nữa, dù `HttpAsrClient` đã rewrite loopback trên
          đã cho phép dải private: đó là hai cổng khác nhau. Cái kia là luật của app;
          cái này là chính sách của Android (chặn cleartext mặc định từ API 28). Qua
          được cổng app mà quên cổng này thì lượt thoại chết ở tầng nền tảng với

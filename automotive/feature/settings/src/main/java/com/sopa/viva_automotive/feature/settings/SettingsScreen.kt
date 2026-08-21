@@ -1,5 +1,6 @@
 package com.sopa.viva_automotive.feature.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -37,6 +40,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.sopa.viva_automotive.core.common.buildinfo.BuildInfo
 import com.sopa.viva_automotive.core.database.settings.AsrEngine
 import com.sopa.viva_automotive.core.ui.components.SectionCard
@@ -45,8 +51,35 @@ import com.sopa.viva_automotive.core.ui.locale.AppLanguage
 import com.sopa.viva_automotive.core.ui.theme.ThemeMode
 import com.sopa.viva_automotive.core.ui.theme.VivaDimens
 
+private object SettingsRoutes {
+    const val HOME = "settings_home"
+    const val VOICE_HISTORY = "voice_history"
+}
+
 @Composable
 fun SettingsScreen(
+    modifier: Modifier = Modifier,
+) {
+    val navController = rememberNavController()
+    NavHost(
+        navController = navController,
+        startDestination = SettingsRoutes.HOME,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        composable(SettingsRoutes.HOME) {
+            SettingsHomeScreen(
+                onOpenVoiceHistory = { navController.navigate(SettingsRoutes.VOICE_HISTORY) },
+            )
+        }
+        composable(SettingsRoutes.VOICE_HISTORY) {
+            VoiceHistoryScreen(onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+@Composable
+private fun SettingsHomeScreen(
+    onOpenVoiceHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -153,6 +186,41 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        SectionCard(title = stringResource(R.string.settings_voice_history)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenVoiceHistory)
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.History,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp),
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_voice_history_open),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_voice_history_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         SectionCard(title = stringResource(R.string.settings_display)) {

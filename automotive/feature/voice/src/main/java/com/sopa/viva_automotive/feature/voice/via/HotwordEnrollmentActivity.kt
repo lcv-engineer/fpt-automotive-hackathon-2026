@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Software-path enrollment: record a short “Vi-Vi ơi” template for
+ * Software-path enrollment: record a short “Viva ơi” template for
  * [SoftwareHotwordEngine]. DSP enrollment uses the system enroll intent when
  * SoundTrigger reports KEYPHRASE_UNENROLLED.
  */

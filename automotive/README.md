@@ -60,11 +60,13 @@ Verified again on 02/08/2026 with Temurin JDK 21 and Android SDK 37: 139 tests p
 (65 in `voice-core` + 74 in the automotive modules), with 0 failures/errors/skipped;
 both `assembleMockDebug` and `assembleRealDebug` completed successfully.
 
-> Note: `android.car.permission.CONTROL_CAR_CLIMATE`, `CONTROL_CAR_DOORS`, and
-> `CONTROL_CAR_INTERIOR_LIGHTS` are privileged permissions. The `real` flavor can
-> read properties on a standard AAOS emulator, but writes require installing the
-> app as privileged/platform-signed, with the permissions allowlisted by the OEM
-> (privapp-permissions XML).
+> Note: Car control permissions (`CONTROL_CAR_CLIMATE`, `CONTROL_CAR_DOORS`,
+> `CONTROL_CAR_INTERIOR_LIGHTS`) and car sensor permissions (`CAR_SPEED`,
+> `CAR_ENERGY`, `CAR_INFO`, `CAR_POWERTRAIN`) are privileged. The `real` flavor
+> can only use them when the app is installed as privileged/platform-signed and
+> the matching entries are in `app/privapp-permissions-com.sopa.viva_automotive.xml`
+> (pushed to `/system/etc/permissions/`). Without `CAR_SPEED`, SafetyGuard cannot
+> read vehicle speed and door-unlock fails closed (`G1_STALE_STATE`).
 
 ### Running the real flavor against the emulator VHAL
 
@@ -108,10 +110,14 @@ adb reboot
 ```
 
 3. Verify from the shell that app and VHAL agree (property 358614275 =
-   `HVAC_TEMPERATURE_SET`, area 49 = driver zone):
+   `HVAC_TEMPERATURE_SET`). Prefer area `1` (`ROW_1_LEFT`) on stock AAOS
+   emulators; some CarSky docs still show legacy mask `49` (`0x31`) — the app
+   normalizes `0x31` → `0x1` via `AreaIdResolver`:
 
 ```bash
-adb shell cmd car_service get-property-value 358614275 49
+adb shell cmd car_service get-property-value 358614275 1
+# legacy / CarSky docs sometimes use area 49:
+# adb shell cmd car_service get-property-value 358614275 49
 ```
 
 If a privileged permission is missing, the app does not fail silently: writes

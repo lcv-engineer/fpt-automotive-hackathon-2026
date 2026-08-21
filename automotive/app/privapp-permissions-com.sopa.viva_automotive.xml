@@ -3,12 +3,22 @@
      Push to /system/etc/permissions/ alongside a privileged install of the APK;
      see README "Running the real flavor".
      Missing allowlist entries for signature|privileged permissions crash
-     system_server on userdebug ("not in privileged permission allowlist"). -->
+     system_server on userdebug ("not in privileged permission allowlist").
+
+     Must stay in sync with car uses-permission in app/src/main/AndroidManifest.xml
+     plus VIA/hotword privileges. CAR_SPEED is required so SafetyGuard can read
+     PERF_VEHICLE_SPEED (without it, unlock fails closed as G1_STALE_STATE). -->
 <permissions>
     <privapp-permissions package="com.sopa.viva_automotive">
         <permission name="android.permission.CAPTURE_AUDIO_HOTWORD" />
         <permission name="android.permission.MANAGE_SOUND_TRIGGER" />
         <permission name="android.permission.MEDIA_CONTENT_CONTROL" />
+        <!-- Vehicle read path (SafetyGuard + status queries) -->
+        <permission name="android.car.permission.CAR_SPEED" />
+        <permission name="android.car.permission.CAR_ENERGY" />
+        <permission name="android.car.permission.CAR_INFO" />
+        <permission name="android.car.permission.CAR_POWERTRAIN" />
+        <!-- Vehicle write path (HVAC / doors / cabin lights) -->
         <permission name="android.car.permission.CONTROL_CAR_CLIMATE" />
         <permission name="android.car.permission.CONTROL_CAR_DOORS" />
         <permission name="android.car.permission.CONTROL_CAR_INTERIOR_LIGHTS" />

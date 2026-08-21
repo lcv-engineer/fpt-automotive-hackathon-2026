@@ -140,9 +140,10 @@ class SafetyGuardAblationTest {
     }
 
     /**
-     * Che đường đọc tốc độ để dựng đúng tình huống của flavor `real` hôm nay:
-     * manifest xin `android.car.permission.CAR_SPEED` nhưng allowlist privapp
-     * chưa có quyền đó, nên `SafetyGuard` không có tốc độ để mà xét.
+     * Che đường đọc tốc độ để dựng tình huống fail-closed: khi `CAR_SPEED` bị
+     * từ chối (allowlist thiếu / chưa privileged), SafetyGuard không có tốc độ
+     * để xét và phải `G1_STALE_STATE`. Allowlist hiện tại đã khai `CAR_SPEED`;
+     * ca này vẫn giữ để chứng minh hành vi khi đọc tốc độ thất bại.
      */
     private class UnreadableSpeed(private val delegate: VehicleRepository) : VehicleRepository {
         override fun observeProperty(propertyId: Int): Flow<CarPropertyResult> =

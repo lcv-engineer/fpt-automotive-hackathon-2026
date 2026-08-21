@@ -164,9 +164,8 @@ class HotwordController @Inject constructor(
             return
         }
         Log.i(TAG, "Hotword fire source=$source phrase=${HotwordConstants.KEYPHRASE}")
-        // Wake-ack MP3 is played inside VoiceAssistantService *before* VAD so
-        // listen cannot start until “Vi Vi đây” finishes (and HotwordGate is
-        // already paused for the session).
+        // Wake-ack cue plays in VoiceAssistantService *alongside* VAD listen
+        // (HotwordGate is already paused for the session).
         val shown = service?.let { tryShowSession(it) } == true
         if (!shown) {
             sessionBridge.startListening(

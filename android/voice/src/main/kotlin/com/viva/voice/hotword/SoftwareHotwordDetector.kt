@@ -7,7 +7,7 @@ import kotlin.math.sqrt
  *
  * Matches a sliding window against an enrolled PCM16 mono template using
  * normalized energy-envelope correlation. Not a production DSP substitute —
- * OEM SoundTrigger models remain the primary path for “Vi-Vi ơi”.
+ * OEM SoundTrigger models remain the primary path for “Viva ơi”.
  *
  * Default threshold is intentionally strict: envelope correlation alone is a
  * weak discriminator and will false-accept ambient cabin speech if set too low.

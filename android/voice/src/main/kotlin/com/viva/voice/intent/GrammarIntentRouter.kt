@@ -13,6 +13,9 @@ import java.util.Locale
  * Matching folds Vietnamese diacritics so ASR variants (có/không dấu) hit the
  * same rules. Spoken number words are expanded only inside slot extractors
  * (temperature, fan, order id) — media query text is left alone.
+ *
+ * Sentence-type guards run before write rules: questions map to read-only
+ * status intents when possible; negations abort without proposing writes.
  */
 class GrammarIntentRouter(
     extensionRules: List<GrammarRule> = emptyList(),
@@ -23,7 +26,7 @@ class GrammarIntentRouter(
         val normalized = normalize(text)
         if (UNSUPPORTED_WAKE.containsMatchIn(normalized)) {
             return RouteResult.Unsupported(
-                "Từ gọi của trợ lý là “Vi-Vi ơi” (cũng nhận Vivi/Viva ơi). Bạn thử lại nhé.",
+                "Từ gọi của trợ lý là “Viva ơi” (cũng nhận Vivi/Vi-Vi ơi). Bạn thử lại nhé.",
                 canFallback = false,
             )
         }
@@ -40,17 +43,38 @@ class GrammarIntentRouter(
             )
         }
 
-        if (command.contains("lanh qua")) {
+        val cleaned = stripFillers(command)
+        if (cleaned.isEmpty()) {
+            return RouteResult.NeedsClarification(
+                "Mình đang nghe. Bạn muốn điều hòa, cửa, đèn, nhạc hay âm lượng?",
+            )
+        }
+
+        if (cleaned.contains("lanh qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn tăng nhiệt độ điều hòa lên bao nhiêu độ?",
             )
         }
-        if (command.contains("nong qua")) {
+        if (cleaned.contains("nong qua")) {
             return RouteResult.NeedsClarification(
                 "Bạn muốn giảm nhiệt độ điều hòa xuống bao nhiêu độ?",
             )
         }
 
+        // Question before negation: "... chưa / ... không" is interrogative, not a write.
+        routeQuestion(cleaned)?.let { return it }
+        if (isNegation(cleaned)) {
+            return RouteResult.Unsupported(
+                promptVi = "Mình hiểu bạn không muốn làm lệnh đó. Mình không mở hay đổi gì trên xe.",
+                rule = "N1_NEGATION",
+                canFallback = false,
+            )
+        }
+
+        return routeAffirmative(cleaned)
+    }
+
+    private fun routeAffirmative(command: String): RouteResult {
         if (isTemperatureCommand(command)) {
             return routeTemperature(command)
         }
@@ -109,6 +133,68 @@ class GrammarIntentRouter(
             rule.route(command)?.let { return it }
         }
         return RouteResult.Unsupported()
+    }
+
+    /**
+     * Read-only questions → status intents. Unknown yes/no cabin questions abort
+     * without writing (N1_QUESTION), instead of falling through to set/unlock rules.
+     */
+    private fun routeQuestion(command: String): RouteResult? {
+        if (!isQuestion(command)) return null
+
+        when {
+            command.contains("toc do") ->
+                return matched("vehicle_status_speed")
+            command.contains("nhien lieu") || command.contains("xang") ->
+                return matched("vehicle_status_fuel")
+            command.contains("pin") || command.contains("battery") ->
+                return matched("vehicle_status_battery")
+            command.contains("nhiet do") ||
+                (command.contains("dieu hoa") &&
+                    (command.contains("bao nhieu") || command.contains("may do"))) ->
+                return matched("vehicle_status_temperature")
+        }
+
+        // Delivery "là gì / thế nào" stays on the affirmative path via caller order:
+        // only invoked when isQuestion; delivery cues with "the nao" are questions too.
+        if (command.contains("chang tiep theo") || command.contains("diem dung tiep theo")) {
+            return matched("delivery_next_stop")
+        }
+        if (command.contains("don") && DELIVERY_STATUS_CUES.any(command::contains)) {
+            return matched("delivery_order_status", orderIdSlot(command))
+        }
+
+        return RouteResult.Unsupported(
+            promptVi = "Mình hiểu bạn đang hỏi. Bạn thử: tốc độ, nhiên liệu, hoặc nhiệt độ điều hòa hiện tại.",
+            rule = "N1_QUESTION",
+            canFallback = false,
+        )
+    }
+
+    private fun isQuestion(command: String): Boolean {
+        if (QUESTION_TAILS.any { command == it || command.endsWith(" $it") }) return true
+        return QUESTION_CUES.any(command::contains)
+    }
+
+    /**
+     * Negation that scopes a vehicle/media write. "dừng nhạc" is pause, not negation.
+     */
+    private fun isNegation(command: String): Boolean {
+        if (command.contains("dung nhac") || command.contains("tam dung nhac")) return false
+        val hasMarker = NEGATION_MARKERS.any { marker ->
+            if (marker.contains(' ')) command.contains(marker)
+            else containsWord(command, marker)
+        }
+        if (!hasMarker) return false
+        return WRITE_CUES.any(command::contains)
+    }
+
+    private fun stripFillers(command: String): String {
+        var text = " $command "
+        for (filler in FILLERS) {
+            text = text.replace(" $filler ", " ")
+        }
+        return text.replace(WHITESPACE, " ").trim()
     }
 
     private fun isCabinLightsOn(command: String): Boolean =
@@ -223,7 +309,7 @@ class GrammarIntentRouter(
         private val PUNCTUATION = Regex("""[,.!?;:]""")
         private val WHITESPACE = Regex("""\s+""")
         private val DIACRITICS = Regex("""\p{M}+""")
-        // Canonical product wake: “Vi-Vi ơi”; keep Vivi/Viva aliases for PTT/ASR.
+        // Canonical product wake: “Viva ơi”; keep Vivi/Vi-Vi aliases for PTT/ASR.
         private val SUPPORTED_WAKE =
             Regex("""^(?:viva|vivi|vi[\s-]?vi)\s+oi(?:\s+|$)""")
         private val UNSUPPORTED_WAKE = Regex("""^(?:siri|alexa|hey google)\s+oi?(?:\s+|$)""")
@@ -236,6 +322,50 @@ class GrammarIntentRouter(
             Regex("""\b(?:dtc|ma loi|xe co loi)\b"""),
         )
         private val TEMPERATURE_CUES = listOf("dat", "ha", "tang", "giam", "xuong", "len", "do")
+
+        // Folded (no diacritics). Skip standalone "phat" — it is also the media-play verb.
+        private val FILLERS = listOf(
+            "em oi",
+            "bac tai",
+            "giup toi",
+            "ho cai",
+            "nhe",
+            "nha",
+            "voi",
+        )
+        private val QUESTION_TAILS = listOf(
+            "khong",
+            "chua",
+            "nhi",
+            "phai khong",
+            "dung khong",
+        )
+        private val QUESTION_CUES = listOf(
+            "bao nhieu",
+            "may do",
+            "the nao",
+            "sao roi",
+            "cho toi biet",
+            "cho minh biet",
+            "hoi xem",
+        )
+        private val NEGATION_MARKERS = listOf("khong", "dung", "cho", "cha", "thoi khoi", "thoi")
+        private val WRITE_CUES = listOf(
+            "mo cua",
+            "mo khoa cua",
+            "khoa cua",
+            "bat den",
+            "mo den",
+            "tat den",
+            "may lanh",
+            "dieu hoa",
+            "quat",
+            "nhiet do",
+            "am luong",
+            "phat nhac",
+            "phat playlist",
+            "phat bai",
+        )
 
         private val NUMBER_WORDS = mapOf(
             "khong" to "0",

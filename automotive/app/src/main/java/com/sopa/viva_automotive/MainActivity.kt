@@ -22,6 +22,7 @@ import com.sopa.viva_automotive.locale.LocaleController
 import com.sopa.viva_automotive.locale.LocalizedContent
 import com.sopa.viva_automotive.navigation.VivaApp
 import com.sopa.viva_automotive.feature.media.domain.MediaRepository
+import com.sopa.viva_automotive.feature.voice.navigation.NavigationDispatcher
 import com.sopa.viva_automotive.feature.voice.service.VoiceAssistantService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -39,6 +40,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var mediaRepository: MediaRepository
 
+    @Inject
+    lateinit var navigationDispatcher: NavigationDispatcher
+
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val requestPermissions =
@@ -50,7 +54,7 @@ class MainActivity : ComponentActivity() {
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences(LOCALE_PREFS, MODE_PRIVATE)
-        val language = AppLanguage.fromStorageKey(prefs.getString(KEY_LANGUAGE, "system"))
+        val language = AppLanguage.fromStorageKey(prefs.getString(KEY_LANGUAGE, "vi"))
         super.attachBaseContext(LocaleController.wrap(newBase, language))
     }
 
@@ -96,7 +100,7 @@ class MainActivity : ComponentActivity() {
 
             VivaTheme(darkTheme = darkTheme) {
                 LocalizedContent(language = language) {
-                    VivaApp()
+                    VivaApp(navigationDispatcher = navigationDispatcher)
                 }
             }
         }
