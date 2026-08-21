@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,8 @@ import com.sopa.viva_automotive.feature.hvac.HvacScreen
 import com.sopa.viva_automotive.feature.media.MediaScreen
 import com.sopa.viva_automotive.feature.media.domain.MediaSource
 import com.sopa.viva_automotive.feature.settings.SettingsScreen
+import com.sopa.viva_automotive.feature.voice.navigation.AppRoutes
+import com.sopa.viva_automotive.feature.voice.navigation.NavigationDispatcher
 import com.sopa.viva_automotive.feature.voice.presentation.VoiceOverlay
 import com.sopa.viva_automotive.home.HomeScreen
 
@@ -54,27 +57,36 @@ private enum class VivaDestination(
     val labelRes: Int,
     val icon: ImageVector,
 ) {
-    HOME("home", R.string.nav_home, Icons.Default.Home),
-    HVAC("hvac", R.string.nav_climate, Icons.Default.Thermostat),
-    MEDIA("media", R.string.nav_media, Icons.Default.MusicNote),
-    RADIO("radio", R.string.nav_radio, Icons.Default.Radio),
-    STATUS("status", R.string.nav_vehicle, Icons.Default.DirectionsCar),
-    SETTINGS("settings", R.string.nav_settings, Icons.Default.Settings),
+    HOME(AppRoutes.HOME, R.string.nav_home, Icons.Default.Home),
+    HVAC(AppRoutes.HVAC, R.string.nav_climate, Icons.Default.Thermostat),
+    MEDIA(AppRoutes.MEDIA, R.string.nav_media, Icons.Default.MusicNote),
+    RADIO(AppRoutes.RADIO, R.string.nav_radio, Icons.Default.Radio),
+    STATUS(AppRoutes.STATUS, R.string.nav_vehicle, Icons.Default.DirectionsCar),
+    SETTINGS(AppRoutes.SETTINGS, R.string.nav_settings, Icons.Default.Settings),
 }
 
 @Composable
-fun VivaApp() {
+fun VivaApp(
+    navigationDispatcher: NavigationDispatcher,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
     fun goTo(route: String) {
+        if (route == navController.currentDestination?.route) return
         navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) {
                 saveState = true
             }
             launchSingleTop = true
             restoreState = true
+        }
+    }
+
+    LaunchedEffect(navigationDispatcher, navController) {
+        navigationDispatcher.requests.collect { route ->
+            goTo(route)
         }
     }
 

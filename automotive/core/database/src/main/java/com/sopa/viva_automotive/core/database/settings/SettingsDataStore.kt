@@ -15,13 +15,14 @@ import kotlinx.coroutines.flow.map
 
 data class VoiceSettings(
     val voiceEnabled: Boolean = true,
-    /** Hands-free “Vi-Vi ơi”. Off by default until FA/FR gate is met (R7). */
+    /** Hands-free “Viva ơi”. Off by default until FA/FR gate is met (R7). */
     val hotwordEnabled: Boolean = false,
     val useFahrenheit: Boolean = false,
     val showPartialTranscription: Boolean = true,
     val playAudioCues: Boolean = true,
     val themeMode: String = "dark",
-    val language: String = "system",
+    /** App UI locale. Default Vietnamese for cabin / demo. */
+    val language: String = "vi",
     val voiceLanguage: String = "vi",
     /** `viva` (default) or `google` — see [AsrEngine]. */
     val asrEngine: String = AsrEngine.VIVA.storageKey,
@@ -55,7 +56,7 @@ class SettingsDataStore @Inject constructor(
             showPartialTranscription = prefs[Keys.SHOW_PARTIAL] ?: true,
             playAudioCues = prefs[Keys.AUDIO_CUES] ?: true,
             themeMode = prefs[Keys.THEME_MODE] ?: "dark",
-            language = prefs[Keys.LANGUAGE] ?: "system",
+            language = prefs[Keys.LANGUAGE] ?: "vi",
             voiceLanguage = prefs[Keys.VOICE_LANGUAGE] ?: "vi",
             asrEngine = prefs[Keys.ASR_ENGINE] ?: AsrEngine.VIVA.storageKey,
         )

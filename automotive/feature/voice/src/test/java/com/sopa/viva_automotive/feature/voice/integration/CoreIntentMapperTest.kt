@@ -67,6 +67,22 @@ class CoreIntentMapperTest {
     }
 
     @Test
+    fun `status query intents map to read-only vehicle queries`() {
+        assertEquals(
+            AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.SPEED),
+            ),
+            CoreIntentMapper.map(intent("vehicle_status_speed")),
+        )
+        assertEquals(
+            AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.TEMPERATURE),
+            ),
+            CoreIntentMapper.map(intent("vehicle_status_temperature")),
+        )
+    }
+
+    @Test
     fun `missing or wrong slot returns null`() {
         assertEquals(null, CoreIntentMapper.map(intent("hvac_set_temp")))
         assertEquals(null, CoreIntentMapper.map(intent("door_lock", "lock" to "true")))

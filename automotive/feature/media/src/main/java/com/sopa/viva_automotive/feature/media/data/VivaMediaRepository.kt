@@ -85,7 +85,7 @@ class VivaMediaRepository @Inject constructor(
     /** True when system owns loudness (player gain stays at 1). False = player-gain fallback. */
     private var systemVolumeWritable: Boolean = true
     private var applyingSystemVolume: Boolean = false
-    /** In-process duck while Vivi is listening / speaking (see [setVoiceDucked]). */
+    /** In-process duck while Viva is listening / speaking (see [setVoiceDucked]). */
     private var voiceDucked: Boolean = false
     private var positionTickerJob: Job? = null
 

@@ -77,6 +77,26 @@ object CoreIntentMapper {
         "delivery_confirm" ->
             AutomotiveVoiceAction.Delivery(DeliveryCommand.Confirm(intent.text("orderId")))
 
+        "vehicle_status_speed" ->
+            AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.SPEED),
+            )
+
+        "vehicle_status_fuel" ->
+            AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.FUEL),
+            )
+
+        "vehicle_status_battery" ->
+            AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.BATTERY),
+            )
+
+        "vehicle_status_temperature" ->
+            AutomotiveVoiceAction.VehicleControl(
+                VehicleIntent.QueryStatus(VehicleIntent.StatusQueryKind.TEMPERATURE),
+            )
+
         else -> null
     }
 

@@ -296,4 +296,67 @@ class GrammarIntentRouterTest {
 
         assertTrue(result is RouteResult.Unsupported)
     }
+
+    @Test
+    fun `negation is owned by NegationGate not the folded router`() {
+        // Router folds "đừng"/"dừng" to the same token; VoiceAgent runs NegationGate first.
+        val cases = listOf(
+            "đừng mở cửa",
+            "không mở cửa",
+            "đừng mở khóa cửa",
+            "thôi khỏi mở cửa",
+            "em ơi đừng mở máy lạnh nha",
+            "đừng bật đèn",
+            "không tắt đèn cabin",
+        )
+
+        cases.forEach { text ->
+            assertTrue(
+                "Expected NegationGate to block '$text'",
+                NegationGate.inspect(text) is NegationVerdict.Negated,
+            )
+        }
+    }
+
+    @Test
+    fun `fan level khong is zero not a negation in the router`() {
+        val result = router.route("quạt mức không") as RouteResult.Matched
+
+        assertEquals("hvac_set_fan", result.intent.name)
+        assertEquals(0, result.intent.slots["level"])
+    }
+
+    @Test
+    fun `pause music is not treated as negation of dung`() {
+        val result = router.route("dừng nhạc") as RouteResult.Matched
+        assertEquals("media_pause", result.intent.name)
+    }
+
+    @Test
+    fun `status questions route to read-only vehicle queries`() {
+        val speed = router.route("cho tôi biết tốc độ hiện tại") as RouteResult.Matched
+        val fuel = router.route("nhiên liệu còn bao nhiêu") as RouteResult.Matched
+        val temp = router.route("điều hòa bao nhiêu độ") as RouteResult.Matched
+
+        assertEquals("vehicle_status_speed", speed.intent.name)
+        assertEquals("vehicle_status_fuel", fuel.intent.name)
+        assertEquals("vehicle_status_temperature", temp.intent.name)
+    }
+
+    @Test
+    fun `yes-no question about climate does not set temperature`() {
+        val result = router.route("điều hòa đã bật chưa")
+
+        assertTrue(result is RouteResult.Unsupported)
+        assertEquals("N1_QUESTION", (result as RouteResult.Unsupported).rule)
+        assertEquals(false, result.canFallback)
+    }
+
+    @Test
+    fun `fillers are stripped before affirmative routing`() {
+        val result = router.route("em ơi khóa cửa giúp tôi nhé") as RouteResult.Matched
+
+        assertEquals("door_lock", result.intent.name)
+        assertEquals(true, result.intent.slots["lock"])
+    }
 }

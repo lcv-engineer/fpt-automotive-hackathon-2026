@@ -23,6 +23,7 @@ class RoutingAsrClient @Inject constructor(
     private val vivaAsr: HttpAsrClient,
     private val googleAsr: GoogleCloudSpeechAsrClient,
     private val voskAsr: VoskAsrClient,
+    private val asrTurnContext: AsrTurnContext,
 ) : AsrClient {
 
     override suspend fun transcribe(
@@ -31,6 +32,7 @@ class RoutingAsrClient @Inject constructor(
         trace: LatencyTrace,
     ): AsrResult {
         val engine = AsrEngine.fromStorageKey(settingsDataStore.settings.first().asrEngine)
+        asrTurnContext.markEngine(engine.storageKey)
         Log.i(TAG, "ASR engine=$engine")
         return when (engine) {
             AsrEngine.VIVA -> vivaAsr.transcribe(pcm16, sampleRate, trace)

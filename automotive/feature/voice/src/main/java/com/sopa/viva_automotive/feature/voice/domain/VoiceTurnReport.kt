@@ -1,6 +1,5 @@
 package com.sopa.viva_automotive.feature.voice.domain
 
-import com.sopa.viva_automotive.feature.voice.data.TranscriptionEvent
 import com.sopa.viva_automotive.feature.voice.domain.model.VehicleIntent
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaTransportException
 import com.sopa.viva_automotive.vehicleservice.api.SafetyConfirmationRequiredException
@@ -19,12 +18,16 @@ object VoiceTurnReport {
     const val ASR_UNAVAILABLE = "Bộ nhận dạng giọng nói chưa sẵn sàng."
     const val MICROPHONE_UNAVAILABLE = "Mình chưa mở được micro. Bạn kiểm tra quyền ghi âm giúp mình nhé."
 
+    /** Mã lỗi ASR máy đọc — dùng cho [speechErrorSpeech], không đọc thẳng cho tài xế. */
+    const val CODE_ASR_MODEL_UNAVAILABLE = "asr_model_unavailable"
+
     /**
      * Dưới mức này thì một transcript **đã được đo** là không đủ chắc để thành lệnh
      * xe; lượt đó hỏi lại thay vì thực thi (28-PIPELINE §5, hàng "ASR confidence thấp").
      *
-     * Chỉ áp dụng khi engine thật sự trả về một con số. Vosk small trả `null` và
-     * `null` **không** rơi vào luật này — xem [needsRepeatForConfidence].
+     * Chỉ áp dụng khi engine thật sự trả về một con số. Một số engine (vd. Google STT
+     * utterance-mode) trả `null` và `null` **không** rơi vào luật này — xem
+     * [needsRepeatForConfidence].
      *
      * ⚠️ **Con số này gắn với MỘT MODEL, không phải với hệ thống.** Nó được chọn từ
      * corpus giọng thật chạy trên PhoWhisper. `confidence` mà tầng ASR trả về là
@@ -81,7 +84,7 @@ object VoiceTurnReport {
      * xe tiếng Việt.
      */
     fun speechErrorSpeech(code: String): String = when (code) {
-        TranscriptionEvent.CODE_MODEL_UNAVAILABLE -> ASR_UNAVAILABLE
+        CODE_ASR_MODEL_UNAVAILABLE -> ASR_UNAVAILABLE
         else -> DID_NOT_HEAR
     }
 

@@ -1,4 +1,4 @@
-# OEM SoundTrigger model — “Vi-Vi ơi” / vi-VN
+# OEM SoundTrigger model — “Viva ơi” / vi-VN
 
 ## Purpose
 
@@ -22,7 +22,7 @@ Keyphrase enrollment apps must advertise support for:
 
 | Field | Value |
 |---|---|
-| Keyphrase | `Vi-Vi ơi` |
+| Keyphrase | `Viva ơi` |
 | Locale | `vi-VN` |
 | Recognition modes | voice trigger (+ optional user identification) |
 

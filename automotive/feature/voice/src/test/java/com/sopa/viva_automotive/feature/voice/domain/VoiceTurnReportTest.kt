@@ -1,6 +1,5 @@
 package com.sopa.viva_automotive.feature.voice.domain
 
-import com.sopa.viva_automotive.feature.voice.data.TranscriptionEvent
 import com.sopa.viva_automotive.feature.voice.domain.delivery.DeliveryCommand
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommand
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaTransportException
@@ -65,11 +64,11 @@ class VoiceTurnReportTest {
         // Bản trước đọc thẳng "Microphone is unavailable" lên màn hình xe tiếng Việt.
         assertEquals(
             VoiceTurnReport.ASR_UNAVAILABLE,
-            VoiceTurnReport.speechErrorSpeech(TranscriptionEvent.CODE_MODEL_UNAVAILABLE),
+            VoiceTurnReport.speechErrorSpeech(VoiceTurnReport.CODE_ASR_MODEL_UNAVAILABLE),
         )
         assertEquals(
             VoiceTurnReport.DID_NOT_HEAR,
-            VoiceTurnReport.speechErrorSpeech(TranscriptionEvent.CODE_NO_SPEECH),
+            VoiceTurnReport.speechErrorSpeech("asr_no_speech"),
         )
         assertEquals(
             VoiceTurnReport.DID_NOT_HEAR,

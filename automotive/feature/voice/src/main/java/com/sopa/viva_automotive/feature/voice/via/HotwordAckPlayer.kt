@@ -12,7 +12,10 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
- * Plays the bundled “Vi Vi đây” cue when hotword fires successfully.
+ * Plays the bundled wake-ack cue when hotword fires successfully.
+ *
+ * [play] starts immediately and returns so listening can overlap the cue.
+ * [playAndAwait] is kept for call sites that must wait until the clip ends.
  */
 @Singleton
 class HotwordAckPlayer @Inject constructor(
@@ -22,16 +25,15 @@ class HotwordAckPlayer @Inject constructor(
     private var active: MediaPlayer? = null
 
     /**
-     * Plays the wake ack and suspends until completion (or returns immediately if
-     * the clip cannot be created). Cancelling the coroutine stops playback.
+     * Starts the wake ack without waiting. Safe to call from the voice session
+     * while Silero VAD is already capturing the driver's command.
      */
-    suspend fun playAndAwait() = suspendCancellableCoroutine { cont ->
-        val resId = VoiceCoreR.raw.hotword_ack_vivi_day
+    fun play() {
         try {
             stop()
             val player = MediaPlayer.create(
                 context,
-                resId,
+                VoiceCoreR.raw.hotword_ack_viva,
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -39,7 +41,48 @@ class HotwordAckPlayer @Inject constructor(
                 /* audioSessionId */ 0,
             )
             if (player == null) {
-                Log.w(TAG, "MediaPlayer.create failed for hotword_ack_vivi_day")
+                Log.w(TAG, "MediaPlayer.create failed for hotword_ack_viva")
+                return
+            }
+            synchronized(lock) { active = player }
+            player.setOnCompletionListener { finished ->
+                finished.release()
+                synchronized(lock) {
+                    if (active === finished) active = null
+                }
+            }
+            player.setOnErrorListener { errored, _, _ ->
+                errored.release()
+                synchronized(lock) {
+                    if (active === errored) active = null
+                }
+                true
+            }
+            player.start()
+            Log.i(TAG, "Playing wake ack hotword_ack_viva (overlap listen)")
+        } catch (error: Exception) {
+            Log.w(TAG, "Wake ack playback failed", error)
+        }
+    }
+
+    /**
+     * Plays the wake ack and suspends until completion (or returns immediately if
+     * the clip cannot be created). Cancelling the coroutine stops playback.
+     */
+    suspend fun playAndAwait() = suspendCancellableCoroutine { cont ->
+        try {
+            stop()
+            val player = MediaPlayer.create(
+                context,
+                VoiceCoreR.raw.hotword_ack_viva,
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+                /* audioSessionId */ 0,
+            )
+            if (player == null) {
+                Log.w(TAG, "MediaPlayer.create failed for hotword_ack_viva")
                 cont.resume(Unit)
                 return@suspendCancellableCoroutine
             }
@@ -61,7 +104,7 @@ class HotwordAckPlayer @Inject constructor(
             }
             cont.invokeOnCancellation { stop() }
             player.start()
-            Log.i(TAG, "Playing wake ack hotword_ack_vivi_day")
+            Log.i(TAG, "Playing wake ack hotword_ack_viva")
         } catch (error: Exception) {
             Log.w(TAG, "Wake ack playback failed", error)
             if (cont.isActive) cont.resume(Unit)

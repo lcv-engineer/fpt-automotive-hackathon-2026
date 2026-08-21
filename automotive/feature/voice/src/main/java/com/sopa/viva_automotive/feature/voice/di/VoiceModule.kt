@@ -13,6 +13,9 @@ import com.sopa.viva_automotive.feature.voice.domain.embedding.SemanticIntentMat
 import com.sopa.viva_automotive.feature.voice.domain.media.MediaCommandExecutor
 import com.sopa.viva_automotive.feature.voice.integration.AppCommandGateway
 import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
+import com.sopa.viva_automotive.feature.voice.domain.VoiceTurnHistoryRecorder
+import com.sopa.viva_automotive.feature.voice.navigation.NavigationDispatcher
+import com.sopa.viva_automotive.feature.voice.navigation.VoiceIntentNavigator
 import com.sopa.viva_automotive.feature.voice.via.RecognitionResultHub
 import com.viva.voice.agent.CommandGateway
 import com.viva.voice.agent.AgentPlanner
@@ -31,6 +34,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -110,23 +117,31 @@ abstract class VoiceModule {
             tts: TtsSpeaker,
             stateManager: VoiceAssistantStateManager,
             recognitionResultHub: RecognitionResultHub,
-        ): VoiceAgent = VoiceAgent(
-            asr = asr,
-            router = router,
-            gateway = gateway,
-            tts = tts,
-            planner = planner,
-            onResultReady = { result ->
-                if (result.transcript.isNotBlank()) {
-                    recognitionResultHub.publishPartial(result.transcript)
-                    recognitionResultHub.publishFinal(result.transcript)
-                } else {
-                    recognitionResultHub.cancel()
-                }
-                publishTurnUi(stateManager, result)
-            },
-        )
-
+            historyRecorder: VoiceTurnHistoryRecorder,
+            navigationDispatcher: NavigationDispatcher,
+        ): VoiceAgent {
+            val historyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            return VoiceAgent(
+                asr = asr,
+                router = router,
+                gateway = gateway,
+                tts = tts,
+                planner = planner,
+                onResultReady = { result ->
+                    if (result.transcript.isNotBlank()) {
+                        recognitionResultHub.publishPartial(result.transcript)
+                        recognitionResultHub.publishFinal(result.transcript)
+                    } else {
+                        recognitionResultHub.cancel()
+                    }
+                    publishTurnUi(stateManager, result)
+                    VoiceIntentNavigator.routeFor(result.intent?.name, result.status)
+                        ?.let(navigationDispatcher::navigateTo)
+                    // Persist off the agent path so a DB hitch never blocks TTS.
+                    historyScope.launch { historyRecorder.recordAgentTurn(result) }
+                },
+            )
+        }
         /** Shows spoken copy on the voice bar before TTS starts. */
         fun publishTurnUi(
             stateManager: VoiceAssistantStateManager,

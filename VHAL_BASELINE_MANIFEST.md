@@ -123,13 +123,13 @@ lời giải.
 
 ## 4. Ba việc còn mở — không được khai là đã xong
 
-1. **Quyền privileged (M1a).** [`privapp-permissions-com.sopa.viva_automotive.xml`](automotive/app/privapp-permissions-com.sopa.viva_automotive.xml)
-   khai 4 quyền; `AndroidManifest.xml` xin 7. Thiếu **`CAR_SPEED`** (SafetyGuard
-   cần để đọc tốc độ), `CAR_ENERGY`, `CAR_INFO`; ngoài ra `RealVehicleRepository`
-   còn cần `CAR_POWERTRAIN` cho `IGNITION_STATE` mà chưa khai ở đâu.
-   Hệ quả đo được: ca **A1-04** trong ablation — không đọc được tốc độ thì guard
-   từ chối mọi lệnh mở cửa với `G1_STALE_STATE`. An toàn, nhưng kịch bản demo
-   *"xe dừng → xác nhận → mở cửa"* sẽ không chạy trên flavor `real`.
+1. **Quyền privileged (M1a).** ~~[`privapp-permissions-com.sopa.viva_automotive.xml`](automotive/app/privapp-permissions-com.sopa.viva_automotive.xml)
+   khai 4 quyền; `AndroidManifest.xml` xin 7. Thiếu **`CAR_SPEED`** …~~
+   **Đã vá (source):** allowlist + manifest đã đủ `CAR_SPEED`, `CAR_ENERGY`,
+   `CAR_INFO`, `CAR_POWERTRAIN` cùng các `CONTROL_*` / lights. **Runtime vẫn mở:**
+   phải `adb push` XML lên `/system/etc/permissions/` và cài APK `real` dạng
+   privileged (xem `automotive/README.md`). Chưa làm bước đó trên Device thì
+   ca “xe dừng → mở cửa” trên flavor `real` vẫn có thể `G1_STALE_STATE`.
 
 2. **Ngưỡng G1 khác nhau ở hai tầng.** `DefaultSafetyGuard` dùng `speed > 5 km/h`
    (đúng `03-contracts.md §4`); `vhal_server.luau` G1.1 dùng `speed > 0`. Không

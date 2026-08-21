@@ -8,6 +8,6 @@ enum class AppLanguage(val storageKey: String, val languageTag: String?) {
 
     companion object {
         fun fromStorageKey(key: String?): AppLanguage =
-            entries.firstOrNull { it.storageKey == key } ?: SYSTEM
+            entries.firstOrNull { it.storageKey == key } ?: VIETNAMESE
     }
 }

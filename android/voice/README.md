@@ -138,7 +138,7 @@ Nguồn upstream chính chủ:
 ```text
 microphone front-end
   ├─ push-to-talk trigger
-  └─ always-on wake-word detector ("Viva ơi" / "Vivi ơi")
+  └─ always-on wake-word detector ("Viva ơi"; aliases "Vivi ơi" / "Vi-Vi ơi")
   → command capture → VAD/endpointer → ASR (audio → text) → normalize
   → grammar T0 (LLM chỉ là fallback đề xuất intent)
   → CommandGateway

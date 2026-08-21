@@ -34,4 +34,4 @@ tts_clarify_warmer	Bạn muốn tăng nhiệt độ điều hòa lên bao nhiêu
 tts_clarify_temperature_range	Nhiệt độ hỗ trợ từ mười sáu đến ba mươi hai độ C. Bạn muốn đặt bao nhiêu độ?
 tts_clarify_fan_level	Bạn muốn đặt quạt ở mức mấy, từ không đến năm?
 tts_deny_door_while_moving	Xe đang chạy, mình chưa mở cửa được.
-tts_wrong_wake_phrase	Từ gọi của trợ lý là Viva ơi hoặc Vivi ơi. Bạn thử lại nhé.
+tts_wrong_wake_phrase	Từ gọi của trợ lý là Viva ơi (cũng nhận Vivi hoặc Vi-Vi ơi). Bạn thử lại nhé.

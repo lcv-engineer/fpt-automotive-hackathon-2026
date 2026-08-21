@@ -11,10 +11,12 @@ import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.sopa.viva_automotive.core.database.settings.SettingsDataStore
+import com.sopa.viva_automotive.feature.voice.data.asr.AsrTurnContext
 import com.sopa.viva_automotive.feature.voice.data.audio.VadUtteranceCapture
 import com.sopa.viva_automotive.feature.voice.data.audio.VoiceSessionDucker
 import com.sopa.viva_automotive.feature.voice.di.VoiceModule
 import com.sopa.viva_automotive.feature.voice.domain.VoiceAssistantStateManager
+import com.sopa.viva_automotive.feature.voice.domain.VoiceTurnHistoryRecorder
 import com.sopa.viva_automotive.feature.voice.domain.VoiceTurnReport
 import com.sopa.viva_automotive.feature.voice.domain.model.VoiceAssistantState
 import com.sopa.viva_automotive.feature.voice.via.HotwordAckPlayer
@@ -43,6 +45,8 @@ class VoiceAssistantService : LifecycleService() {
     @Inject lateinit var sessionDucker: VoiceSessionDucker
     @Inject lateinit var hotwordAckPlayer: HotwordAckPlayer
     @Inject lateinit var settingsDataStore: SettingsDataStore
+    @Inject lateinit var asrTurnContext: AsrTurnContext
+    @Inject lateinit var historyRecorder: VoiceTurnHistoryRecorder
 
     private var pipelineJob: Job? = null
     private val pendingTextCommands = ArrayDeque<String>()
@@ -116,6 +120,7 @@ class VoiceAssistantService : LifecycleService() {
             try {
                 var next: String? = text
                 while (next != null) {
+                    asrTurnContext.markTextOnly()
                     val trace = startVoiceTrace()
                     trace.mark(Stage.SPEECH_END)
                     trace.mark(Stage.ASR_DONE)
@@ -140,10 +145,10 @@ class VoiceAssistantService : LifecycleService() {
             val fromHotword = activeTrigger == Trigger.WAKE_WORD
             if (fromHotword) {
                 stateManager.transitionToWakeDetected()
-                // Gate already paused for this session — play cue, then open mic.
+                // Cue and mic start together — do not wait for the beep to finish.
                 if (settingsDataStore.settings.first().playAudioCues) {
-                    Log.i(VOICE_TAG, "Waiting for wake ack before listen")
-                    hotwordAckPlayer.playAndAwait()
+                    Log.i(VOICE_TAG, "Starting wake ack alongside listen")
+                    hotwordAckPlayer.play()
                 }
             }
             stateManager.transitionToListening(fromHotword = fromHotword)
@@ -157,11 +162,19 @@ class VoiceAssistantService : LifecycleService() {
                 }
             }.getOrElse { error ->
                 Log.e(VOICE_TAG, "Mic capture failed", error)
+                hotwordAckPlayer.stop()
                 stateManager.transitionToError(VoiceTurnReport.MICROPHONE_UNAVAILABLE)
+                historyRecorder.recordEarlyFailure(
+                    status = "MICROPHONE_UNAVAILABLE",
+                    note = VoiceTurnReport.MICROPHONE_UNAVAILABLE,
+                )
                 delay(RESULT_DISPLAY_MS)
                 stateManager.transitionToIdle()
                 return
             }
+
+            // Stop residual cue before ASR/TTS so they don't stack.
+            hotwordAckPlayer.stop()
 
             Log.i(
                 VOICE_TAG,
@@ -171,6 +184,10 @@ class VoiceAssistantService : LifecycleService() {
 
             if (!captured.isUsable) {
                 stateManager.transitionToError(VoiceTurnReport.DID_NOT_HEAR)
+                historyRecorder.recordEarlyFailure(
+                    status = "DID_NOT_HEAR",
+                    note = VoiceTurnReport.DID_NOT_HEAR,
+                )
                 delay(RESULT_DISPLAY_MS)
                 stateManager.transitionToIdle()
                 return
@@ -191,11 +208,13 @@ class VoiceAssistantService : LifecycleService() {
             )
             applyAgentResult(result, displayTranscript = result.transcript.ifBlank { "…" })
         } finally {
+            hotwordAckPlayer.stop()
             sessionDucker.end("voice_turn")
         }
     }
 
     private suspend fun runInjectedUtterance(utterance: String) {
+        asrTurnContext.markTextOnly()
         val trace = startSilentTrace()
         Log.i(BENCH_TAG, "$BENCH_TAG|${trace.traceId}|injected_text|$utterance")
         applyAgentResult(

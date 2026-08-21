@@ -47,7 +47,7 @@ class SoftwareHotwordEngine(
     fun start(scope: CoroutineScope) {
         if (job?.isActive == true) return
         if (!detector.hasTemplate && !loadTemplateFromDisk()) {
-            Log.w(TAG, "Software hotword armed without template — enroll “Vi-Vi ơi” first")
+            Log.w(TAG, "Software hotword armed without template — enroll “Viva ơi” first")
         }
         metrics.markArmed(SystemClock.elapsedRealtime())
         job = scope.launch(Dispatchers.IO) {

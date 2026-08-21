@@ -4,7 +4,7 @@ import java.util.Locale
 
 /** Canonical AOSP hotword keyphrase for VIVA. */
 object HotwordConstants {
-    const val KEYPHRASE = "Vi-Vi ơi"
+    const val KEYPHRASE = "Viva ơi"
     val LOCALE: Locale = Locale.forLanguageTag("vi-VN")
     const val LOCALE_TAG = "vi-VN"
 
