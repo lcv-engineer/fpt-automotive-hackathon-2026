@@ -1,0 +1,138 @@
+Evidence: GATEWAY/ — AI Safety Guard CHUA duoc trien khai len CarSky
+Label: CARSKY PLATFORM — doi chieu blueprint live vs folder GATEWAY/ trong repo
+Captured at: 2026-08-21 09:36 (gio Asia/Saigon) — exportedAt = 2026-08-21T02:36:20.850Z
+Repository branch: docs/carsky-state-after-merge
+
+CACH LAY
+  cd backend && go build -o viva-tools ./cmd/viva-tools
+  ./viva-tools carsky blueprint export --id 6deadb05-c856-4dab-976b-432b0fac0658 \
+      --out 00-blueprint-live-export.json
+  ./viva-tools carsky nodes --out 01-nodes-live.json
+  Auth: Authorization: Bearer $CARSKY_API_TOKEN (doc tu backend/.env, gitignore)
+  Room : CARSKY_ROOM_ID mac dinh trong backend/.env (khong ghi ra day)
+  Ca hai deu la GET read-only. KHONG ghi gi len nen tang.
+
+BLUEPRINT
+  VIVA-deploy-clone-0803  id=6deadb05-c856-4dab-976b-432b0fac0658
+  (Luu y: co blueprint thu hai trung ten id=7175eb09-... KHONG co node ASR.
+   Ban dung la 6deadb05 — xem docs/backend-docs/carsky-runbook.md muc 0.)
+  22 node, 22 edge, 8 script-node.
+
+KET QUA 1 — blueprint live GIONG HET ban backup 08/08
+  So sanh scriptContent cua ca 8 script-node giua
+    00-blueprint-live-export.json            (exportedAt 2026-08-21T02:36:20Z)
+    backend/carsky/blueprint-6deadb05-backup-0808.json (exportedAt 2026-08-08T08:50:00Z)
+  -> 8/8 GIONG NHAU tung byte. 22 node / 22 edge khong doi trong 13 ngay.
+
+KET QUA 2 — KHONG co Safety Guard tren nen tang
+  grep -c "SAFETY GUARD" 00-blueprint-live-export.json  ->  0
+  Toan bo G1.1 (cam mo khoa khi xe chay), G1.2 (gioi han nhiet 16-32 degC),
+  G1.3 (gioi han quat 0-5) chi ton tai trong repo:
+    GATEWAY/IVI_GATEWAY.lua   +15 dong so voi ban nen tang
+    GATEWAY/BCM_GATEWAY.lua   +29 dong so voi ban nen tang
+  6 file con lai trong GATEWAY/ giong het ban nen tang (VCU.lua chi khac comment).
+
+KET QUA 3 — EV_BATTERY_LEVEL van lech so hieu
+  Blueprint live : prop.EV_BATTERY_LEVEL = 0x11600204 = 291504644
+  GATEWAY/ (repo): prop.EV_BATTERY_LEVEL = 0x11600600 = 291505664
+  App Kotlin     : EV_BATTERY_LEVEL      = 291504905 = 0x11600309
+    (automotive/vehicle-service/api/.../VehicleProperties.kt:6)
+  -> Ba gia tri KHAC NHAU. Loi F4 ghi trong vong2/32 con nguyen tren nen tang,
+     va ban "sua" trong GATEWAY/ cung khong khop app.
+
+KET QUA 4 — room dang chay dung la deployment cua blueprint nay
+  ID node trong 01-nodes-live.json khop ID node trong blueprint:
+    IVI Gateway 4e60c4fe-350e-4333-9e50-0bcd5596a609
+    BCM Gateway 20f50062-dda7-4ebf-a5f7-8bb3a00c00d1
+    PWT Gateway b0fbd3e3-b4b3-4ccf-a32e-1d8d027541bd
+    VCU         faa07ae4-8953-468a-a5b6-4304cb52a6c9
+    BMS ECU     b5ecd1fe-cfe4-4968-bce8-3e9962ed1102
+    TCU Gateway 52ec6752-2f1f-4957-a9bb-0510a8e3b1c9
+    Climate ECU dc9293a6-df4a-43c1-ad5e-9d64ec6b4ec1
+  Tat ca phase=Running.
+
+CAI NAY KHONG CHUNG MINH DIEU GI THEM
+  API chi export duoc BLUEPRINT, khong doc duoc ma dang nap trong node dang chay.
+  Ve ly thuyet ai do co the sua script node roi chua luu vao blueprint. Xac suat
+  thap (blueprint khong doi 13 ngay) nhung CHUA duoc chung minh o day.
+  Muon chac 100%: cho xe chay (slider Drive Controls > 0) roi ra lenh mo khoa cua
+  tu app — neu cua mo ra thi dung la khong co guard.
+
+================================================================================
+BO SUNG 2026-08-21 10:02 — TRANG THAI TREN DA THAY DOI
+
+Moi thu ghi o tren dung tai thoi diem chup 09:36. Luc 10:02 cung ngay, blueprint
+da duoc GHI DE bang script trong GATEWAY/ (chay
+backend/scripts/deploy_gateway_scripts.ps1 -Apply -SkipRestart).
+
+  PATCH /blueprints/nodes/4e60c4fe-...  (IVI Gateway)  -> HTTP 200
+  PATCH /blueprints/nodes/20f50062-...  (BCM Gateway)  -> HTTP 200
+
+Xac minh bang export lai, dung mot cong cu KHAC (viva-tools, khong phai script
+vua ghi):
+  prop.EV_BATTERY_LEVEL = 0x11600309        (truoc do 0x11600204)
+  SAFETY GUARD G1.1 x2 | G1.2 x3 | G1.3 x1  (truoc do 0)
+
+Backup ban truoc khi ghi:
+  backend/carsky/blueprint-6deadb05-backup-20260821-100210.json
+
+CHUA restart node. Node dang chay VAN dung script cu -> guard van CHUA co hieu
+luc tren xe ao tai thoi diem viet dong nay.
+
+================================================================================
+BO SUNG 07:00Z — DA TRA LOI DUOC: RESTART SCRIPT-NODE **KHONG** NAP LAI LUA
+
+PHUONG PHAP
+  Hai ban script khai `prop.EV_BATTERY_LEVEL` bang hai so KHAC NHAU:
+      ban cu (nen tang)  0x11600204
+      ban moi (repo, da PATCH len blueprint luc 10:02)  0x11600309
+  IVI Gateway ghi log MOI lan day sang VHAL, kem propId dang hex:
+      [igw]   -> vhal 0x<propId> area=0x0 pushed = <value>
+  => chi can lam SoC doi gia tri la node tu khai no dang chay ban nao.
+  Phep thu nay chi dung chieu KUKSA -> VHAL (chieu dang chay tot), khong can
+  Android, khong can quyen, khong can duong VHAL write.
+
+CACH KICH HOAT (co mot buoc phu phai lam truoc)
+  Keo slider `bms/SoC` (widget Battery Sensor) KHONG du: gia tri vao kho GPIO
+  nhung BMS ECU khong nhan su kien. Log BMS dung o 12/08, CAN van phat SoC=20.
+  Blueprint co day du canh `BMS ECU [sensor] -> Battery Sensor [gpio]`, pin y het
+  VCU (GPIO+CAN, deu OUTPUT) — nhung VCU nhan duoc con BMS thi khong.
+  => luong GPIO cua rieng node BMS da chet (khong log gi ke ca `bms ready` tu
+     12/08, tuc no chua he restart). Phai restart node BMS ECU:
+       POST /deployments/{room}/restart/b5ecd1fe-cfe4-4968-bce8-3e9962ed1102
+     BMS khong co pin KUKSA (chi CAN + GPIO) nen KHONG dinh bay AlreadyExists.
+     Sau restart no doc ngay gia tri GPIO hien hanh: "[bms] SoC override = 29.0 %".
+
+CHUOI CHAY DUNG TU DAU DEN CUOI
+  07:00:53Z [bms] SoC override = 29.0 %
+  07:00:53Z [pgw] can->vss SoC = 29.0 %
+  07:00:53Z [pgw] can->vss Powertrain.Range = 130500 m
+  07:00:53Z [igw]   -> vhal 0x11600204 area=0x0 pushed = 29
+  KUKSA  Vehicle.Powertrain.TractionBattery.StateOfCharge.Current = 29  ts 07:00:53.731Z
+  CAN    PWT_BatteryStatus/SoC_pct = 29                                 ts 07:01:55Z
+
+KET QUA
+  ***  [igw] -> vhal 0x11600204  ***
+  Do la propId cua BAN CU. Node IVI Gateway dang chay VAN LA SCRIPT CU, mac du
+  blueprint da mang script moi tu 10:02 va node da duoc restart luc 10:06.
+
+  => RESTART SCRIPT-NODE KHONG NAP LAI NOI DUNG LUA TU BLUEPRINT.
+     Giong het ket luan cua runbook muc 2 doi voi image container: restart chi
+     chay lai pod theo spec K8s hien co, khong doc lai blueprint.
+
+HE QUA
+  - AI Safety Guard G1.1/G1.2/G1.3 KHONG chay tren xe ao. Blueprint co, node
+    dang chay thi khong.
+  - EV_BATTERY_LEVEL tren node dang chay van la 0x11600204 = 291504644, trong
+    khi app nghe 291504905. Loi F4 (vong2/32) van con nguyen tren runtime.
+  - Muon nap that su: phai redeploy nguyen room (runbook muc 2:
+    DELETE /deployments roi POST /deployments), va chap nhan mat VM Android.
+  - Su co BCM Gateway sang nay (AlreadyExists) hoa ra la cai gia phai tra cho
+    mot lan restart KHONG mang lai tac dung gi.
+
+CAI NAY KHONG CHUNG MINH DIEU GI
+  - KHONG chung minh redeploy se nap duoc. Chua thu.
+  - KHONG noi gi ve viec guard co chay dung hay khong khi da nap — van chua co
+    duong nao kich hoat `on_actuate` tu ben ngoai (REST /actuate chi dat target,
+    khong toi provider; duong VHAL write thi dut vi car_service noi voi fake
+    server — xem evidence/c2/carservice-not-connected-to-nydus-vhal-20260821.txt).

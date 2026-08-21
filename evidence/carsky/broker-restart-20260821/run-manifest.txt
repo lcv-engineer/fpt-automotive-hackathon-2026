@@ -1,0 +1,115 @@
+Evidence: SU CO 21/08 — BCM Gateway ket vong lap provider "AlreadyExists", va cach go
+Label: CARSKY PLATFORM — incident + recovery. KHONG phai bang chung ve app.
+Captured at: 2026-08-21 10:32-10:42 gio Asia/Saigon (03:32-03:35Z)
+Room: v37aa3knc6t1embelr5yi (device VIVA — room demo)
+
+DIEN BIEN
+  03:06:45Z  restart IVI Gateway + BCM Gateway (sau khi PATCH script moi vao blueprint)
+  03:11:36Z  restart BCM Gateway lan 2 — KHONG cuu duoc
+  03:06-03:32 BCM Gateway ket vong lap ~2 lan/giay:
+               "opening provider stream for 13 actuators"
+               "provider registered for 13 actuator(s)"
+               "provider stream error: AlreadyExists, Providers for the following
+                vss_ids already registered: [179 190 201 212 225 226 227 228 229
+                231 232 233 236]"
+               "provider reconnecting in 500ms"
+             -> dang ky duoc roi bi da ra ngay = co stream KHAC dang giu 13 id do.
+                13 id nay la nhom actuator than xe (cua + HVAC); trong blueprint chi
+                BCM Gateway lam provider cho nhom nay -> ke giu la ban dang ky cu cua
+                chinh no con sot trong broker.
+  03:32:58Z  POST /deployments/{room}/restart/b6260c63-... (Central Broker VSS) -> HTTP 500
+  03:33:10Z  BCM Gateway mat ket noi broker (transport error), tu retry
+  03:33:12Z  "provider registered for 13 actuator(s)"
+             "provider registration acknowledged"     <- DONG NAY CHUA TUNG XUAT HIEN
+             -> het vong lap. Log BCM dung han tu day, khong spam nua.
+
+KET QUA
+  22/22 node phase=Running.
+  BCM Gateway: ack=2, khong con sinh dong AlreadyExists moi (16 dong con lai trong
+    cua so 100 dong la lich su truoc luc go).
+  IVI Gateway: noi lai broker luc 03:33:17Z, khong loi.
+  PWT Gateway / BMS / Climate / BCM ECU / VCU: van Running, log khong doi
+    (dong cuoi van tu 12/08 va 20/08) — chung khong log gi khi broker restart.
+
+TAC DUNG PHU PHAI BIET — BROKER RESTART XOA SACH GIA TRI
+  POST /signals/{room}/central-broker-vss/values luc 03:35 tra ve:
+    Vehicle.Speed                                        = null  ts 03:33:08.733Z
+    Vehicle.Powertrain.TractionBattery.StateOfCharge.Current = null  ts 03:33:08.733Z
+    Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature   = null  ts 03:33:08.731Z
+    Vehicle.Cabin.Door.Row1.DriverSide.IsLocked          = null  ts 03:33:08.731Z
+  Broker len lai voi kho gia tri RONG. Provider chi ghi lai khi co thay doi, nen xe
+  dung yen thi moi thu la null. Phai huych mot cai (keo slider Drive Controls, doi
+  nhiet do) thi gia tri moi day lai len. Neu khong biet dieu nay se tuong app hong.
+
+LOI TRONG SCRIPT CHUP BASELINE — DUNG DOC NHAM THU MUC before/
+  backend/scripts/incident_restart_broker.ps1 goi GET /logs/{node} KHONG kem
+  ?container truoc, chi fallback khi loi. Nhung endpoint do tra HTTP 200 voi log cua
+  init container (2 dong "[dbc] Downloading ... body_can.dbc"), khong phai loi.
+  => Toan bo file trong before/ la log init container, KHONG phai log script-node.
+     Chung vo dung lam baseline. Con so "AlreadyExists truoc khi restart: 0" ma script
+     in ra la SAI vi ly do nay — thuc te luc do van dang loop.
+  Thu muc after/ da duoc chup lai dung bang ?container=script-node.
+  Sua script: luon truyen ?container=script-node cho node script-node.
+
+CAI NAY KHONG CHUNG MINH DIEU GI
+  1. KHONG chung minh restart node la nguyen nhan. Khong ai chup log BCM truoc lan
+     restart dau tien, nen khong loai tru duoc kha nang no ket san tu truoc.
+  2. KHONG chung minh script Lua moi (safety guard) da duoc nap vao node dang chay.
+     Log khoi dong cua ban cu va ban moi giong het nhau. Van phai kiem bang hanh vi.
+
+--------------------------------------------------------------------------------
+GHI CHU VE NOI DUNG HAI THU MUC (don luc 10:45)
+
+before/  — TAT CA la log INIT CONTAINER (2 dong "[dbc] Downloading ... .dbc"),
+           do loi ?container da mo ta o tren. KHONG dung lam baseline duoc.
+           Giu lai chi de doi chieu voi phan mo ta loi.
+
+after/   — log-<node>-script-node.json  : chup dung bang ?container=script-node
+                                          (8 script-node)
+           log-<node>.json              : cac node KHONG phai script-node; voi
+                                          chung endpoint khong kem ?container tra
+                                          dung log, hoac nhanh fallback chay dung.
+           Sau khi don, cac file init-container trung lap (~270 byte) da bi xoa.
+
+DONG QUAN TRONG NHAT, trong
+after/log-n-20f50062-dda7-4ebf-a5f7-8bb3a00c00d1-script-node.json :
+  [2026-08-21T03:33:12Z] provider registered for 13 actuator(s)
+  [2026-08-21T03:33:12Z] provider registration acknowledged
+
+OUTPUT CUA SCRIPT IN RA MAN HINH LA SAI, DUNG TRICH
+  Script bao "AlreadyExists truoc=0 sau=0" va "dong cuoi=dbc]" o ca 12 vong theo doi.
+  Ca hai con so deu lay tu log init container nen vo nghia. Thuc te truoc khi restart
+  broker BCM van dang loop. Ket luan dung phai lay tu file -script-node.json.
+  Script da duoc sua (backend/scripts/incident_restart_broker.ps1) de lan sau truyen
+  thang ?container=script-node cho node script-node.
+
+--------------------------------------------------------------------------------
+PHU LUC 03:46-03:48Z — THU KICH HOAT GUARD BANG REST: KHONG KET LUAN DUOC
+
+Muc dich: xem script Lua moi (safety guard) da duoc nap vao node dang chay chua,
+ma khong can qua app.
+
+  POST /signals/{room}/central-broker-vss/actuate
+    {"path":"Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature","value":40.0}
+    -> HTTP 200 {"ok":true,"sent":1}          (40 nam ngoai dai an toan 16-32)
+
+Log BCM Gateway (?container=script-node) 3 giay sau: KHONG co dong moi nao.
+  - khong co "[SAFETY GUARD G1.2 BLOCKED]"
+  - khong co "[bgw] vss->can Driver_Temperature"
+  Dong cuoi truoc va sau khi ban y het nhau (PWT_VehicleSpeed = 82.0 km/h).
+
+Doc lai:
+  Vehicle.Cabin.HVAC.Station.Row1.Driver.Temperature = 40   ts 03:47:51Z
+  bcm-can HvacCommand/Driver_Temperature              = (rong)
+
+=> Lenh CHI ghi gia tri hien tai vao broker, KHONG duoc dinh tuyen toi provider,
+   nen callback on_actuate cua BCM Gateway khong chay. Khop chinh xac voi
+   evidence/carsky/signals-rest-0808 muc 2 ("ghi VSS tu ben ngoai khong lan
+   xuong CAN").
+
+KET LUAN: test nay VO HIEU theo chieu am. Khong hien log KHONG co nghia la script
+cu. Chi co the ket luan neu no HIEN log. Muon biet chac phai di duong app
+(VHAL -> IVI GW -> KUKSA -> BCM GW).
+
+Da tra gia tri ve 22.0 luc 03:48:38Z de khong de lai 40 degC trong broker (neu de
+nguyen, IGW se day 40 len VHAL va app hien thi sai).

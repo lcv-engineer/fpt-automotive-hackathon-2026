@@ -1,0 +1,74 @@
+CONTROL_CAR_DOORS PROTECTION-LEVEL PROBE — CONFIRMED signature|privileged
+=========================================================================
+
+Status: CONFIRMED
+Source: live CarSky web ADB shell (widget IVI ADB) tren Device VIVA,
+        output dan tay boi Vi, 2026-08-21 (gio Asia/Saigon)
+Device: trout_arm64 (AAOS 14 userdebug)
+Room:   v37aa3knc6t1embelr5yi
+
+LENH (read-only)
+  dumpsys package com.sopa.viva_automotive | grep -i "car.permission"
+  dumpsys package permission android.car.permission.CONTROL_CAR_DOORS
+  logcat -d | grep VivaSafetyGuard
+
+KET QUA 1 — muc bao ve
+  Permission [android.car.permission.CONTROL_CAR_DOORS]:
+    sourcePackage=com.android.car.updatable
+    prot=signature|privileged
+  => KHONG phai runtime permission. `pm grant` KHONG cap duoc.
+     Khac voi CAR_SPEED (prot=dangerous, da cap duoc — xem
+     car-speed-permission-probe-0818.txt).
+
+KET QUA 2 — quyen cua app doi
+  com.sopa.viva_automotive
+    codePath   = /data/app/~~RPaMnO5hjqgUJLYhgVmnVw==/...
+    signatures = 55deaee2
+    flags      = [ DEBUGGABLE HAS_CODE ... ]   (KHONG co PRIVILEGED)
+    install permissions:
+      android.car.permission.CONTROL_CAR_DOORS: granted=false
+    runtime permissions:
+      android.car.permission.CAR_SPEED   granted=true
+      android.car.permission.CAR_ENERGY  granted=false
+    install permissions (khac):
+      CAR_INFO                       granted=true
+      CONTROL_CAR_CLIMATE            granted=false
+      CONTROL_CAR_INTERIOR_LIGHTS    granted=false
+      READ_CAR_INTERIOR_LIGHTS       granted=false
+
+KET QUA 3 — ai DUOC cap quyen do tren may nay
+  com.google.android.car.kitchensink
+    codePath = /system/priv-app/EmbeddedKitchenSinkApp
+    privateFlags co PRIVILEGED, signatures = b4addb29 (chu ky platform)
+    CONTROL_CAR_DOORS: granted=true
+  com.android.shell   (sharedUser android.uid.shell, appId 2000)
+    codePath = /system/priv-app/CarShell
+    privateFlags co PRIVILEGED, signatures = b4addb29
+    CONTROL_CAR_DOORS: granted=true
+
+KET QUA 4 — logcat xac nhan lenh chet o dau
+  08-21 04:17:59 I VivaSafetyGuard: Confirm:G2_CONFIRM_DOOR property=371198722
+                   area=1 value=false source=VOICE confirmed=false
+  08-21 04:18:37 ... (lap lai)
+  08-21 04:19:13 ... (lap lai)
+  371198722 = 0x16200B02 = DOOR_LOCK. Ba lan thu, ca ba dung o buoc HOI XAC NHAN,
+  confirmed=false — chua lan nao di toi lenh ghi.
+  KHONG co dong Deny:G1_SPEED_LOCK => luc do app doc duoc toc do <= 5 km/h
+  (CAR_SPEED granted=true nen doc that duoc; slider luc do da ve 0).
+
+KET LUAN
+  Duong GHI tu app xuong VHAL bi chan o tang permission cua car_service, TRUOC
+  khi cham VHAL. Day chinh la nut M1a. Cach duy nhat cho app doi co quyen nay la
+  cai vao /system/priv-app/ (hoac ky bang chu ky platform) — ngoai tam `pm grant`.
+
+  He qua truc tiep: KHONG the kiem AI Safety Guard cua gateway (G1.1 REFUSING
+  DOOR UNLOCK) bang cach ra lenh tu app tren ban cai hien tai. Log IVI Gateway
+  khong co dong `vhal->vss:` nao la vi vay, khong phai vi script Lua chua nap.
+
+CAI NAY KHONG CHUNG MINH DIEU GI
+  1. KHONG chung minh script Lua moi da/chua duoc nap vao node dang chay. Cau hoi
+     do van con treo — can mot duong ghi khac de kiem.
+  2. CHUA thu duong vong qua shell/kitchensink (ca hai DEU co CONTROL_CAR_DOORS).
+     Chua chay `cmd car_service -h` de xem co lenh ghi property khong.
+  3. Khong noi gi ve CONTROL_CAR_CLIMATE — cung granted=false, nhung chua probe
+     muc bao ve rieng.

@@ -1,0 +1,104 @@
+REDEPLOY NAP DUOC SCRIPT MOI — RESTART THI KHONG. CONFIRMED
+============================================================
+
+Status: CONFIRMED (hai deployment cua CUNG mot blueprint, chay song song, cho hai
+        ket qua khac nhau — day la doi chung, khong phai suy luan)
+Captured at: 2026-08-21 15:01-15:10 gio Asia/Saigon (08:01-08:03Z)
+
+BOI CANH
+  Blueprint 6deadb05 da duoc PATCH script moi luc 10:02 (guard G1.1/G1.2/G1.3 +
+  EV_BATTERY_LEVEL 0x11600204 -> 0x11600309) va lai PATCH lan hai luc 14:09
+  (guard doi sang fail-closed).
+  Room demo v37aa3knc6t1embelr5yi da duoc restart node luc 10:06 nhung VAN chay
+  script cu — xem gateway-guard-not-deployed-20260821/run-manifest.txt.
+
+PHEP DOI CHUNG
+  Dung mot deployment THU HAI tu CUNG blueprint, tren device dang IDLE:
+    POST /api/v1/deployments
+      {"blueprintId":"6deadb05-c856-4dab-976b-432b0fac0658",
+       "roomId":"wcmfnwigjse4hv9r8s0e3",
+       "name":"VIVA-guard-verify-0821"}
+    -> HTTP 201  id=fc7d3775-57a4-412b-ad32-304ec6d200de  namespace=room-r26b7imn
+  KHONG dung toi room demo. Khong DELETE gi.
+
+  Luu y: device wcmfnwigjse4hv9r8s0e3 nay ten hien tai la "VIVA-AB-prompt".
+  carsky-runbook.md muc 0 goi no la "VIVA (Copy)" — TEN DA CU.
+
+THOI GIAN THUC DO (khop runbook muc 2)
+  0s    POST -> status PENDING
+  20s   22/22 Provisioning
+  60s   21/22 Running  (con 1 node)
+  180s  22/22 Running
+
+KET QUA — VAN TAY PROPID
+  Khong can Android, khong can APK. Luc khoi dong BMS ECU tu chay publish_energy()
+  voi soc mac dinh, chuoi tu chay het:
+
+    08:01:05Z [bms] bms ready
+    08:01:15Z [igw] subscribed 1263 Vehicle paths (AGL forward-all + VHAL fan-out)
+    08:01:28Z infotainment_gateway: VHAL <-> KUKSA bridge ready (21 sigs, 31 VHAL consumers)
+    08:01:37Z [bms] SoC override = 85.0 %
+    08:01:37Z [pgw] can->vss SoC = 85.0 %
+    08:01:37Z [igw]   -> vhal 0x11600309 area=0x0 pushed = 82
+    08:01:37Z [igw]   -> vhal 0x11600309 area=0x0 pushed = 85
+                            ^^^^^^^^^^^^
+
+  0x11600309 = BAN MOI.   (room demo cung luc do van in 0x11600204 = ban cu)
+
+  => Deployment moi NAP DUNG script tu blueprint.
+  => Restart node KHONG nap lai; DELETE + POST /deployments thi CO.
+
+  Tien the xac nhan luon: propId pin bay gio khop hang so app khai
+  (VehicleProperties.kt:6 = 291504905 = 0x11600309). Loi F4 cua vong2/32 da vá
+  o phia gateway.
+
+VAN KHONG KIEM DUOC GUARD CHAN THAT
+  Thu ban thang vao KUKSA tren chinh deployment MOI nay:
+    POST /signals/{room}/central-broker-vss/actuate
+      {"path":"Vehicle.Cabin.Door.Row1.DriverSide.IsLocked","value":false}
+    -> HTTP 200 {"ok":true,"sent":1}
+  Log BCM Gateway 4 giay sau: KHONG co dong moi nao (khong SAFETY, khong
+  "vss->can Row1Driver"). Dong cuoi van la "vss->can PWT_VehicleSpeed = 0.0 km/h"
+  luc 08:01:15Z.
+
+  => `POST /signals/.../actuate` KHONG toi duoc callback `on_actuate` cua node,
+     ke ca tren mot deployment vua dung sach. Day la gioi han cua nen tang,
+     KHONG phai node bi hong. Khop evidence/carsky/signals-rest-0808 muc 2.
+
+  Nghia la logic chan cua guard van chua duoc kiem tren bat ky duong nao:
+    - qua Android: dut vi car_service noi voi fake VHAL noi bo
+      (evidence/c2/carservice-not-connected-to-nydus-vhal-20260821.txt)
+    - qua REST : khong toi provider (chinh muc nay)
+
+CAI NAY CHUNG MINH / KHONG CHUNG MINH
+  CHUNG MINH: blueprint dung, script moi nap duoc khi redeploy, propId pin dung,
+              va quy trinh redeploy mat 180 giay.
+  KHONG CHUNG MINH: guard co chan dung khi xe chay hay khong. Chua co duong nao
+              kich hoat duoc `on_actuate` tu ben ngoai.
+
+TRANG THAI SAU PHIEN
+  - Room demo v37aa3knc6t1embelr5yi: KHONG bi dung toi. Van RUNNING, van giu APK,
+    cau hinh eth1 va USB. Node van chay SCRIPT CU.
+  - Room wcmfnwigjse4hv9r8s0e3: deployment moi 22/22 Running, chay SCRIPT MOI,
+    KHONG co APK. Dang chiem 1 suat quota (quota = 2).
+
+--------------------------------------------------------------------------------
+DON DEP 08:15Z
+
+  Log nguyen van cua 8 script-node da luu vao logs/ TRUOC khi xoa (log chet theo
+  pod, khong lay lai duoc). File quyet dinh: logs/log-IVI_Gateway.json — chua 2
+  lan chuoi "0x11600309".
+
+  DELETE /api/v1/deployments/wcmfnwigjse4hv9r8s0e3  -> HTTP 200 {"ok":true}
+
+  Kiem sau khi xoa:
+    v37aa3knc6t1embelr5yi (room demo)  status RUNNING   namespace room-z0as6abg
+    wcmfnwigjse4hv9r8s0e3             status 404 NOT_FOUND
+    devices: VIVA=BUSY, VIVA-AB-prompt=IDLE, Gemini=IDLE, Gemini 2=IDLE
+
+  => Quota tra ve 1/2. Room demo khong bi anh huong.
+
+  Ly do xoa thay vi giu: cai APK len deployment tam se dam dung buc tuong fake
+  VHAL y het room demo (car_service khong noi voi nydus), nen giu lai khong mua
+  them duoc gi; trong khi 2/2 quota lam mat kha nang dung ban du phong truoc khi
+  dung toi room demo — chinh cai luoi an toan da dung trong phien nay.

@@ -1,0 +1,111 @@
+AAOS car_service KHONG NOI VOI VHAL CUA NYDUS — CONFIRMED
+==========================================================
+
+Status: CONFIRMED (phep thu doi chieu, ba nguon doc lap, cung mot thoi diem)
+Captured at: 2026-08-21 11:44-11:46 gio Asia/Saigon (04:44-04:46Z)
+Device: trout_arm64 (AAOS 14 userdebug), app com.sopa.viva_automotive dang chay
+Room:   v37aa3knc6t1embelr5yi
+
+PHEP THU
+  Cho toc do dung yen o mot gia tri khac 0, roi doc CUNG mot dai luong tu ba noi.
+
+  1. KUKSA (REST /signals .../values):
+       Vehicle.Speed = 7          ts 2026-08-21T04:35:20.355Z
+  2. Log IVI Gateway (?container=script-node), dong lua cuoi cung:
+       04:35:20Z [lua] [igw] -> vhal 0x11600207 area=0x0 pushed = 1.9444444444444444
+       (1.9444 m/s = 7 km/h — dung quy doi speed_kph_to_mps cua gateway)
+  3. AAOS car_service tren device, luc 04:44Z:
+       cmd car_service get-property-value 0x11600207 0
+       -> Property:0x11600207, status: 0, zone: 0x0, floatValues: [0.0]
+
+  KUKSA giu 7 km/h suot tu 04:35:20 den 04:46 (timestamp khong doi). Gateway da
+  day 1.9444 vao VHAL server cua no. car_service doc ra 0.0.
+
+KET LUAN
+  car_service KHONG nhan duoc gi tu IVI Gateway. Hai ben khong noi voi nhau.
+  car_service dang lam viec voi mot VHAL khac (nhieu kha nang la VHAL mac dinh
+  trong image Android), chu KHONG phai gRPC VHAL server cua nydus.
+
+DIEU NAY GIAI THICH TRON GOI MOI HIEN TUONG TRONG NGAY
+  a) `cmd car_service set-property-value 0x16200B02 1 true/false` bao
+     "set ... successfully" nhung KHONG co dong `vhal->vss:` nao o gateway va
+     Vehicle.Cabin.Door.Row1.DriverSide.IsLocked trong KUKSA van `null`.
+     -> lenh ghi nam lai trong VHAL kia.
+  b) `cmd car_service get-property-value 0x16200B02 1` tra `int32Values: [0]`
+     status AVAILABLE, trong khi KUKSA la `null`.
+     -> gia tri do la cua VHAL kia, khong phai cua gateway.
+  c) Guard cua app hoi xac nhan (`Confirm:G2_CONFIRM_DOOR`) thay vi tu choi
+     (`Deny:G1_SPEED_LOCK`) trong khi KUKSA dang 82 km/h.
+     -> app doc speed = 0 vi no doc tu VHAL kia.
+  d) Trong toan bo log IVI Gateway ca ngay KHONG co MOT dong `vhal->vss:` nao.
+
+  Config van doc duoc (`get-carpropertyconfig 0x16200B02` tra access:0x3,
+  areaId 0x1/0x4/0x10/0x40) — nhung do la config cua VHAL kia, khong chung minh
+  duoc lien ket toi nydus.
+
+HE QUA
+  1. Chua the kiem AI Safety Guard cua gateway bang bat ky duong nao di qua
+     Android (app hay `cmd car_service`). Cau hoi "script Lua moi da nap chua"
+     VAN CON TREO.
+  2. Nut M1a (CONTROL_CAR_DOORS = signature|privileged, xem
+     control-car-doors-privileged-20260821.txt) van la mot van de RIENG va van
+     con — nhung ke ca giai xong M1a thi lenh cung khong toi gateway, vi lien
+     ket VHAL da dut o cho khac.
+  3. Chieu nguoc lai (CAN -> VSS -> ...) van chay tot: xem cac dong
+     `[bgw] vss->can PWT_VehicleSpeed` va `[bgw] can->vss Seatbelt_Sts`.
+     Chi co chieu Android <-> gateway la dut.
+
+CAI NAY KHONG CHUNG MINH DIEU GI
+  - KHONG chi ra duoc VHAL nao dang chay tren VM Android, va vi sao no khong noi
+    voi nydus. Chua chay `ps -A | grep -i vehicle` hay `getprop | grep -i vhal`.
+  - KHONG chung minh lien ket nay tung chay roi hong. Co the no chua bao gio
+    duoc noi trong deployment nay.
+  - KHONG lien quan toi su co BCM Gateway sang nay (xem
+    evidence/carsky/broker-restart-20260821/) — do la van de khac, da xu ly xong.
+
+================================================================================
+BO SUNG 04:50Z — TIM RA NGUYEN NHAN: VHAL DUNG FAKE SERVER NOI BO
+
+  ps -A | grep -i vehicle
+    475  android.hardware.automotive.vehicle@default-trout-fake-hardware-grpc-server
+    476  android.hardware.automotive.vehicle@default-trout-service
+
+  getprop | grep -i -E "vhal|vehicle"
+    [init.svc.vendor.vehicle-hal-trout]:               [running]   (pid 476)
+    [init.svc.vendor.vehicle-hal-trout-server]:        [running]   (pid 475)
+    [ro.boot.vendor.vehiclehal.server.cid]:            [1]
+    [ro.boot.vendor.vehiclehal.server.port]:           [9210]
+    [ro.vendor.vehiclehal.server.use_local_fake_server]: [true]     <<<<<<
+
+DOC RA
+  `default-trout-service` (pid 476) la AIDL VHAL ma car_service noi chuyen.
+  No khong tu sinh du lieu — no la client, noi toi mot gRPC server.
+  `use_local_fake_server = true` => server do la tien trinh FAKE HARDWARE chay
+  ngay trong VM Android (pid 475), KHONG phai gRPC VHAL server cua nydus.
+
+  => car_service -> trout-service -> fake hardware server (trong VM) -> het.
+     Gateway cua nydus khong nam tren duong nay o bat ky diem nao.
+
+  Khop 100% voi phep thu doi chieu o tren: ghi vao thi fake server nhan, doc ra
+  thi fake server tra, con KUKSA va IVI Gateway thi khong biet gi.
+
+DAY LA CAU HINH CUA IMAGE, KHONG SUA DUOC TU SHELL
+  Ba property deu la `ro.` — read-only, dat luc boot (`ro.boot.*` den tu kernel
+  cmdline). `setprop` sau khi boot KHONG doi duoc.
+  Doi cai nay = doi cau hinh/artifact cua node skycraft. Theo carsky-official-kb
+  muc 5.2, guideline BTC xep viec do vao dien *"Can doi topology/artifact VM ->
+  ngoai quyen doi thi — bao team ha tang redeploy."*
+
+CO LE CHUA BAO GIO CHAY, KHONG PHAI HOM NAY HONG
+  Cac phien chung minh truoc day (runbook muc 7: 09/08 tren Device, 10/08 giong
+  noi end-to-end) deu chay flavor `mock` — vong2/32 F4 ghi ro: *"Trong phien
+  10/08 hai cau nay tra loi duoc vi chay flavor mock."* Flavor mock khong dung
+  VHAL. Nghia la duong VHAL that co the CHUA TUNG duoc kiem tren deployment nay.
+  Day la suy luan tu tai lieu cua doi, CHUA xac minh voi nguoi dung blueprint.
+
+CHUA CHUNG MINH
+  - Chua chung minh dat `use_local_fake_server=false` se noi duoc toi nydus.
+    Port khai o boot la 9210 (cid 1), trong khi header IVI_GATEWAY.lua ghi gRPC
+    server cua no o :9300 — hai so KHAC NHAU, chua ro cai nao dung hoac co lop
+    chuyen tiep nao o giua.
+  - Chua hoi team ha tang / anh Tung xem lien ket nay von duoc cau hinh the nao.
