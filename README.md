@@ -62,9 +62,13 @@ vong2/24-N5-*.md            bảng ba trạng thái integration + dữ liệu sy
 vong2/25-CARSKY-*.md        runbook CI → artifact identity → ADB → Device evidence
 ```
 
-Thư mục `docs/`:
+Thư mục `docs/` — điểm vào là [`docs/README.md`](docs/README.md):
 
 ```text
+docs/he-thong/              📖 BỘ TÀI LIỆU HỆ THỐNG — kiến trúc, code, pipeline, build/CI, bằng chứng
+docs/carsky/                ☁️ BỘ TÀI LIỆU NỀN TẢNG CARSKY — API, node, mạng, deployment, sự cố
+docs/architecture/          VIVA-VOICE-BRAIN-BODY.md — tài liệu kiến trúc chuẩn
+docs/decisions/             ADR 001 (Voice/Brain/Body) · ADR 002 (constrained LLM planner)
 docs/btc/                   thể lệ, terms, webinar và template của BTC
 docs/platform/              trang tài liệu CarSky / AI Edge / Middleware (bản lưu .html)
 docs/bai-nop/vong1/         proposal Vòng 1 (md, pdf, pptx)
